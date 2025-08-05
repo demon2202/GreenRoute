@@ -1,0 +1,1378 @@
+/* --- FONT & 3RD PARTY IMPORTS --- */
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
+@import 'mapbox-gl/dist/mapbox-gl.css';
+@import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
+
+/* --- THEME & COLOR VARIABLES --- */
+:root {
+  --primary-green: #10b981;
+  --light-green-bg: #f0fdf4;
+  --danger-red: #ef4444;
+  --info-yellow: #f59e0b;
+  --border-color: #e5e7eb;
+  --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
+  
+  /* Light Theme Colors */
+  --bg-main: #f9fafb;
+  --bg-sidebar: #ffffff;
+  --card-bg: #ffffff;
+  --text-dark: #1f2937;
+  --text-light: #6b7280;
+  --input-bg: #f3f4f6;
+}
+
+/* --- BASE & BODY STYLES --- */
+body {
+  margin: 0;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-dark);
+  transition: background-color 0.2s, color 0.2s;
+  overflow: hidden;
+}
+
+/* --- MAIN LAYOUT --- */
+.app-layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+.main-content {
+  flex-grow: 1;
+  padding: 2rem 3rem;
+  overflow-y: auto;
+}
+
+/* --- SIDEBAR --- */
+.sidebar {
+  width: 260px;
+  background-color: var(--bg-sidebar);
+  padding: 1.5rem 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-color);
+  flex-shrink: 0;
+  position: relative;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1rem;
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+.sidebar-header .logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: var(--text-dark);
+  transition: all 0.3s ease;
+}
+
+.sidebar-header .logo-icon {
+  font-size: 2.2rem;
+  color: var(--primary-green);
+  flex-shrink: 0;
+}
+
+.sidebar-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.nav-section-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--text-light);
+  font-weight: 600;
+  padding: 0 1.5rem;
+  margin: 1.5rem 0 0.5rem;
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.nav-menu {
+  margin-bottom: 1rem;
+  padding: 0 0.5rem;
+}
+
+.nav-menu a {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.25rem;
+  text-decoration: none;
+  color: var(--text-light);
+  font-weight: 500;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-menu a.active {
+  background-color: var(--light-green-bg);
+  color: var(--primary-green);
+  font-weight: 600;
+}
+
+.nav-menu a:hover:not(.active) {
+  background-color: var(--bg-main);
+  color: var(--text-dark);
+}
+
+.nav-menu .nav-icon {
+  font-size: 1.3rem;
+  margin-right: 1rem;
+  flex-shrink: 0;
+  transition: margin-right 0.3s ease;
+  width: 24px;
+  text-align: center;
+}
+
+.nav-menu span {
+  white-space: nowrap;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.sidebar-card {
+  background: linear-gradient(135deg, var(--light-green-bg) 0%, #e8f5e8 100%);
+  padding: 1.25rem;
+  margin: 1rem 1rem 2rem;
+  border-radius: 16px;
+  text-align: center;
+  border: 1px solid rgba(16, 185, 129, 0.1);
+  transition: all 0.3s ease;
+}
+
+.sidebar-card h3 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--primary-green);
+  margin: 0 0 0.75rem 0;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.sidebar-card .impact-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary-green);
+  margin-bottom: 0.25rem;
+}
+
+.sidebar-card p {
+  font-size: 0.8rem;
+  color: var(--text-light);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.account-section {
+  margin-top: auto;
+  padding: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.user-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  margin-bottom: 1rem;
+}
+
+.user-profile:hover {
+  background-color: var(--bg-main);
+}
+
+.user-profile img,
+.user-profile .user-avatar {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.user-profile .user-avatar {
+  background-color: var(--primary-green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 1.2rem;
+}
+
+.user-profile .user-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-profile h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+  color: var(--text-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-profile p {
+  font-size: 0.8rem;
+  color: var(--text-light);
+  margin: 0;
+  white-space: nowrap;
+}
+
+.account-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.account-menu a {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--text-light);
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.account-menu a:hover {
+  background-color: var(--bg-main);
+  color: var(--text-dark);
+}
+
+.account-menu a.logout {
+  color: var(--danger-red);
+}
+
+.account-menu a.logout:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+  color: var(--danger-red);
+}
+
+.account-menu .nav-icon {
+  font-size: 1.1rem;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* --- DESKTOP HOVER SIDEBAR --- */
+@media (min-width: 769px) {
+  .app-layout {
+    display: block;
+  }
+
+  .sidebar {
+    width: 80px;
+    position: fixed;
+    height: 100vh;
+    z-index: 100;
+    padding: 1.5rem 0;
+    overflow: hidden;
+  }
+
+  .sidebar:hover {
+    width: 280px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  }
+
+  .main-content {
+    margin-left: 80px;
+    height: 100vh;
+    box-sizing: border-box;
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .sidebar:hover ~ .main-content {
+    margin-left: 280px;
+  }
+
+  /* Collapsed state styles */
+  .sidebar .sidebar-header {
+    justify-content: center;
+  }
+
+  .sidebar .sidebar-header h1 {
+    opacity: 0;
+    visibility: hidden;
+    width: 0;
+  }
+
+  .sidebar:hover .sidebar-header {
+    justify-content: flex-start;
+    padding: 0 1.5rem;
+  }
+
+  .sidebar:hover .sidebar-header h1 {
+    opacity: 1;
+    visibility: visible;
+    width: auto;
+    transition-delay: 0.1s;
+  }
+
+  .sidebar .nav-section-title {
+    opacity: 0;
+    visibility: hidden;
+    height: 0;
+    margin: 0;
+    padding: 0;
+  }
+
+  .sidebar:hover .nav-section-title {
+    opacity: 1;
+    visibility: visible;
+    height: auto;
+    margin: 1.5rem 0 0.5rem;
+    padding: 0 1.5rem;
+    transition-delay: 0.1s;
+  }
+
+  .sidebar .nav-menu a {
+    justify-content: center;
+    padding: 0.75rem;
+    margin: 0.25rem 0.5rem;
+  }
+
+  .sidebar:hover .nav-menu a {
+    justify-content: flex-start;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .sidebar .nav-menu .nav-icon {
+    margin-right: 0;
+  }
+
+  .sidebar:hover .nav-menu .nav-icon {
+    margin-right: 1rem;
+  }
+
+  .sidebar .nav-menu span {
+    opacity: 0;
+    visibility: hidden;
+    width: 0;
+  }
+
+  .sidebar:hover .nav-menu span {
+    opacity: 1;
+    visibility: visible;
+    width: auto;
+    transition-delay: 0.1s;
+  }
+
+  /* Sidebar card collapsed */
+  .sidebar .sidebar-card {
+    opacity: 0;
+    visibility: hidden;
+    height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .sidebar:hover .sidebar-card {
+    opacity: 1;
+    visibility: visible;
+    height: auto;
+    margin: 1rem 1rem 2rem;
+    padding: 1.25rem;
+    transition-delay: 0.1s;
+  }
+
+  /* Account section collapsed */
+  .sidebar .user-profile {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .sidebar .user-profile .user-info {
+    display: none;
+  }
+
+  .sidebar:hover .user-profile {
+    flex-direction: row;
+    text-align: left;
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .sidebar:hover .user-profile .user-info {
+    display: block;
+  }
+
+  .sidebar .account-menu a {
+    justify-content: center;
+    padding: 0.6rem;
+  }
+
+  .sidebar:hover .account-menu a {
+    justify-content: flex-start;
+    padding: 0.6rem 0.75rem;
+  }
+
+  .sidebar .account-menu span {
+    opacity: 0;
+    visibility: hidden;
+    width: 0;
+  }
+
+  .sidebar:hover .account-menu span {
+    opacity: 1;
+    visibility: visible;
+    width: auto;
+    transition-delay: 0.1s;
+  }
+
+  /* Hide mobile elements */
+  .mobile-header {
+    display: none;
+  }
+
+  .hamburger-btn {
+    display: none;
+  }
+}
+
+/* --- MOBILE STYLES --- */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: -100%;
+    z-index: 2000;
+    height: 100vh;
+    width: 280px;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .sidebar.open {
+    left: 0;
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.3);
+  }
+
+  .main-content {
+    padding: 1rem;
+    margin-left: 0;
+  }
+
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    background-color: var(--bg-sidebar);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+  }
+
+  .hamburger-btn {
+    font-size: 1.75rem;
+    background: none;
+    border: none;
+    color: var(--text-dark);
+    cursor: pointer;
+    z-index: 2001;
+    padding: 0.5rem;
+    border-radius: 8px;
+    transition: background-color 0.2s ease;
+  }
+
+  .hamburger-btn:hover {
+    background-color: var(--bg-main);
+  }
+
+  .overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .sidebar.open ~ .overlay {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* Mobile sidebar adjustments */
+  .sidebar .sidebar-header {
+    justify-content: space-between;
+    padding: 0 1.5rem;
+  }
+
+  .sidebar .nav-menu {
+    padding: 0 1rem;
+  }
+}
+
+/* --- GENERAL COMPONENTS & STYLES --- */
+.page-header h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.page-header p {
+  color: var(--text-light);
+  margin-top: 0;
+  font-size: 1rem;
+}
+
+.card {
+  background-color: var(--bg-sidebar);
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border-color);
+}
+
+.btn {
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-primary {
+  background-color: var(--primary-green);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.1);
+}
+
+/* --- LOGIN PAGE --- */
+.login-page {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #fff;
+}
+
+.login-card {
+  width: 400px;
+  padding: 3rem;
+  text-align: center;
+}
+
+.login-card h2 {
+  font-size: 1.75rem;
+}
+
+.login-card p {
+  color: var(--text-light);
+  margin-bottom: 2rem;
+}
+
+.google-btn {
+  background-color: #fff;
+  border: 1px solid var(--border-color);
+  color: var(--text-dark);
+  width: 100%;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  color: var(--text-light);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  margin: 1.5rem 0;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.divider:not(:empty)::before {
+  margin-right: .5em;
+}
+
+.divider:not(:empty)::after {
+  margin-left: .5em;
+}
+
+.login-card input {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  padding: 0.9rem 1rem;
+  margin-bottom: 1rem;
+  background-color: var(--bg-main);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.login-card .btn-primary {
+  width: 100%;
+}
+
+/* Continue with rest of the original CSS styles... */
+/* (Including route planner, widgets, preferences, trip history, etc.) */
+
+/* --- ROUTE PLANNER PAGE --- */
+.route-planner-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  height: calc(100vh - 4rem);
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.input-card {
+  padding: 2rem !important;
+}
+
+.input-card > h3 {
+  font-size: 1.25rem;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+}
+
+.input-field-group {
+  position: relative;
+  margin-bottom: 1rem;
+}
+
+.input-field-group .input-icon {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  left: 1rem;
+  font-size: 1.25rem;
+  color: var(--text-light);
+}
+
+.input-field-group input {
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--input-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.9rem 1rem 0.9rem 3rem;
+  font-size: 1rem;
+  font-family: 'Be Vietnam Pro', sans-serif;
+}
+
+.geocoder-container {
+  margin-bottom: 1rem;
+}
+
+.geocoder-container .mapboxgl-ctrl-geocoder {
+  width: 100%;
+  max-width: none;
+  box-shadow: none;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.route-results-list {
+  margin-top: 1rem;
+}
+
+.route-option {
+  padding: 1rem;
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.route-option:hover {
+  border-color: var(--primary-green);
+}
+
+.route-option.selected {
+  border-color: var(--primary-green);
+  background-color: var(--light-green-bg);
+}
+
+.quick-routes, .recommended-routes {
+  margin-top: 2.5rem;
+}
+
+.quick-routes h4, .recommended-routes > h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.quick-route-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background-color: var(--bg-main);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quick-route-item:hover {
+  background-color: var(--light-green-bg);
+}
+
+.quick-route-item .route-icon {
+  color: var(--primary-green);
+  font-size: 1.25rem;
+}
+
+.recommended-route-card {
+  background: var(--bg-sidebar);
+  border: 2px solid var(--primary-green);
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 1rem;
+}
+
+.recommended-route-card .route-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.recommended-route-card .route-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.recommended-route-card .route-icon {
+  color: var(--primary-green);
+  font-size: 1.5rem;
+}
+
+.recommended-route-card .route-tag {
+  background-color: var(--light-green-bg);
+  color: var(--primary-green);
+  padding: 0.25rem 0.75rem;
+  border-radius: 99px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  display: inline-block;
+}
+
+.route-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.route-stat {
+  text-align: center;
+}
+
+.route-stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.route-stat-label {
+  font-size: 0.8rem;
+  color: var(--text-light);
+}
+
+.route-overview {
+  margin-top: 1rem;
+}
+
+.route-overview h4 {
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+}
+
+.route-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.route-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-dark);
+}
+
+.route-steps li::before {
+  content: "•";
+  color: var(--primary-green);
+  font-weight: bold;
+  width: 1rem;
+  flex-shrink: 0;
+}
+
+.map-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+/* --- WIDGETS --- */
+.widget {
+  padding: 1.5rem;
+}
+
+.widget-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.widget-header h4 {
+  margin: 0;
+  font-weight: 600;
+}
+
+.widget-header .widget-icon {
+  font-size: 1.25rem;
+  color: var(--primary-green);
+}
+
+.impact-widget .stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 0.5rem;
+}
+
+.impact-widget .stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.carbon-impact-widget {
+  background-color: var(--bg-sidebar);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.carbon-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.carbon-stat {
+  text-align: center;
+}
+
+.carbon-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary-green);
+  margin-bottom: 0.25rem;
+}
+
+.carbon-label {
+  font-size: 0.9rem;
+  color: var(--text-light);
+}
+
+.progress-section {
+  margin-bottom: 1.5rem;
+}
+
+.progress-label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background-color: var(--input-bg);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0.75rem 0;
+}
+
+.progress-bar-inner {
+  height: 100%;
+  background-color: var(--primary-green);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.impact-message {
+  background-color: var(--light-green-bg);
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: var(--primary-green);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.weather-widget .weather-main {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.weather-widget .weather-icon {
+  font-size: 2.5rem;
+  color: var(--info-yellow);
+}
+
+.weather-widget .weather-details {
+  display: flex;
+  justify-content: space-around;
+  text-align: center;
+  border-top: 1px solid var(--border-color);
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+.weather-widget .weather-details div {
+  flex: 1;
+}
+
+.weather-widget .weather-details p {
+  margin: 0;
+  color: var(--text-light);
+  font-size: 0.8rem;
+}
+
+.weather-widget .weather-details .weather-value {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  margin-bottom: 0.25rem;
+}
+
+.weather-message {
+  background-color: var(--light-green-bg);
+  color: var(--primary-green);
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-top: 1rem;
+}
+
+/* --- PREFERENCES PAGE --- */
+.preference-section {
+  margin-bottom: 2.5rem;
+}
+
+.preference-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
+}
+
+.transport-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.transport-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.transport-option:hover {
+  border-color: var(--primary-green);
+}
+
+.transport-option.selected {
+  border-color: var(--primary-green);
+  background-color: var(--light-green-bg);
+}
+
+.transport-option.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.transport-option .icon {
+  font-size: 2rem;
+  color: var(--primary-green);
+}
+
+.transport-option span {
+  font-weight: 600;
+  text-align: center;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--text-dark);
+}
+
+.form-group input {
+  padding: 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--input-bg);
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 1rem;
+}
+
+.save-prefs-btn {
+  margin-top: 2rem;
+  text-align: right;
+}
+
+.save-prefs-btn .btn-primary {
+  padding: 1rem 2rem;
+}
+
+/* --- TRIP HISTORY PAGE --- */
+.stats-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: var(--bg-sidebar);
+  padding: 1.5rem;
+  border-radius: 12px;
+  text-align: center;
+  border: 1px solid var(--border-color);
+}
+
+.stat-icon {
+  font-size: 2rem;
+  margin-bottom: 0.75rem;
+}
+
+.stat-icon.green { color: var(--primary-green); }
+.stat-icon.blue { color: #3b82f6; }
+.stat-icon.purple { color: #8b5cf6; }
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.stat-value.green { color: var(--primary-green); }
+.stat-value.blue { color: #3b82f6; }
+.stat-value.purple { color: #8b5cf6; }
+
+.stat-label {
+  color: var(--text-light);
+  font-size: 0.9rem;
+}
+
+.trips-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.trip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.trip-card {
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: all 0.2s ease;
+}
+
+.trip-card:hover {
+  box-shadow: var(--card-shadow);
+}
+
+.trip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.trip-route {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.trip-icon {
+  color: var(--primary-green);
+  font-size: 1.5rem;
+}
+
+.trip-details h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+}
+
+.trip-date {
+  color: var(--text-light);
+  font-size: 0.9rem;
+}
+
+.trip-mode-tag {
+  padding: 0.25rem 0.75rem;
+  border-radius: 99px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.trip-mode-tag.mixed {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.trip-mode-tag.cycling {
+  background-color: var(--light-green-bg);
+  color: var(--primary-green);
+}
+
+.trip-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  text-align: center;
+}
+
+.trip-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.trip-stat-label {
+  font-size: 0.8rem;
+  color: var(--text-light);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.trip-stat-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.co2-saved {
+  color: var(--primary-green) !important;
+}
+
+/* --- SETTINGS PAGE --- */
+.settings-card {
+  padding: 2.5rem;
+}
+
+.settings-section {
+  padding-bottom: 2rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.settings-section:last-of-type {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.settings-section h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  color: var(--text-dark);
+}
+
+.settings-section .form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.settings-section .form-group textarea {
+  padding: 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background-color: var(--input-bg);
+  font-family: 'Be Vietnam Pro', sans-serif;
+  font-size: 1rem;
+  resize: vertical;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2rem;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-light);
+  padding: 0.9rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-secondary:hover {
+  background-color: var(--input-bg);
+  border-color: var(--text-light);
+}
+
+/* --- RESPONSIVE DESIGN & MOBILE TABLET ADJUSTMENTS --- */
+@media (max-width: 1024px) {
+  .route-planner-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .main-content {
+    padding: 1.5rem;
+  }
+
+  .stats-overview {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .carbon-stats {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .transport-options {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trip-stats {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .trip-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .settings-section .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .route-planner-layout {
+    height: auto;
+  }
+}
