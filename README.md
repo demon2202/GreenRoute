@@ -1,189 +1,68 @@
-GreenRoute 🌿 - Your Sustainable Commute Planner
-GreenRoute is a modern, full-stack web application designed to help urban commuters make environmentally conscious travel decisions. It goes beyond standard navigation by calculating and comparing the carbon footprint of different routes, integrating live data, and providing a personalized experience to help users reduce their environmental impact without sacrificing convenience.
+# 🌿 GreenRoute - Your Sustainable Commute Planner
 
-🎥 Demo Video
-Here is a brief walkthrough of the GreenRoute application, showcasing its features and user interface.
+GreenRoute is a modern, full-stack web application built to help urban commuters make environmentally conscious travel decisions. It calculates and compares the carbon footprint of different travel modes using live data, all while offering a seamless and interactive user experience.
 
+![GreenRoute Demo](demo-video-link-placeholder)
 
-(Note: This is a placeholder link. Replace with your actual demo video link.)
+---
 
-✨ Key Features
-Dual Authentication: Secure sign-up and login using either traditional email/password (with password hashing) or Google OAuth 2.0.
+## ✨ Features
 
-Interactive Route Planning: A dynamic, map-based interface using the Mapbox API for powerful address search (geocoding) and route generation.
+- **🔐 Dual Authentication**
+  - Secure Sign Up/Login using Email & Password (with bcrypt hashing)
+  - Google OAuth 2.0 integration via Passport.js
 
-Multi-Modal Routing: Fetches and compares routes for driving, cycling, and walking to find the most eco-friendly option.
+- **🗺️ Interactive Route Planner**
+  - Map-based interface with **Mapbox GL JS**
+  - Search using **Mapbox Geocoding API**
+  - Live route generation for driving, cycling, and walking
 
-Carbon Footprint Analysis: Calculates and displays the estimated CO₂ savings for each green route compared to a standard car trip.
+- **♻️ Carbon Footprint Analysis**
+  - Calculates and displays CO₂ saved compared to a standard car route
 
-Live Data Widgets:
+- **📊 Live Data Widgets**
+  - Weather information from **OpenWeatherMap API**
+  - Daily & Monthly carbon savings tracker
 
-Weather Impact: Displays live weather for the origin location using the OpenWeatherMap API to help users decide if walking or cycling is viable.
+- **📜 Persistent Trip History**
+  - Save completed trips to user profile
+  - View past trips and carbon savings
 
-Carbon Impact: Dynamically calculates and displays the user's carbon savings for the current day and month based on their trip history.
+- **⚙️ User Settings & Preferences**
+  - Edit profile details
+  - Set transportation preferences and sustainability goals
 
-Persistent Trip History: Users can save completed trips to their profile, which are then fetched and displayed on a dedicated history page.
+- **📱 Responsive Design**
+  - Fully responsive UI for desktop and mobile
+  - Hoverable sidebar on desktop, slide-out menu on mobile
 
-User Customization:
+---
 
-Settings Page: Allows users to update their profile information.
+## 🛠️ Tech Stack
 
-Preferences Page: Allows users to select preferred transport modes and set personal goals.
+| Category         | Technology                                                                 |
+|------------------|-----------------------------------------------------------------------------|
+| **Frontend**     | React, React Router, Context API, Axios, Mapbox GL JS                      |
+| **Backend**      | Node.js, Express.js                                                        |
+| **Database**     | MongoDB, Mongoose                                                          |
+| **Authentication** | Passport.js (Google OAuth 2.0 & Local), bcrypt.js, Express Sessions      |
+| **APIs**         | Mapbox API (Geocoding & Directions), OpenWeatherMap API                    |
+| **Security**     | Helmet, express-rate-limit, express-mongo-sanitize                         |
 
-Responsive & Modern UI: A clean, professional, and fully responsive user interface that works seamlessly on desktop and mobile devices, featuring a hoverable sidebar for desktop and a slide-out menu for mobile.
+---
 
-🛠️ Tech Stack
-Category	Technology
-Frontend	React, React Router, React Hooks, Context API, Axios, Mapbox GL JS
-Backend	Node.js, Express.js
-Database	MongoDB with Mongoose
-Authentication	Passport.js (Google OAuth 2.0 & Local Email/Password Strategies), Express Sessions, bcrypt.js for hashing
-APIs	Mapbox API (Geocoding, Directions), OpenWeatherMap API
-Security	helmet for secure headers, express-rate-limit for brute-force protection, express-mongo-sanitize for NoSQL injection protection
+## 🚀 Local Setup & Installation
 
-Export to Sheets
-🚀 Project Setup and Installation
-Follow these steps to get the project running on your local machine.
+### 📋 Prerequisites
 
-Prerequisites
-Node.js (v16 or higher)
+- Node.js (v16 or higher)
+- npm
+- MongoDB (Local or MongoDB Atlas)
 
-npm (Node Package Manager)
+---
 
-MongoDB: You must have a running MongoDB instance, either locally or through a cloud service like MongoDB Atlas.
+### 🧩 1. Clone the Repository
 
-1. Clone the Repository
-Bash
-
+```bash
 git clone <your-repository-url>
 cd greenroute
-2. Backend Setup
-Bash
-
-# Navigate to the server directory
-cd server
-
-# Install dependencies
-npm install
-
-# Create a .env file in the /server directory
-touch .env
-Now, open the .env file and add the following environment variables. You must replace the placeholder values with your own keys.
-
-File: server/.env
-
-# Server Port
-PORT=5000
-
-# Your MongoDB connection string
-MONGO_URI=mongodb://localhost:27017/greenroute
-
-# Mapbox API Key (for backend routing)
-MAPBOX_API_KEY=YOUR_MAPBOX_SECRET_KEY
-
-# OpenWeatherMap API Key
-OPENWEATHERMAP_API_KEY=YOUR_OPENWEATHERMAP_KEY
-
-# Google OAuth 2.0 Credentials
-GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
-GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_CLIENT_SECRET
-
-# Session Secret Key (use any random string)
-COOKIE_KEY=averylongandrandomsecretstring
-3. Frontend Setup
-Bash
-
-# Navigate to the client directory from the root
-cd ../client
-
-# Install dependencies
-npm install
-You must also add your Mapbox public token directly to the frontend code for the map to render.
-
-File: client/src/pages/RoutePlanner.js
-
-JavaScript
-
-// Find this line at the top of the file and replace the placeholder
-mapboxgl.accessToken = 'YOUR_MAPBOX_PUBLIC_KEY';
-4. Running the Application
-You will need two separate terminals to run both the backend and frontend servers.
-
-In Terminal 1 (Backend):
-
-Bash
-
-cd server
-npm start
-Your backend server should now be running on http://localhost:5000.
-
-In Terminal 2 (Frontend):
-
-Bash
-
-cd client
-npm start
-Your React application should now be running and will open automatically at http://localhost:3000.
-
-walkthrough="" of="" the="" project="" -="" explanation="" of="" functionality"="">
-1. Authentication
-Sign Up: A new user can create an account using their name, email, and a password. The password is automatically hashed on the backend before being stored.
-
-Sign In: Users can sign in with their email/password or with a single click using their Google account via OAuth 2.0.
-
-Session Management: The backend uses Express Sessions to keep users logged in as they navigate the application.
-
-2. The Route Planner (Core Feature)
-The user is presented with a two-column layout. The left column contains the controls, and the right contains the widgets and the interactive map.
-
-Address Input: Using the Mapbox Geocoder, the user can type a start and end location. The fields provide autocomplete suggestions.
-
-Planning a Route: When the "Plan Eco-Friendly Route" button is clicked, the frontend sends the coordinates to the backend /api/route endpoint.
-
-Backend Processing: The backend receives the coordinates and makes multiple parallel requests to the Mapbox Directions API for different travel profiles (driving, cycling, walking).
-
-Results: The backend calculates the CO₂ saved for each green option and sends a sorted list of routes back to the frontend.
-
-Display: The frontend dynamically renders a list of recommended routes. The user can click on each option to see the route drawn on the map.
-
-Saving a Trip: Each route card has a "Save Trip" button, which sends the route data to the /api/history endpoint to be saved to the user's profile.
-
-3. Trip History
-This page fetches all saved trips from the /api/history endpoint.
-
-It dynamically calculates and displays summary statistics at the top (Total CO₂ Saved, Total Trips, etc.).
-
-It then renders a chronological list of all past trips.
-
-4. Settings & Preferences
-Settings Page: Fetches and displays the user's core profile information (name, email).
-
-Preferences Page: Allows the user to customize their experience by selecting their favorite transport modes and setting personal goals. These choices are saved to their user profile in the database.
-
-⚙️ Code Architecture Overview
-Backend (server)
-server.js: The main entry point. It sets up the Express server, connects to MongoDB, and configures all middleware, including security (helmet, rate-limit), sessions, and Passport.js.
-
-/models: Contains the Mongoose User.js schema, which defines the structure of the user data, including trip history and preferences. It also contains the password hashing logic.
-
-/config: The passport.js file configures the authentication strategies (Google OAuth 2.0 and Local).
-
-/routes: Defines the API endpoints.
-
-auth.js: Handles all authentication-related routes (/register, /login, /google, /logout).
-
-api.js: Handles all data-related routes (/route, /history, /preferences, /weather).
-
-/middleware: Contains custom middleware, such as ensureAuth to protect routes.
-
-Frontend (client)
-App.js: The root component. It sets up the React Router and the global AuthContext, which provides authentication status to all child components. It handles the initial logic of checking if a user is logged in.
-
-/layouts: The MainLayout.js component acts as the primary shell for the authenticated application, containing the Sidebar and the main content area where pages are rendered.
-
-/pages: Each file represents a full page view (e.g., RoutePlanner.js, Settings.js). These are the main smart components that manage their own state and fetch data.
-
-/components: Contains reusable UI components like Sidebar.js.
-
-/services: The api.js file is a crucial part of the architecture. It centralizes all axios calls to the backend, making the code cleaner, more maintainable, and easier to debug.
-
