@@ -2,9 +2,14 @@
 
 GreenRoute is a modern, full-stack web application built to help urban commuters make environmentally conscious travel decisions. It calculates and compares the carbon footprint of different travel modes using live data, all while offering a seamless and interactive user experience.
 
-![GreenRoute Demo](demo-video-link-placeholder)
+
 
 ---
+<img width="1919" height="932" alt="Screenshot 2025-07-19 192513" src="https://github.com/user-attachments/assets/610af471-5590-4b74-ae83-dc061f8cdda2" />
+<img width="1919" height="938" alt="Screenshot 2025-07-31 161215" src="https://github.com/user-attachments/assets/f8b5afe4-9b73-47aa-8e33-4da58893f484" />
+<img width="1919" height="938" alt="Screenshot 2025-07-31 161222" src="https://github.com/user-attachments/assets/569bcd6e-74bc-41fe-9061-96a47fc7dc70" />
+<img width="1919" height="933" alt="Screenshot 2025-07-31 161233" src="https://github.com/user-attachments/assets/2596aa91-8dff-48fd-9911-b04617141092" />
+<img width="1918" height="931" alt="Screenshot 2025-07-31 161241" src="https://github.com/user-attachments/assets/4559d48e-6a4f-4b49-be63-4432e61e93f5" />
 
 ## ✨ Features
 
@@ -66,3 +71,4 @@ GreenRoute is a modern, full-stack web application built to help urban commuters
 ```bash
 git clone <your-repository-url>
 cd greenroute
+
