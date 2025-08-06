@@ -7,7 +7,7 @@ const setupSocket = (server) => {
             methods: ["GET", "POST"],
         },
     });
-
+    
     io.on('connection', (socket) => {
         console.log('A user connected:', socket.id);
 
