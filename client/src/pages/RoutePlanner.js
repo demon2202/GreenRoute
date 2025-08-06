@@ -5,7 +5,7 @@ import { planRoute } from '../services/api';
 import { IoWalk, IoCarSport, IoBicycle, IoTime, IoLocation, 
          IoLeafOutline, IoSunnyOutline, IoWaterOutline, IoSpeedometer, IoSunny } from 'react-icons/io5';
 
-mapboxgl.accessToken = 'pk.eyJ1IjoiZGF5YXc3ODQ1IiwiYSI6ImNtZGE1YTh1bjBmZ3Yya3IyY2VubzdrY24ifQ.MRVCnGb5LqZ5uA3hC1DcUQ';
+mapboxgl.accessToken = 'key';
 
 const RoutePlanner = () => {
     const mapContainer = useRef(null);
