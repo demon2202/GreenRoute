@@ -4,7 +4,7 @@ import mapboxgl from 'mapbox-gl';
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 
 // Set Mapbox access token
-mapboxgl.accessToken = 'pk.eyJ1IjoiZGF5YXc3ODQ1IiwiYSI6ImNtZGE1YTh1bjBmZ3Yya3IyY2VubzdrY24ifQ.MRVCnGb5LqZ5uA3hC1DcUQ';
+mapboxgl.accessToken = 'place your key here';
 
 const RoutePlanner = ({ user }) => {
   const mapContainer = useRef(null);
