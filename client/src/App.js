@@ -1,46 +1,111 @@
-import React, { useState, useEffect, createContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { fetchCurrentUser } from './services/api';
-import MainLayout from './layouts/MainLayout';
-import Login from './pages/Login';
-import SignUp from './pages/SignUp';
-import Settings from './pages/Settings'; // Import the new Settings page
+import axios from 'axios';
+import Login from './components/Login';
+import Layout from './components/Layout';
+import RoutePlanner from './pages/RoutePlanner';
+import TripHistory from './pages/TripHistory';
+import Preferences from './pages/Preferences';
+import Settings from './pages/Settings';
 import './index.css';
 
-export const AuthContext = createContext();
+// Configure axios defaults
+axios.defaults.baseURL = 'http://localhost:5000';
+axios.defaults.withCredentials = true;
 
 function App() {
-    const [auth, setAuth] = useState(null);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [theme, setTheme] = useState('light');
 
-    useEffect(() => {
-        const checkLoggedIn = async () => {
-            try {
-                const { data } = await fetchCurrentUser();
-                setAuth(data || false);
-            } catch (err) {
-                setAuth(false);
-            }
-        };
-        checkLoggedIn();
-    }, []);
+  useEffect(() => {
+    fetchCurrentUser();
+  }, []);
 
-    if (auth === null) {
-        return <div style={{ display: 'grid', placeItems: 'center', height: '100vh', fontFamily: 'Be Vietnam Pro, sans-serif' }}>Loading Application...</div>;
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await axios.get('/api/auth/current_user');
+      setUser(response.data);
+      if (response.data?.theme) {
+        setTheme(response.data.theme);
+      }
+    } catch (error) {
+      console.log('User not authenticated');
+    } finally {
+      setLoading(false);
     }
+  };
 
+  const handleLogin = (userData) => {
+    setUser(userData);
+    if (userData.theme) {
+      setTheme(userData.theme);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await axios.get('/api/auth/logout');
+      setUser(null);
+      setTheme('light');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  const updateTheme = async (newTheme) => {
+    try {
+      await axios.post('/api/theme', { theme: newTheme });
+      setTheme(newTheme);
+    } catch (error) {
+      console.error('Theme update error:', error);
+    }
+  };
+
+  if (loading) {
     return (
-        <AuthContext.Provider value={{ auth, setAuth }}>
-            <Router>
-                <Routes>
-                    <Route path="/login" element={!auth ? <Login /> : <Navigate to="/" />} />
-                    <Route path="/signup" element={!auth ? <SignUp /> : <Navigate to="/" />} />
-                    
-                    {/* The MainLayout now handles all authenticated routes, including the new /settings page */}
-                    <Route path="/*" element={auth ? <MainLayout /> : <Navigate to="/login" />} />
-                </Routes>
-            </Router>
-        </AuthContext.Provider>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-xl">Loading...</div>
+      </div>
     );
+  }
+
+  return (
+    <div className={theme}>
+      <Router>
+        <Routes>
+          <Route 
+            path="/login" 
+            element={
+              user ? <Navigate to="/" /> : <Login onLogin={handleLogin} />
+            } 
+          />
+          <Route 
+            path="/*" 
+            element={
+              user ? (
+                <Layout 
+                  user={user} 
+                  onLogout={handleLogout} 
+                  theme={theme}
+                  onThemeChange={updateTheme}
+                >
+                  <Routes>
+                    <Route path="/" element={<RoutePlanner user={user} />} />
+                    <Route path="/history" element={<TripHistory user={user} />} />
+                    <Route path="/preferences" element={<Preferences user={user} />} />
+                    <Route path="/settings" element={<Settings user={user} theme={theme} onThemeChange={updateTheme} />} />
+                  </Routes>
+                </Layout>
+              ) : (
+                <Navigate to="/login" />
+              )
+            } 
+          />
+        </Routes>
+      </Router>
+    </div>
+  );
 }
 
 export default App;
