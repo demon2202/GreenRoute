@@ -1,117 +1,186 @@
-import React from 'react';
-import { IoLeafOutline, IoTrendingUp, IoLocation, IoTime, IoSpeedometer, 
-         IoBicycle, IoWalk, IoGitNetwork } from 'react-icons/io5';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
-const TripHistory = () => {
-    // Mock data for demonstration
-    const statsData = {
-        totalCO2Saved: 41.1,
-        greenTrips: 4,
-        distanceTraveled: 267.6
-    };
+const TripHistory = ({ user }) => {
+  const [trips, setTrips] = useState([]);
+  const [stats, setStats] = useState({
+    totalCO2: 0,
+    totalTrips: 0,
+    totalDistance: 0
+  });
+  const [loading, setLoading] = useState(true);
 
-    const recentTrips = [
-        {
-            id: 1,
-            from: "dehradun",
-            to: "delhi",
-            date: "Jul 19, 2025 at 1:54 PM",
-            mode: "mixed",
-            duration: "180m",
-            distance: "245 km",
-            co2Saved: "35 kg",
-            icon: <IoGitNetwork />
-        },
-        {
-            id: 2,
-            from: "Downtown Plaza",
-            to: "Tech Park",
-            date: "Jul 19, 2025 at 1:46 PM",
-            mode: "cycling",
-            duration: "32m",
-            distance: "8.5 km",
-            co2Saved: "2.1 kg",
-            icon: <IoBicycle />
-        }
-    ];
+  useEffect(() => {
+    fetchTripHistory();
+  }, []);
 
+  const fetchTripHistory = async () => {
+    try {
+      const response = await axios.get('/api/history');
+      const tripData = response.data;
+      setTrips(tripData);
+      
+      // Calculate stats
+      const totalCO2 = tripData.reduce((sum, trip) => sum + (parseFloat(trip.co2Saved) || 0), 0);
+      const totalTrips = tripData.length;
+      const totalDistance = tripData.reduce((sum, trip) => sum + (parseFloat(trip.distance) || 0), 0);
+      
+      setStats({
+        totalCO2: totalCO2,
+        totalTrips: totalTrips,
+        totalDistance: totalDistance
+      });
+    } catch (error) {
+      console.error('Error fetching trip history:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    }) + ' at ' + date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const formatDuration = (minutes) => {
+    if (minutes < 60) {
+      return `${minutes}m`;
+    }
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    return `${hours}h ${remainingMinutes}m`;
+  };
+
+  const getTripIcon = (mode) => {
+    switch (mode.toLowerCase()) {
+      case 'walking': return '🚶';
+      case 'cycling': return '🚴';
+      case 'driving': return '🚗';
+      case 'mixed': return '🚌';
+      case 'public transit': return '🚌';
+      default: return '🚌';
+    }
+  };
+
+  const getModeTag = (mode) => {
+    const modeClass = mode.toLowerCase().replace(/\s+/g, '-');
     return (
-        <div>
-            <div className="page-header">
-                <h2>Your Green Journey History</h2>
-                <p>Track your sustainable commuting impact over time</p>
-            </div>
-
-            {/* Stats Overview */}
-            <div className="stats-overview">
-                <div className="stat-card">
-                    <IoLeafOutline className="stat-icon green" />
-                    <div className="stat-value green">{statsData.totalCO2Saved} kg</div>
-                    <div className="stat-label">Total CO₂ Saved</div>
-                </div>
-                <div className="stat-card">
-                    <IoTrendingUp className="stat-icon blue" />
-                    <div className="stat-value blue">{statsData.greenTrips}</div>
-                    <div className="stat-label">Green Trips</div>
-                </div>
-                <div className="stat-card">
-                    <IoLocation className="stat-icon purple" />
-                    <div className="stat-value purple">{statsData.distanceTraveled} km</div>
-                    <div className="stat-label">Distance Traveled</div>
-                </div>
-            </div>
-
-            {/* Recent Trips */}
-            <div className="card">
-                <div className="trips-section">
-                    <h3>
-                        <IoTime style={{color: 'var(--primary-green)'}} />
-                        Recent Trips
-                    </h3>
-                    
-                    <div className="trip-list">
-                        {recentTrips.map((trip) => (
-                            <div key={trip.id} className="trip-card">
-                                <div className="trip-header">
-                                    <div className="trip-route">
-                                        <div className="trip-icon">{trip.icon}</div>
-                                        <div className="trip-details">
-                                            <h4>{trip.from} → {trip.to}</h4>
-                                            <div className="trip-date">{trip.date}</div>
-                                        </div>
-                                    </div>
-                                    <div className={`trip-mode-tag ${trip.mode}`}>
-                                        {trip.mode.toUpperCase()}
-                                    </div>
-                                </div>
-
-                                <div className="trip-stats">
-                                    <div className="trip-stat">
-                                        <div className="trip-stat-label">
-                                            <IoTime /> Duration
-                                        </div>
-                                        <div className="trip-stat-value">{trip.duration}</div>
-                                    </div>
-                                    <div className="trip-stat">
-                                        <div className="trip-stat-label">
-                                            <IoSpeedometer /> Distance
-                                        </div>
-                                        <div className="trip-stat-value">{trip.distance}</div>
-                                    </div>
-                                    <div className="trip-stat">
-                                        <div className="trip-stat-label">
-                                            <IoLeafOutline /> CO₂ Saved
-                                        </div>
-                                        <div className="trip-stat-value co2-saved">{trip.co2Saved}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        </div>
+      <span className={`trip-mode-tag ${modeClass}`}>
+        {mode}
+      </span>
     );
+  };
+
+  if (loading) {
+    return (
+      <div style={{ padding: '2rem', textAlign: 'center' }}>
+        <div style={{ fontSize: '1.2rem' }}>Loading your green journey...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Page Header */}
+      <div className="page-header">
+        <h2>Your Green Journey History</h2>
+        <p>Track your sustainable commuting impact over time</p>
+      </div>
+
+      {/* Stats Overview */}
+      <div className="stats-overview">
+        <div className="stat-card">
+          <div className="stat-icon green">🌱</div>
+          <div className="stat-value green">{stats.totalCO2.toFixed(1)} kg</div>
+          <div className="stat-label">Total CO₂ Saved</div>
+        </div>
+        
+        <div className="stat-card">
+          <div className="stat-icon blue">📈</div>
+          <div className="stat-value blue">{stats.totalTrips}</div>
+          <div className="stat-label">Green Trips</div>
+        </div>
+        
+        <div className="stat-card">
+          <div className="stat-icon purple">📍</div>
+          <div className="stat-value purple">{stats.totalDistance.toFixed(1)} km</div>
+          <div className="stat-label">Distance Traveled</div>
+        </div>
+      </div>
+
+      {/* Recent Trips */}
+      <div className="trips-section">
+        <h3>
+          <span className="nav-icon">📅</span>
+          Recent Trips
+        </h3>
+
+        {trips.length === 0 ? (
+          <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🌱</div>
+            <h3>No trips yet</h3>
+            <p style={{ color: 'var(--text-light)', marginBottom: '2rem' }}>
+              Start planning eco-friendly routes to see your impact here!
+            </p>
+            <a 
+              href="/"
+              className="btn btn-primary"
+              style={{ textDecoration: 'none' }}
+            >
+              Plan Your First Route
+            </a>
+          </div>
+        ) : (
+          <div className="trip-list">
+            {trips.map((trip, index) => (
+              <div key={trip._id || index} className="trip-card">
+                <div className="trip-header">
+                  <div className="trip-route">
+                    <span className="trip-icon">{getTripIcon(trip.mode)}</span>
+                    <div className="trip-details">
+                      <h4>{trip.originName} → {trip.destinationName}</h4>
+                      <div className="trip-date">{formatDate(trip.date)}</div>
+                    </div>
+                  </div>
+                  {getModeTag(trip.mode)}
+                </div>
+
+                <div className="trip-stats">
+                  <div className="trip-stat">
+                    <div className="trip-stat-label">
+                      <span>⏱️</span> Duration
+                    </div>
+                    <div className="trip-stat-value">{formatDuration(trip.duration)}</div>
+                  </div>
+                  
+                  <div className="trip-stat">
+                    <div className="trip-stat-label">
+                      <span>📍</span> Distance
+                    </div>
+                    <div className="trip-stat-value">{trip.distance} km</div>
+                  </div>
+                  
+                  <div className="trip-stat">
+                    <div className="trip-stat-label">
+                      <span>🌱</span> CO₂ Saved
+                    </div>
+                    <div className="trip-stat-value co2-saved">{trip.co2Saved} kg</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default TripHistory;
