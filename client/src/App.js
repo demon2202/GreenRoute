@@ -8,8 +8,6 @@ import TripHistory from './pages/TripHistory';
 import Preferences from './pages/Preferences';
 import Settings from './pages/Settings';
 import './index.css';
-
-// Configure axios defaults
 axios.defaults.baseURL = 'http://localhost:5000';
 axios.defaults.withCredentials = true;
 
