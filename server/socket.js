@@ -10,8 +10,6 @@ const setupSocket = (server) => {
     
     io.on('connection', (socket) => {
         console.log('A user connected:', socket.id);
-
-        // Example: Periodically send mock real-time data (e.g., transit updates)
         const interval = setInterval(() => {
             socket.emit('transitUpdate', {
                 line: 'Metro Line 2',
