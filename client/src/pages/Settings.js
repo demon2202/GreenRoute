@@ -295,7 +295,7 @@ const Settings = ({ user, theme, onThemeChange }) => {
             <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
               <button
                 className="btn btn-secondary"
-                onClick={() => window.open('mailto:support@greenroute.com')}
+                onClick={() => window.open('mailto:harshit@gmail.com')}
               >
                 📧 Contact Support
               </button>
@@ -309,7 +309,6 @@ const Settings = ({ user, theme, onThemeChange }) => {
           </div>
         </div>
 
-        {/* Action Buttons */}
         <div className="settings-actions">
           <button
             onClick={handleProfileUpdate}
