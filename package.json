@@ -1,0 +1,11 @@
+{
+  "name": "fullstack-app",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm start --prefix server\" \"npm start --prefix client\"",
+    "install-all": "npm install --prefix client && npm install --prefix server"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
