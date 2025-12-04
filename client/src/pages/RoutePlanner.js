@@ -3,7 +3,7 @@ import axios from 'axios';
 import mapboxgl from 'mapbox-gl';
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 
-mapboxgl.accessToken = 'api key here';
+mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_API_KEY || 'apikey here';
 
 const RoutePlanner = ({ user }) => {
   const mapContainer = useRef(null);
@@ -52,7 +52,7 @@ const RoutePlanner = ({ user }) => {
     const originGeocoder = new MapboxGeocoder({
       accessToken: mapboxgl.accessToken,
       mapboxgl: mapboxgl,
-      placeholder: '   Enter starting location...',
+      placeholder: 'Enter starting location...',
       marker: false,
       countries: 'in',
       bbox: [68.1766451354, 7.96553477623, 97.4025614766, 35.4940095078] // India bounding box
@@ -61,7 +61,7 @@ const RoutePlanner = ({ user }) => {
     const destinationGeocoder = new MapboxGeocoder({
       accessToken: mapboxgl.accessToken,
       mapboxgl: mapboxgl,
-      placeholder: '  Enter destination...',
+      placeholder: 'Enter destination...',
       marker: false,
       countries: 'in',
       bbox: [68.1766451354, 7.96553477623, 97.4025614766, 35.4940095078] // India bounding box
@@ -322,7 +322,6 @@ const RoutePlanner = ({ user }) => {
           lat: destination.coordinates[1],
           lng: destination.coordinates[0]
         },
-        // **FIX:** Send mode in consistent lowercase format
         mode: selectedRoute.mode,
         distance: parseFloat(selectedRoute.distance),
         duration: parseInt(selectedRoute.duration),
