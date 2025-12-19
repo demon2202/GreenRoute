@@ -7,7 +7,6 @@
 [![Vite](https://img.shields.io/badge/Vite-4.0-purple)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.0-cyan)](https://tailwindcss.com/)
 [![Mapbox](https://img.shields.io/badge/Mapbox-GL%20JS-black)](https://www.mapbox.com/)
-[![Netlify Status](https://api.netlify.com/api/v1/badges/your-badge-id/deploy-status)](https://app.netlify.com/sites/greenroute-demo/deploys)
 
 **GreenRoute** is a modern, sustainable navigation web application designed to help users reduce their carbon footprint. Unlike traditional navigation apps that prioritize speed above all else, GreenRoute calculates and suggests the most **environmentally friendly routes** between two locations.
 
@@ -326,3 +325,4 @@ Distributed under the MIT License. See `LICENSE` for more information.
 <p align="center">
   Made with 💚 by <a href="https://github.com/demon2202">demon2202</a>
 </p>
+
