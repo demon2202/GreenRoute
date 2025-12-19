@@ -1,4 +1,3 @@
-
 # 🌿 GreenRoute - Eco-Friendly Route Planner
 
 ![GreenRoute Banner](https://socialify.git.ci/demon2202/GreenRoute/image?description=1&font=Inter&forks=1&issues=1&language=1&name=1&owner=1&pulls=1&stargazers=1&theme=Light)
