@@ -23,7 +23,6 @@ const Preferences = ({ user }) => {
   }, []);
 
   useEffect(() => {
-    // Check if there are unsaved changes
     const changed = JSON.stringify(preferences) !== JSON.stringify(originalPreferences);
     setHasChanges(changed);
   }, [preferences, originalPreferences]);
@@ -36,7 +35,6 @@ const Preferences = ({ user }) => {
       setOriginalPreferences(fetchedPrefs);
     } catch (error) {
       console.error('Error fetching preferences:', error);
-      // Set original preferences to current defaults if fetch fails
       setOriginalPreferences(preferences);
     } finally {
       setLoading(false);
@@ -48,17 +46,11 @@ const Preferences = ({ user }) => {
       ? preferences.transportModes.filter(m => m !== mode)
       : [...preferences.transportModes, mode];
     
-    setPreferences({
-      ...preferences,
-      transportModes: updatedModes
-    });
+    setPreferences({ ...preferences, transportModes: updatedModes });
   };
 
   const handleInputChange = (field, value) => {
-    setPreferences({
-      ...preferences,
-      [field]: value
-    });
+    setPreferences({ ...preferences, [field]: value });
   };
 
   const handleSave = async () => {
@@ -68,18 +60,18 @@ const Preferences = ({ user }) => {
     try {
       await axios.post('/api/preferences', preferences);
       setOriginalPreferences(preferences);
-      setSaveMessage('Preferences saved successfully! Your route recommendations will now be personalized.');
-      setTimeout(() => setSaveMessage(''), 5000);
+      setSaveMessage('✅ Preferences saved! Your routes are now personalized.');
+      setTimeout(() => setSaveMessage(''), 4000);
     } catch (error) {
       console.error('Error saving preferences:', error);
-      setSaveMessage('Failed to save preferences. Please check your connection and try again.');
+      setSaveMessage('❌ Failed to save. Please check your connection.');
     } finally {
       setSaving(false);
     }
   };
 
   const resetToDefaults = () => {
-    if (window.confirm('Reset all preferences to default values? This will undo any customizations you\'ve made.')) {
+    if (window.confirm('🔄 Reset all preferences to default values? This will undo your customizations.')) {
       const defaultPrefs = {
         transportModes: ['Walking', 'Cycling', 'Public Transit', 'Mixed Routes'],
         sustainabilityPriority: 'Eco First',
@@ -95,172 +87,283 @@ const Preferences = ({ user }) => {
   };
 
   const transportModeOptions = [
-    { id: 'Walking', icon: '🚶', label: 'Walking', description: 'Zero emissions, great exercise' },
-    { id: 'Cycling', icon: '🚴', label: 'Cycling', description: 'Fast and eco-friendly' },
-    { id: 'Public Transit', icon: '🚌', label: 'Public Transit', description: 'Shared sustainable transport' },
-    { id: 'Mixed Routes', icon: '🔄', label: 'Mixed Routes', description: 'Combine multiple modes' }
+    { id: 'Walking', icon: '🚶', label: 'Walking', description: 'Zero emissions', color: '#10b981' },
+    { id: 'Cycling', icon: '🚴', label: 'Cycling', description: 'Fast & eco-friendly', color: '#3b82f6' },
+    { id: 'Public Transit', icon: '🚌', label: 'Public Transit', description: 'Shared transport', color: '#8b5cf6' },
+    { id: 'Mixed Routes', icon: '🔄', label: 'Mixed Routes', description: 'Combine modes', color: '#f59e0b' }
   ];
 
   const priorityOptions = [
-    { value: 'Eco First', label: 'Eco First', description: 'Prioritize lowest carbon footprint' },
-    { value: 'Balanced', label: 'Balanced', description: 'Balance time and sustainability' },
-    { value: 'Speed First', label: 'Speed First', description: 'Fastest route with green options' }
+    { value: 'Eco First', label: 'Eco First', icon: '🌱', description: 'Lowest carbon footprint' },
+    { value: 'Balanced', label: 'Balanced', icon: '⚖️', description: 'Balance time & sustainability' },
+    { value: 'Speed First', label: 'Speed First', icon: '⚡', description: 'Fastest with green options' }
   ];
 
   const weatherOptions = [
-    { value: 'Low', label: 'Low', description: 'Weather rarely affects my choices' },
-    { value: 'Moderate', label: 'Moderate', description: 'Some weather consideration' },
-    { value: 'High', label: 'High', description: 'Weather strongly influences transport' }
+    { value: 'Low', label: 'Low', icon: '☀️', description: 'Weather rarely affects me' },
+    { value: 'Moderate', label: 'Moderate', icon: '🌤️', description: 'Some consideration' },
+    { value: 'High', label: 'High', icon: '🌧️', description: 'Strongly influences choice' }
   ];
 
   if (loading) {
     return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <div className="loading-spinner">
-          <div className="spinner"></div>
-          <p>Loading your preferences...</p>
-        </div>
+      <div style={{ 
+        padding: '4rem 2rem', 
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '1.5rem'
+      }}>
+        <div className="spinner" style={{ width: '60px', height: '60px' }}></div>
+        <p style={{ fontSize: '1.2rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+          Loading your preferences...
+        </p>
       </div>
     );
   }
 
   return (
     <div>
-      {/* Page Header */}
+      {/* Enhanced Page Header */}
       <div className="page-header">
-        <h2>Your Preferences</h2>
-        <p>Customize GreenRoute to match your sustainable travel style and get personalized recommendations</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <span style={{ fontSize: '2.5rem' }}>⚙️</span>
+          <div>
+            <h2 style={{ margin: 0 }}>Your Preferences</h2>
+            <p style={{ margin: 0 }}>Customize GreenRoute to match your travel style</p>
+          </div>
+        </div>
       </div>
 
       {/* Save Message */}
       {saveMessage && (
         <div style={{
-          margin: '2rem',
-          backgroundColor: saveMessage.includes('success') ? 'var(--light-green-bg)' : '#fee2e2',
-          color: saveMessage.includes('success') ? 'var(--primary-green)' : '#dc2626',
+          margin: '0 2rem 2rem',
+          backgroundColor: saveMessage.includes('❌') ? '#fee2e2' : 'var(--light-green-bg)',
+          color: saveMessage.includes('❌') ? '#dc2626' : 'var(--primary-green)',
           padding: '1rem 1.5rem',
-          borderRadius: '12px',
+          borderRadius: 'var(--radius-lg)',
           textAlign: 'center',
-          border: `1px solid ${saveMessage.includes('success') ? 'var(--primary-green)' : '#dc2626'}`,
-          fontWeight: '500'
+          border: `2px solid ${saveMessage.includes('❌') ? '#dc2626' : 'var(--primary-green)'}`,
+          fontWeight: '600',
+          boxShadow: 'var(--shadow-md)',
+          animation: 'slideUp 0.3s ease'
         }}>
           {saveMessage}
         </div>
       )}
 
-      <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto' }}>
+      <div style={{ padding: '0 2rem 2rem', maxWidth: '1200px', margin: '0 auto' }}>
         {/* Transport Preferences */}
-        <div className="card preference-section">
-          <h3>🚗 Transport Preferences</h3>
+        <div className="card card-elevated preference-section">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+            <span style={{ fontSize: '1.75rem' }}>🚗</span>
+            <h3 style={{ margin: 0, fontSize: '1.5rem' }}>Transport Preferences</h3>
+          </div>
           <p style={{ color: 'var(--text-light)', marginBottom: '2rem' }}>
             Select your preferred ways to travel. We'll prioritize these modes in route suggestions.
           </p>
           
-          <div style={{ marginBottom: '2rem' }}>
-            <label style={{ display: 'block', marginBottom: '1rem', fontWeight: '600' }}>
-              Preferred Transport Modes
-            </label>
-            <div className="transport-options">
-              {transportModeOptions.map(option => (
-                <div
-                  key={option.id}
-                  className={`transport-option ${preferences.transportModes.includes(option.id) ? 'selected' : ''}`}
-                  onClick={() => handleTransportModeToggle(option.id)}
-                >
-                  <span className="icon">{option.icon}</span>
-                  <div style={{ textAlign: 'center' }}>
-                    <span style={{ fontWeight: '600', display: 'block', marginBottom: '0.25rem' }}>
-                      {option.label}
-                    </span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
-                      {option.description}
-                    </span>
-                  </div>
-                  {preferences.transportModes.includes(option.id) && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '0.5rem',
-                      right: '0.5rem',
-                      background: 'var(--primary-green)',
-                      color: 'white',
-                      borderRadius: '50%',
-                      width: '20px',
-                      height: '20px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '0.8rem'
-                    }}>
-                      ✓
-                    </div>
-                  )}
+          <div className="transport-options" style={{ marginBottom: '2rem' }}>
+            {transportModeOptions.map(option => (
+              <div
+                key={option.id}
+                className={`transport-option ${preferences.transportModes.includes(option.id) ? 'selected' : ''}`}
+                onClick={() => handleTransportModeToggle(option.id)}
+                style={{
+                  position: 'relative',
+                  cursor: 'pointer',
+                  transition: 'all var(--transition-normal)'
+                }}
+              >
+                <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>
+                  {option.icon}
+                </span>
+                <div style={{ fontWeight: '700', marginBottom: '0.25rem', fontSize: '1rem' }}>
+                  {option.label}
                 </div>
-              ))}
-            </div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>
+                  {option.description}
+                </div>
+                {preferences.transportModes.includes(option.id) && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '1rem',
+                    right: '1rem',
+                    background: option.color,
+                    color: 'white',
+                    borderRadius: '50%',
+                    width: '28px',
+                    height: '28px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1rem',
+                    fontWeight: '700',
+                    boxShadow: 'var(--shadow-md)'
+                  }}>
+                    ✓
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
 
-          <div className="form-grid">
+          <div className="form-grid" style={{ gap: '2rem' }}>
             <div className="form-group">
-              <label>Sustainability Priority</label>
-              <select
-                value={preferences.sustainabilityPriority}
-                onChange={(e) => handleInputChange('sustainabilityPriority', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '1rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '12px',
-                  backgroundColor: 'var(--input-bg)',
-                  fontFamily: 'Be Vietnam Pro, sans-serif',
-                  fontSize: '1rem',
-                  color: 'var(--text-primary)'
-                }}
-              >
+              <label style={{ fontWeight: '700', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem' }}>
+                Sustainability Priority
+              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {priorityOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label} - {option.description}
-                  </option>
+                  <label
+                    key={option.value}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '1rem',
+                      padding: '1rem 1.25rem',
+                      border: preferences.sustainabilityPriority === option.value 
+                        ? '2px solid var(--primary-green)' 
+                        : '2px solid var(--border-color)',
+                      borderRadius: 'var(--radius-lg)',
+                      cursor: 'pointer',
+                      transition: 'all var(--transition-fast)',
+                      background: preferences.sustainabilityPriority === option.value 
+                        ? 'var(--light-green-bg)' 
+                        : 'var(--bg-secondary)'
+                    }}
+                    onMouseOver={(e) => {
+                      if (preferences.sustainabilityPriority !== option.value) {
+                        e.currentTarget.style.transform = 'translateX(4px)';
+                        e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                      }
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.transform = 'translateX(0)';
+                      e.currentTarget.style.boxShadow = '';
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="priority"
+                      value={option.value}
+                      checked={preferences.sustainabilityPriority === option.value}
+                      onChange={(e) => handleInputChange('sustainabilityPriority', e.target.value)}
+                      style={{ display: 'none' }}
+                    />
+                    <span style={{ fontSize: '1.5rem' }}>{option.icon}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: '700', marginBottom: '0.125rem' }}>{option.label}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>{option.description}</div>
+                    </div>
+                    {preferences.sustainabilityPriority === option.value && (
+                      <div style={{
+                        background: 'var(--primary-green)',
+                        color: 'white',
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.875rem',
+                        fontWeight: '700'
+                      }}>
+                        ✓
+                      </div>
+                    )}
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
 
             <div className="form-group">
-              <label>Weather Sensitivity</label>
-              <select
-                value={preferences.weatherSensitivity}
-                onChange={(e) => handleInputChange('weatherSensitivity', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '1rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '12px',
-                  backgroundColor: 'var(--input-bg)',
-                  fontFamily: 'Be Vietnam Pro, sans-serif',
-                  fontSize: '1rem',
-                  color: 'var(--text-primary)'
-                }}
-              >
+              <label style={{ fontWeight: '700', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1rem' }}>
+                Weather Sensitivity
+              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {weatherOptions.map(option => (
-                  <option key={option.value} value={option.value}>
-                    {option.label} - {option.description}
-                  </option>
+                  <label
+                    key={option.value}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '1rem',
+                      padding: '1rem 1.25rem',
+                      border: preferences.weatherSensitivity === option.value 
+                        ? '2px solid var(--primary-green)' 
+                        : '2px solid var(--border-color)',
+                      borderRadius: 'var(--radius-lg)',
+                      cursor: 'pointer',
+                      transition: 'all var(--transition-fast)',
+                      background: preferences.weatherSensitivity === option.value 
+                        ? 'var(--light-green-bg)' 
+                        : 'var(--bg-secondary)'
+                    }}
+                    onMouseOver={(e) => {
+                      if (preferences.weatherSensitivity !== option.value) {
+                        e.currentTarget.style.transform = 'translateX(4px)';
+                        e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                      }
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.transform = 'translateX(0)';
+                      e.currentTarget.style.boxShadow = '';
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="weather"
+                      value={option.value}
+                      checked={preferences.weatherSensitivity === option.value}
+                      onChange={(e) => handleInputChange('weatherSensitivity', e.target.value)}
+                      style={{ display: 'none' }}
+                    />
+                    <span style={{ fontSize: '1.5rem' }}>{option.icon}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: '700', marginBottom: '0.125rem' }}>{option.label}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>{option.description}</div>
+                    </div>
+                    {preferences.weatherSensitivity === option.value && (
+                      <div style={{
+                        background: 'var(--primary-green)',
+                        color: 'white',
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.875rem',
+                        fontWeight: '700'
+                      }}>
+                        ✓
+                      </div>
+                    )}
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Distance Limits */}
-        <div className="card preference-section">
-          <h3>📍 Distance Limits</h3>
+        <div className="card card-elevated preference-section">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+            <span style={{ fontSize: '1.75rem' }}>📏</span>
+            <h3 style={{ margin: 0, fontSize: '1.5rem' }}>Distance Limits</h3>
+          </div>
           <p style={{ color: 'var(--text-light)', marginBottom: '2rem' }}>
-            Set your comfort limits for walking and cycling to get realistic route suggestions.
+            Set your comfort limits for walking and cycling.
           </p>
           
           <div className="form-grid">
             <div className="form-group">
-              <label>
-                Maximum Walking Distance: {preferences.maxWalkingDistance} km
+              <label style={{ fontWeight: '700', fontSize: '1rem', marginBottom: '1rem', display: 'block' }}>
+                <span style={{ fontSize: '1.25rem', marginRight: '0.5rem' }}>🚶</span>
+                Maximum Walking Distance: <span style={{ color: 'var(--primary-green)' }}>{preferences.maxWalkingDistance} km</span>
               </label>
               <input
                 type="range"
@@ -270,9 +373,9 @@ const Preferences = ({ user }) => {
                 onChange={(e) => handleInputChange('maxWalkingDistance', parseInt(e.target.value))}
                 style={{
                   width: '100%',
-                  height: '6px',
-                  borderRadius: '3px',
-                  background: 'var(--border-color)',
+                  height: '8px',
+                  borderRadius: '4px',
+                  background: `linear-gradient(to right, var(--primary-green) 0%, var(--primary-green) ${(preferences.maxWalkingDistance / 20) * 100}%, var(--border-color) ${(preferences.maxWalkingDistance / 20) * 100}%, var(--border-color) 100%)`,
                   outline: 'none',
                   appearance: 'none',
                   cursor: 'pointer'
@@ -281,26 +384,29 @@ const Preferences = ({ user }) => {
               <div style={{ 
                 display: 'flex', 
                 justifyContent: 'space-between', 
-                fontSize: '0.8rem', 
+                fontSize: '0.85rem', 
                 color: 'var(--text-light)',
-                marginTop: '0.5rem'
+                marginTop: '0.75rem'
               }}>
                 <span>1 km</span>
+                <span style={{ 
+                  background: 'var(--light-green-bg)',
+                  color: 'var(--primary-green)',
+                  padding: '0.25rem 0.75rem',
+                  borderRadius: 'var(--radius-full)',
+                  fontWeight: '600',
+                  border: '2px solid var(--primary-green)'
+                }}>
+                  ~{Math.round(preferences.maxWalkingDistance * 12)} min walk
+                </span>
                 <span>20 km</span>
-              </div>
-              <div style={{ 
-                fontSize: '0.85rem', 
-                color: 'var(--text-secondary)', 
-                marginTop: '0.5rem',
-                textAlign: 'center'
-              }}>
-                About {Math.round(preferences.maxWalkingDistance * 12)} minutes walk
               </div>
             </div>
 
             <div className="form-group">
-              <label>
-                Maximum Cycling Distance: {preferences.maxCyclingDistance} km
+              <label style={{ fontWeight: '700', fontSize: '1rem', marginBottom: '1rem', display: 'block' }}>
+                <span style={{ fontSize: '1.25rem', marginRight: '0.5rem' }}>🚴</span>
+                Maximum Cycling Distance: <span style={{ color: 'var(--accent-blue)' }}>{preferences.maxCyclingDistance} km</span>
               </label>
               <input
                 type="range"
@@ -310,9 +416,9 @@ const Preferences = ({ user }) => {
                 onChange={(e) => handleInputChange('maxCyclingDistance', parseInt(e.target.value))}
                 style={{
                   width: '100%',
-                  height: '6px',
-                  borderRadius: '3px',
-                  background: 'var(--border-color)',
+                  height: '8px',
+                  borderRadius: '4px',
+                  background: `linear-gradient(to right, var(--accent-blue) 0%, var(--accent-blue) ${(preferences.maxCyclingDistance / 50) * 100}%, var(--border-color) ${(preferences.maxCyclingDistance / 50) * 100}%, var(--border-color) 100%)`,
                   outline: 'none',
                   appearance: 'none',
                   cursor: 'pointer'
@@ -321,247 +427,145 @@ const Preferences = ({ user }) => {
               <div style={{ 
                 display: 'flex', 
                 justifyContent: 'space-between', 
-                fontSize: '0.8rem', 
+                fontSize: '0.85rem', 
                 color: 'var(--text-light)',
-                marginTop: '0.5rem'
+                marginTop: '0.75rem'
               }}>
                 <span>1 km</span>
+                <span style={{ 
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  color: 'var(--accent-blue)',
+                  padding: '0.25rem 0.75rem',
+                  borderRadius: 'var(--radius-full)',
+                  fontWeight: '600',
+                  border: '2px solid var(--accent-blue)'
+                }}>
+                  ~{Math.round(preferences.maxCyclingDistance * 3)} min ride
+                </span>
                 <span>50 km</span>
-              </div>
-              <div style={{ 
-                fontSize: '0.85rem', 
-                color: 'var(--text-secondary)', 
-                marginTop: '0.5rem',
-                textAlign: 'center'
-              }}>
-                About {Math.round(preferences.maxCyclingDistance * 3)} minutes ride
               </div>
             </div>
           </div>
         </div>
 
         {/* Goals & Locations */}
-        <div className="card preference-section">
-          <h3>🎯 Goals & Favorite Locations</h3>
+        <div className="card card-elevated preference-section">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+            <span style={{ fontSize: '1.75rem' }}>🎯</span>
+            <h3 style={{ margin: 0, fontSize: '1.5rem' }}>Goals & Locations</h3>
+          </div>
           <p style={{ color: 'var(--text-light)', marginBottom: '2rem' }}>
-            Set your sustainability goals and save frequent destinations for quick route planning.
+            Set your sustainability goals and save frequent destinations.
           </p>
           
-          <div className="form-group" style={{ marginBottom: '2rem' }}>
-            <label>
-              Monthly Carbon Savings Goal: {preferences.monthlyGoal} kg CO₂
+          <div className="form-group" style={{ marginBottom: '2.5rem' }}>
+            <label style={{ fontWeight: '700', fontSize: '1rem', marginBottom: '1rem', display: 'block' }}>
+              <span style={{ fontSize: '1.25rem', marginRight: '0.5rem' }}>🌱</span>
+              Monthly Carbon Savings Goal: <span style={{ color: 'var(--primary-green)' }}>{preferences.monthlyGoal} kg CO₂</span>
             </label>
             <input
               type="range"
               min="10"
               max="200"
+              step="10"
               value={preferences.monthlyGoal}
               onChange={(e) => handleInputChange('monthlyGoal', parseInt(e.target.value))}
               style={{
                 width: '100%',
-                height: '6px',
-                borderRadius: '3px',
-                background: 'var(--border-color)',
+                height: '8px',
+                borderRadius: '4px',
+                background: `linear-gradient(to right, var(--primary-green) 0%, var(--primary-green) ${(preferences.monthlyGoal / 200) * 100}%, var(--border-color) ${(preferences.monthlyGoal / 200) * 100}%, var(--border-color) 100%)`,
                 outline: 'none',
                 appearance: 'none',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                marginBottom: '1rem'
               }}
             />
             <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              fontSize: '0.8rem', 
-              color: 'var(--text-light)',
-              marginTop: '0.5rem'
-            }}>
-              <span>10 kg</span>
-              <span>200 kg</span>
-            </div>
-            <div style={{ 
-              fontSize: '0.85rem', 
-              color: 'var(--primary-green)', 
-              marginTop: '0.75rem',
+              fontSize: '0.95rem', 
+              color: 'white',
+              background: 'linear-gradient(135deg, var(--primary-green), var(--primary-green-light))',
+              marginTop: '1rem',
               textAlign: 'center',
-              fontWeight: '600',
-              padding: '0.75rem',
-              background: 'var(--light-green-bg)',
-              borderRadius: '8px',
-              border: '1px solid var(--primary-green)'
+              fontWeight: '700',
+              padding: '1.25rem',
+              borderRadius: 'var(--radius-lg)',
+              boxShadow: 'var(--shadow-green)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.75rem'
             }}>
-              🌳 Equivalent to planting {Math.floor(preferences.monthlyGoal / 20)} tree{Math.floor(preferences.monthlyGoal / 20) !== 1 ? 's' : ''} per month
+              <span style={{ fontSize: '2rem' }}>🌳</span>
+              <span>
+                Equivalent to planting <span style={{ fontSize: '1.5rem' }}>{Math.floor(preferences.monthlyGoal / 20)}</span> tree{Math.floor(preferences.monthlyGoal / 20) !== 1 ? 's' : ''} per month
+              </span>
             </div>
           </div>
 
           <div className="form-grid">
             <div className="form-group">
-              <label>Home Address</label>
+              <label style={{ fontWeight: '700', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '1.25rem' }}>🏠</span>
+                Home Address
+              </label>
               <input
                 type="text"
-                placeholder="e.g., 123 Green Street, Eco District, Delhi"
+                placeholder="Enter your home address..."
                 value={preferences.homeAddress}
                 onChange={(e) => handleInputChange('homeAddress', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '1rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '12px',
-                  backgroundColor: 'var(--input-bg)',
-                  color: 'var(--text-primary)',
-                  fontSize: '1rem'
-                }}
+                style={{ fontSize: '1rem' }}
               />
-              <div style={{ 
-                fontSize: '0.8rem', 
-                color: 'var(--text-light)', 
-                marginTop: '0.5rem' 
-              }}>
-                Used for quick "Home to..." route planning
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '0.5rem' }}>
+                Quick planning for "Home to..." routes
               </div>
             </div>
 
             <div className="form-group">
-              <label>Work Address</label>
+              <label style={{ fontWeight: '700', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '1.25rem' }}>💼</span>
+                Work Address
+              </label>
               <input
                 type="text"
-                placeholder="e.g., 456 Innovation Avenue, Tech Park, Mumbai"
+                placeholder="Enter your work address..."
                 value={preferences.workAddress}
                 onChange={(e) => handleInputChange('workAddress', e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '1rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '12px',
-                  backgroundColor: 'var(--input-bg)',
-                  color: 'var(--text-primary)',
-                  fontSize: '1rem'
-                }}
+                style={{ fontSize: '1rem' }}
               />
-              <div style={{ 
-                fontSize: '0.8rem', 
-                color: 'var(--text-light)', 
-                marginTop: '0.5rem' 
-              }}>
-                Used for quick "Work to..." route planning
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '0.5rem' }}>
+                Quick planning for "Work to..." routes
               </div>
             </div>
-          </div>
-        </div>
-
-        {/* Privacy & Data */}
-        <div className="card preference-section">
-          <h3>🔒 Privacy & Data Settings</h3>
-          <p style={{ color: 'var(--text-light)', marginBottom: '2rem' }}>
-            Control how your data is used to improve GreenRoute while keeping your privacy protected.
-          </p>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <label style={{ 
-              display: 'flex', 
-              alignItems: 'flex-start', 
-              gap: '0.75rem', 
-              cursor: 'pointer',
-              padding: '1rem',
-              border: '1px solid var(--border-color)',
-              borderRadius: '12px',
-              background: 'var(--bg-secondary)',
-              transition: 'all var(--transition-fast)'
-            }}>
-              <input 
-                type="checkbox" 
-                defaultChecked 
-                style={{ marginTop: '0.25rem' }}
-              />
-              <div>
-                <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>
-                  Share anonymized data for route improvements
-                </span>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
-                  Help us improve route suggestions by sharing anonymous usage patterns. 
-                  No personal information is ever shared.
-                </div>
-              </div>
-            </label>
-            
-            <label style={{ 
-              display: 'flex', 
-              alignItems: 'flex-start', 
-              gap: '0.75rem', 
-              cursor: 'pointer',
-              padding: '1rem',
-              border: '1px solid var(--border-color)',
-              borderRadius: '12px',
-              background: 'var(--bg-secondary)',
-              transition: 'all var(--transition-fast)'
-            }}>
-              <input 
-                type="checkbox" 
-                defaultChecked
-                style={{ marginTop: '0.25rem' }}
-              />
-              <div>
-                <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>
-                  Receive sustainability tips and achievements
-                </span>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
-                  Get personalized tips to maximize your environmental impact and celebrate milestones.
-                </div>
-              </div>
-            </label>
-            
-            <label style={{ 
-              display: 'flex', 
-              alignItems: 'flex-start', 
-              gap: '0.75rem', 
-              cursor: 'pointer',
-              padding: '1rem',
-              border: '1px solid var(--border-color)',
-              borderRadius: '12px',
-              background: 'var(--bg-secondary)',
-              transition: 'all var(--transition-fast)'
-            }}>
-              <input 
-                type="checkbox"
-                style={{ marginTop: '0.25rem' }}
-              />
-              <div>
-                <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>
-                  Location-based weather and transit alerts
-                </span>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
-                  Get real-time alerts about weather conditions and transit disruptions that might affect your routes.
-                </div>
-              </div>
-            </label>
           </div>
         </div>
 
         {/* Quick Actions */}
         <div className="card preference-section">
-          <h3>⚡ Quick Actions</h3>
-          <p style={{ color: 'var(--text-light)', marginBottom: '2rem' }}>
-            Manage your preferences and data with these quick actions.
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem' }}>
+            <span style={{ fontSize: '1.75rem' }}>⚡</span>
+            <h3 style={{ margin: 0, fontSize: '1.5rem' }}>Quick Actions</h3>
+          </div>
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
             <button
               onClick={resetToDefaults}
               className="btn btn-secondary"
               style={{ 
-                justifyContent: 'flex-start',
-                padding: '1rem',
-                height: 'auto',
                 flexDirection: 'column',
+                padding: '1.5rem',
+                height: 'auto',
                 alignItems: 'flex-start',
-                gap: '0.5rem'
+                gap: '0.75rem'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>🔄</span>
-                <span style={{ fontWeight: '600' }}>Reset to Defaults</span>
+              <span style={{ fontSize: '2rem' }}>🔄</span>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontWeight: '700', marginBottom: '0.25rem' }}>Reset Defaults</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-light)', fontWeight: '400' }}>
+                  Restore original settings
+                </div>
               </div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
-                Restore original settings
-              </span>
             </button>
 
             <button
@@ -571,50 +575,26 @@ const Preferences = ({ user }) => {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'greenroute-preferences.json';
+                a.download = `greenroute-preferences-${new Date().toISOString().split('T')[0]}.json`;
                 a.click();
                 URL.revokeObjectURL(url);
               }}
               className="btn btn-secondary"
               style={{ 
-                justifyContent: 'flex-start',
-                padding: '1rem',
-                height: 'auto',
                 flexDirection: 'column',
+                padding: '1.5rem',
+                height: 'auto',
                 alignItems: 'flex-start',
-                gap: '0.5rem'
+                gap: '0.75rem'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>📁</span>
-                <span style={{ fontWeight: '600' }}>Export Preferences</span>
+              <span style={{ fontSize: '2rem' }}>📥</span>
+              <div style={{ textAlign: 'left' }}>
+                <div style={{ fontWeight: '700', marginBottom: '0.25rem' }}>Export Settings</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-light)', fontWeight: '400' }}>
+                  Download as JSON
+                </div>
               </div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
-                Download as JSON file
-              </span>
-            </button>
-
-            <button
-              onClick={() => {
-                alert('Feature coming soon! You\'ll be able to import preferences from a JSON file.');
-              }}
-              className="btn btn-secondary"
-              style={{ 
-                justifyContent: 'flex-start',
-                padding: '1rem',
-                height: 'auto',
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-                gap: '0.5rem'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>📂</span>
-                <span style={{ fontWeight: '600' }}>Import Preferences</span>
-              </div>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-light)' }}>
-                Load from JSON file
-              </span>
             </button>
           </div>
         </div>
@@ -625,28 +605,31 @@ const Preferences = ({ user }) => {
         position: 'sticky',
         bottom: 0,
         background: 'var(--bg-secondary)',
-        borderTop: '1px solid var(--border-color)',
+        borderTop: '2px solid var(--border-color)',
         padding: '1.5rem 2rem',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        zIndex: 100
+        zIndex: 100,
+        boxShadow: '0 -4px 20px rgba(0,0,0,0.08)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           {hasChanges && (
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '0.5rem',
+              gap: '0.75rem',
               color: 'var(--text-secondary)',
-              fontSize: '0.9rem'
+              fontSize: '1rem',
+              fontWeight: '600'
             }}>
               <div style={{
-                width: '8px',
-                height: '8px',
+                width: '12px',
+                height: '12px',
                 borderRadius: '50%',
                 background: 'var(--primary-green)',
-                animation: 'pulse 2s infinite'
+                animation: 'pulse 2s infinite',
+                boxShadow: '0 0 0 0 var(--primary-green)'
               }}></div>
               Unsaved changes
             </div>
@@ -656,13 +639,12 @@ const Preferences = ({ user }) => {
         <div style={{ display: 'flex', gap: '1rem' }}>
           {hasChanges && (
             <button
-              onClick={() => {
-                setPreferences(originalPreferences);
-              }}
+              onClick={() => setPreferences(originalPreferences)}
               className="btn btn-secondary"
               disabled={saving}
+              style={{ minWidth: '120px' }}
             >
-              Cancel Changes
+              Cancel
             </button>
           )}
           <button
@@ -670,23 +652,53 @@ const Preferences = ({ user }) => {
             className="btn btn-primary"
             disabled={saving || !hasChanges}
             style={{ 
-              minWidth: '150px',
+              minWidth: '200px',
               background: hasChanges 
                 ? 'linear-gradient(135deg, var(--primary-green), var(--primary-green-light))'
-                : undefined
+                : undefined,
+              opacity: !hasChanges ? 0.5 : 1
             }}
           >
             {saving ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <div className="spinner" style={{ width: '16px', height: '16px' }}></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div className="spinner" style={{ width: '18px', height: '18px', borderWidth: '3px' }}></div>
                 Saving...
               </div>
             ) : (
-              <>💾 Save Preferences</>
+              <>💾 Save All Preferences</>
             )}
           </button>
         </div>
       </div>
+
+      <style>{`
+        @keyframes pulse {
+          0% {
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+          }
+          70% {
+            box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+          }
+          100% {
+            box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+          }
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+          appearance: none;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: var(--primary-green);
+          cursor: pointer;
+          box-shadow: var(--shadow-md);
+          transition: transform 0.2s;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+          transform: scale(1.2);
+        }
+      `}</style>
     </div>
   );
 };
