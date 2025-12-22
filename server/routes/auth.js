@@ -4,7 +4,6 @@ const bcrypt = require('bcryptjs');
 const router = express.Router();
 const User = require('../models/User');
 
-// Local Strategy for email/password authentication
 const LocalStrategy = require('passport-local').Strategy;
 
 passport.use(new LocalStrategy(
@@ -31,7 +30,6 @@ passport.use(new LocalStrategy(
     }
 ));
 
-// --- Email & Password Registration ---
 router.post('/register', async (req, res) => {
     const { displayName, email, password } = req.body;
 
@@ -57,7 +55,6 @@ router.post('/register', async (req, res) => {
         });
         await user.save();
 
-        // Log the user in directly after successful registration
         req.login(user, (err) => {
             if (err) {
                 console.error('Login after registration error:', err);
@@ -78,7 +75,6 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// --- Email & Password Login ---
 router.post('/login', (req, res, next) => {
     passport.authenticate('local', (err, user, info) => {
         if (err) return next(err);
