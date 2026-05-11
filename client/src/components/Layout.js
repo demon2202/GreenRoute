@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import './Layout.css';
 
-/* ── Navigation config ── */
 const NAV = [
   { path: '/',            icon: '🏠', label: 'Home',       desc: 'Dashboard overview'  },
   { path: '/plan',        icon: '🗺️', label: 'Plan Route', desc: 'Find eco journeys'   },
@@ -16,7 +15,6 @@ const FOOTER_NAV = [
   { path: '/settings', icon: '⚙️', label: 'Settings' },
 ];
 
-/* ── Theme toggle button ── */
 const ThemeToggle = ({ theme, onThemeChange }) => (
   <button
     className="footer-item"
@@ -31,33 +29,11 @@ const ThemeToggle = ({ theme, onThemeChange }) => (
   </button>
 );
 
-/* ── Layout component ── */
 const Layout = ({ children, user, onLogout, theme, onThemeChange }) => {
-  const [open,     setOpen]     = useState(false);
-  const [carbon,   setCarbon]   = useState({ month: 0, goal: 60, pct: 0 });
-  const [hamOpen,  setHamOpen]  = useState(false);
+  const [open,   setOpen]   = useState(false);
+  const [carbon, setCarbon] = useState({ month: 0, goal: 60, pct: 0 });
+  const [hamOpen, setHamOpen] = useState(false);
   const location = useLocation();
-
-  /* Fetch carbon on route change */
-  useEffect(() => {
-    fetchCarbon();
-  }, [location.pathname]);
-
-  /* Close mobile sidebar on route change */
-  useEffect(() => {
-    setOpen(false);
-    setHamOpen(false);
-  }, [location.pathname]);
-
-  /* Lock body scroll when mobile sidebar open */
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => { document.body.style.overflow = ''; };
-  }, [open]);
 
   const fetchCarbon = useCallback(async () => {
     try {
@@ -79,7 +55,26 @@ const Layout = ({ children, user, onLogout, theme, onThemeChange }) => {
         pct: Math.min((month / goal) * 100, 100),
       });
     } catch { /* silent */ }
-  }, []);
+  }, []); // ← empty deps is fine here, fetchCarbon doesn't use any state
+
+  /* Fix 1: add fetchCarbon to deps */
+  useEffect(() => {
+    fetchCarbon();
+  }, [location.pathname, fetchCarbon]);
+
+  useEffect(() => {
+    setOpen(false);
+    setHamOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
 
   const close  = useCallback(() => { setOpen(false); setHamOpen(false); }, []);
   const toggle = useCallback(() => {
@@ -114,13 +109,10 @@ const Layout = ({ children, user, onLogout, theme, onThemeChange }) => {
     return 'GreenRoute';
   }, [location.pathname]);
 
-  const currentNavItem = NAV.find(n => isActive(n.path)) || FOOTER_NAV.find(n => isActive(n.path));
+  /* Fix 2: removed unused currentNavItem variable */
 
-  /* ── Render ── */
   return (
     <div className={`app-layout ${theme}`}>
-
-      {/* ══ Mobile Header ══ */}
       <div className="mobile-header">
         <button
           className={`hamburger-btn ${hamOpen ? 'open' : ''}`}
@@ -128,16 +120,12 @@ const Layout = ({ children, user, onLogout, theme, onThemeChange }) => {
           aria-label={open ? 'Close menu' : 'Open menu'}
           aria-expanded={open}
         >
-          <span />
-          <span />
-          <span />
+          <span /><span /><span />
         </button>
-
         <div className="mobile-title">
           <div className="mobile-title-icon">🌱</div>
           <h1>{pageTitle()}</h1>
         </div>
-
         <div className="mobile-user">
           {user.image
             ? <img src={user.image} alt={user.displayName || 'User'} className="mobile-avatar" />
@@ -150,14 +138,11 @@ const Layout = ({ children, user, onLogout, theme, onThemeChange }) => {
         </div>
       </div>
 
-      {/* ══ Sidebar ══ */}
       <aside
         className={`sidebar ${open ? 'sidebar-open' : ''}`}
         role="navigation"
         aria-label="Main navigation"
       >
-
-        {/* ── Logo / Header ── */}
         <div className="sidebar-header">
           <Link to="/" className="sidebar-logo" onClick={close}>
             <span className="logo-icon">🌱</span>
@@ -166,16 +151,9 @@ const Layout = ({ children, user, onLogout, theme, onThemeChange }) => {
               <span className="logo-subtitle">Eco Travel</span>
             </div>
           </Link>
-          <button
-            className="sidebar-close-btn"
-            onClick={close}
-            aria-label="Close sidebar"
-          >
-            ✕
-          </button>
+          <button className="sidebar-close-btn" onClick={close} aria-label="Close sidebar">✕</button>
         </div>
 
-        {/* ── User profile ── */}
         <div className="user-section">
           <div className="user-profile">
             <div className="user-avatar">
@@ -190,15 +168,12 @@ const Layout = ({ children, user, onLogout, theme, onThemeChange }) => {
             </div>
             <div className="user-details sidebar-text">
               <div className="user-name">{user.displayName || 'User'}</div>
-              <div className="user-badge">
-                🌱 {carbon.month.toFixed(1)} kg saved
-              </div>
+              <div className="user-badge">🌱 {carbon.month.toFixed(1)} kg saved</div>
             </div>
             <div className="user-online" title="Active" />
           </div>
         </div>
 
-        {/* ── Navigation ── */}
         <nav className="navigation">
           <div className="nav-section-label sidebar-text">Navigation</div>
           <div className="nav-menu">
@@ -222,7 +197,6 @@ const Layout = ({ children, user, onLogout, theme, onThemeChange }) => {
           </div>
         </nav>
 
-        {/* ── Carbon progress widget ── */}
         <div className="progress-widget">
           <div className="pw-content sidebar-text">
             <div className="pw-header">
@@ -246,7 +220,6 @@ const Layout = ({ children, user, onLogout, theme, onThemeChange }) => {
           </div>
         </div>
 
-        {/* ── Footer ── */}
         <div className="sidebar-footer">
           {FOOTER_NAV.map(item => (
             <Link
@@ -261,32 +234,18 @@ const Layout = ({ children, user, onLogout, theme, onThemeChange }) => {
               <span className="nav-tooltip">{item.label}</span>
             </Link>
           ))}
-
-          {/* Theme toggle */}
           <ThemeToggle theme={theme} onThemeChange={onThemeChange} />
-
-          {/* Logout */}
-          <button
-            className="logout-btn"
-            onClick={handleLogout}
-            title="Logout"
-          >
+          <button className="logout-btn" onClick={handleLogout} title="Logout">
             <span className="footer-icon">🚪</span>
             <span className="footer-label sidebar-text">Logout</span>
           </button>
         </div>
       </aside>
 
-      {/* ══ Mobile overlay ══ */}
       {open && (
-        <div
-          className="sidebar-overlay"
-          onClick={close}
-          aria-hidden="true"
-        />
+        <div className="sidebar-overlay" onClick={close} aria-hidden="true" />
       )}
 
-      {/* ══ Main content ══ */}
       <main className="main-content">
         {children}
       </main>
