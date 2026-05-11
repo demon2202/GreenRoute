@@ -90,7 +90,7 @@ app.use(
     origin: process.env.NODE_ENV === 'production'
       ? [
           process.env.CLIENT_URL,
-          'https://green-route-seven.vercel.app/',
+          'https://green-route-seven.vercel.app',
         ]
       : 'http://localhost:3000',
     credentials: true,
