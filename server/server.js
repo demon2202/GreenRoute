@@ -44,17 +44,16 @@ app.use(
           "'self'",
           "blob:",
         ],
-        connectSrc: [
-          "'self'",
-          "https://api.mapbox.com",
-          "https://events.mapbox.com",
-          // NOTE: OpenWeatherMap + WAQI are now called server-side only
-          // so they do NOT need to be listed here anymore
-          "http://localhost:5000",
-          "http://localhost:3000",
-          "ws://localhost:5000",   // WebSocket
-          "ws://localhost:3000",   // React dev WS
-        ],
+connectSrc: [
+  "'self'",
+  "https://api.mapbox.com",
+  "https://events.mapbox.com",
+  "https://green-route-seven.vercel.app",
+  process.env.CLIENT_URL,
+  process.env.SERVER_URL,
+  "wss:",
+  "https:",
+],
         imgSrc: [
           "'self'",
           "data:",
