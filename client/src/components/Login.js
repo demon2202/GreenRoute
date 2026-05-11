@@ -40,7 +40,7 @@ const Login = ({ onLogin }) => {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = 'http://localhost:5000/api/auth/google';
+    window.location.href = 'https://greenroute-backend-syxi.onrender.com/api/auth/google/callback';
   };
 
   const toggle = () => {
