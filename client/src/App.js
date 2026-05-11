@@ -8,7 +8,7 @@ import TripHistory from './pages/TripHistory';
 import Preferences from './pages/Preferences';
 import Settings from './pages/Settings';
 import './index.css';
-axios.defaults.baseURL = 'http://localhost:5000';
+axios.defaults.baseURL = 'https://greenroute-backend-syxi.onrender.com';
 axios.defaults.withCredentials = true;
 
 function App() {
