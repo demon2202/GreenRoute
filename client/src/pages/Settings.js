@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 
 const Settings = ({ user, theme, onThemeChange }) => {
   const [saving, setSaving] = useState(false);
