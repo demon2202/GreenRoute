@@ -17,19 +17,16 @@ const directions    = mbxDirections(baseClient);
    HELPERS
 ───────────────────────────────────────────────────────────── */
 
-// CO2 emission factors kg per km
 const EMISSIONS = { driving: 0.21, cycling: 0.0, walking: 0.0, transit: 0.04 };
 
-// Mapbox profile for each mode
 const PROFILES = {
-  walking: { profile: 'walking',         mode: 'walking'  },
-  cycling: { profile: 'cycling',         mode: 'cycling'  },
-  driving: { profile: 'driving-traffic', mode: 'driving'  },
-  transit: { profile: 'driving',         mode: 'transit'  },
+  walking: { profile: 'walking',         mode: 'walking' },
+  cycling: { profile: 'cycling',         mode: 'cycling' },
+  driving: { profile: 'driving-traffic', mode: 'driving' },
+  transit: { profile: 'driving',         mode: 'transit' },
 };
 
 function calcCalories(mode, distKm, durMin) {
-  // MET-based approximation
   if (mode === 'walking') return Math.round(distKm * 65);
   if (mode === 'cycling') return Math.round(distKm * 40);
   return 0;
@@ -51,8 +48,7 @@ function calcDifficulty(mode, distKm) {
 }
 
 function calcCost(mode, distKm) {
-  // Rough Indian market estimate in INR
-  if (mode === 'driving') return Math.round(distKm * 8);   // fuel ~₹8/km
+  if (mode === 'driving') return Math.round(distKm * 8);
   if (mode === 'transit') return Math.min(Math.max(Math.round(distKm * 2.5), 10), 60);
   return 0;
 }
@@ -62,50 +58,34 @@ function arrivalTime(durMin) {
   return t.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
-/**
- * Build rich, mode-aware step list from a Mapbox leg.
- *
- * For walking  — keeps all steps; adds surface/crossing hints where available.
- * For cycling  — adds lane-change and signal hints.
- * For driving  — full turn-by-turn with road names.
- * For transit  — simplified; adds "board / alight" language.
- */
 function buildSteps(leg, mode) {
   if (!leg?.steps?.length) return [];
-
   return leg.steps.map((s, idx) => {
-    const maneuver = s.maneuver || {};
-    const type     = maneuver.type     || 'continue';
-    const modifier = maneuver.modifier || null;
-    const name     = s.name            || '';
-
-    // Base instruction (Mapbox already returns English text when language:'en' is set)
+    const maneuver  = s.maneuver || {};
+    const type      = maneuver.type     || 'continue';
+    const modifier  = maneuver.modifier || null;
+    const name      = s.name            || '';
     let instruction = maneuver.instruction || 'Continue';
 
-    // Enrich instruction per mode
     if (mode === 'walking') {
-      if (type === 'depart')  instruction = `Head ${modifier || 'forward'}${name ? ` on ${name}` : ''}`;
-      if (type === 'arrive')  instruction = 'You have arrived at your destination';
+      if (type === 'depart') instruction = `Head ${modifier || 'forward'}${name ? ` on ${name}` : ''}`;
+      if (type === 'arrive') instruction = 'You have arrived at your destination';
     }
-
     if (mode === 'cycling') {
-      if (type === 'depart')  instruction = `Start cycling ${modifier || 'forward'}${name ? ` on ${name}` : ''}`;
-      if (type === 'arrive')  instruction = 'Lock up your bike — you have arrived';
-      // Nudge cyclists to watch for lanes on sharp turns
-      if ((type === 'turn') && (modifier === 'sharp right' || modifier === 'sharp left')) {
+      if (type === 'depart') instruction = `Start cycling ${modifier || 'forward'}${name ? ` on ${name}` : ''}`;
+      if (type === 'arrive') instruction = 'Lock up your bike — you have arrived';
+      if (type === 'turn' && (modifier === 'sharp right' || modifier === 'sharp left'))
         instruction += ' — watch for cycle lane';
-      }
     }
-
     if (mode === 'transit') {
-      if (idx === 0)                  instruction = `Board transport${name ? ` at ${name}` : ''}`;
-      if (idx === leg.steps.length-1) instruction = `Alight${name ? ` at ${name}` : ''} — you have arrived`;
+      if (idx === 0)                    instruction = `Board transport${name ? ` at ${name}` : ''}`;
+      if (idx === leg.steps.length - 1) instruction = `Alight${name ? ` at ${name}` : ''} — you have arrived`;
     }
 
     return {
       instruction,
-      distance: s.distance  || 0,   // metres
-      duration: s.duration  || 0,   // seconds
+      distance: s.distance || 0,
+      duration: s.duration || 0,
       type,
       modifier,
       name,
@@ -119,27 +99,25 @@ function buildSteps(leg, mode) {
 router.post('/route', ensureAuth, async (req, res) => {
   const { origin, destination, transportModes } = req.body;
 
-  // Validate
   if (!origin?.coordinates || !destination?.coordinates)
     return res.status(400).json({ error: 'Origin and destination coordinates required.' });
-  if (!Array.isArray(origin.coordinates)      || origin.coordinates.length !== 2)
+  if (!Array.isArray(origin.coordinates) || origin.coordinates.length !== 2)
     return res.status(400).json({ error: 'Invalid origin coordinates.' });
   if (!Array.isArray(destination.coordinates) || destination.coordinates.length !== 2)
     return res.status(400).json({ error: 'Invalid destination coordinates.' });
   if (!Array.isArray(transportModes) || transportModes.length === 0)
     return res.status(400).json({ error: 'At least one transport mode required.' });
 
-  // Sanity-check coordinate ranges
   const [oLng, oLat] = origin.coordinates;
   const [dLng, dLat] = destination.coordinates;
   if (Math.abs(oLat) > 90 || Math.abs(oLng) > 180 || Math.abs(dLat) > 90 || Math.abs(dLng) > 180)
     return res.status(400).json({ error: 'Coordinates out of valid range.' });
 
   try {
-    const user  = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found.' });
 
-    const prefs = Object.fromEntries(user.preferences || []);
+    const prefs            = Object.fromEntries(user.preferences || []);
     const selectedProfiles = transportModes
       .map(m => PROFILES[m.toLowerCase()])
       .filter(Boolean);
@@ -147,7 +125,6 @@ router.post('/route', ensureAuth, async (req, res) => {
     if (!selectedProfiles.length)
       return res.status(400).json({ error: 'No valid transport modes selected.' });
 
-    // Fire all direction requests in parallel
     const promises = selectedProfiles.map(async ({ profile, mode }) => {
       try {
         const resp = await directions.getDirections({
@@ -155,7 +132,7 @@ router.post('/route', ensureAuth, async (req, res) => {
           geometries:   'geojson',
           steps:        true,
           overview:     'full',
-          alternatives: true,          // ask for up to 2 alternatives
+          alternatives: true,
           language:     'en',
           annotations:  ['distance', 'duration', 'speed'],
           waypoints: [
@@ -175,17 +152,14 @@ router.post('/route', ensureAuth, async (req, res) => {
 
     results.forEach(({ resp, mode }) => {
       if (!resp?.body?.routes?.length) return;
-
-      // Take at most 2 alternatives per mode
       resp.body.routes.slice(0, 2).forEach((route, idx) => {
         const leg = route.legs?.[0];
         if (!leg) return;
 
-        const distKm  = (route.distance || 0) / 1000;
-        const durMin  = Math.round((route.duration || 0) / 60);
-        if (distKm < 0.05) return;   // skip trivially short routes
+        const distKm = (route.distance || 0) / 1000;
+        const durMin = Math.round((route.duration || 0) / 60);
+        if (distKm < 0.05) return;
 
-        // Preference filtering
         const maxWalk = parseFloat(prefs.maxWalkingDistance) || 99;
         const maxBike = parseFloat(prefs.maxCyclingDistance) || 99;
         if (mode === 'walking' && distKm > maxWalk) return;
@@ -194,8 +168,7 @@ router.post('/route', ensureAuth, async (req, res) => {
         const drivingKg = distKm * EMISSIONS.driving;
         const modeKg    = distKm * (EMISSIONS[mode] || 0);
         const co2Saved  = Math.max(drivingKg - modeKg, 0);
-
-        const modeLabels = { walking:'Walking', cycling:'Cycling', driving:'Driving', transit:'Transit' };
+        const modeLabels = { walking: 'Walking', cycling: 'Cycling', driving: 'Driving', transit: 'Transit' };
 
         output.push({
           id:               `${mode}-${idx}-${Date.now()}`,
@@ -217,12 +190,10 @@ router.post('/route', ensureAuth, async (req, res) => {
     if (!output.length)
       return res.status(404).json({ error: 'No routes found. Try different locations or modes.' });
 
-    // Sort by user sustainability preference
     const priority = prefs.sustainabilityPriority || 'Balanced';
     output.sort((a, b) => {
       if (priority === 'Eco First')   return parseFloat(b.co2Saved) - parseFloat(a.co2Saved);
       if (priority === 'Speed First') return a.duration - b.duration;
-      // Balanced: weighted composite
       const scoreA = parseFloat(a.co2Saved) * 0.55 - a.duration * 0.012;
       const scoreB = parseFloat(b.co2Saved) * 0.55 - b.duration * 0.012;
       return scoreB - scoreA;
@@ -237,15 +208,17 @@ router.post('/route', ensureAuth, async (req, res) => {
 });
 
 /* ─────────────────────────────────────────────────────────────
-   WEATHER  —  API key now read from process.env
+   WEATHER
 ───────────────────────────────────────────────────────────── */
 router.get('/weather', ensureAuth, async (req, res) => {
   const { lat, lon } = req.query;
-  if (!lat || !lon) return res.status(400).json({ error: 'lat and lon are required.' });
+
+  if (!lat || !lon)
+    return res.status(400).json({ error: 'lat and lon are required.' });
 
   const key = process.env.OPENWEATHERMAP_API_KEY;
   if (!key) {
-    console.warn('[weather] OPENWEATHERMAP_API_KEY not set in environment');
+    console.warn('[weather] OPENWEATHERMAP_API_KEY not set');
     return res.status(503).json({ error: 'Weather service not configured.' });
   }
 
@@ -267,6 +240,38 @@ router.get('/weather', ensureAuth, async (req, res) => {
 });
 
 /* ─────────────────────────────────────────────────────────────
+   AQI  — proxied through backend so key stays server-side
+───────────────────────────────────────────────────────────── */
+router.get('/aqi', ensureAuth, async (req, res) => {
+  const { lat, lon } = req.query;
+
+  if (!lat || !lon)
+    return res.status(400).json({ error: 'lat and lon are required.' });
+
+  const key = process.env.WAQI_API_KEY;
+  if (!key) {
+    console.warn('[aqi] WAQI_API_KEY not set');
+    return res.status(503).json({ error: 'AQI service not configured.' });
+  }
+
+  try {
+    const url  = `https://api.waqi.info/feed/geo:${lat};${lon}/?token=${key}`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+
+    if (!resp.ok || data.status !== 'ok') {
+      console.error('[aqi] WAQI error:', data);
+      return res.status(404).json({ error: 'AQI data not available for this location.' });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error('[aqi] Fetch error:', err.message);
+    res.status(500).json({ error: 'AQI fetch failed.' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
    TRIP HISTORY
 ───────────────────────────────────────────────────────────── */
 router.get('/history', ensureAuth, async (req, res) => {
@@ -282,16 +287,19 @@ router.get('/history', ensureAuth, async (req, res) => {
 });
 
 router.post('/history', ensureAuth, async (req, res) => {
-  const { originName, destinationName, originCoords, destinationCoords, mode, distance, duration, co2Saved, calories } = req.body;
+  const {
+    originName, destinationName,
+    originCoords, destinationCoords,
+    mode, distance, duration, co2Saved, calories,
+  } = req.body;
 
-  // Inline validation
   const errs = [];
   if (!originName?.trim())      errs.push('Origin name required');
   if (!destinationName?.trim()) errs.push('Destination name required');
   if (!mode?.trim())            errs.push('Transport mode required');
-  if (isNaN(parseFloat(distance)))  errs.push('Valid distance required');
-  if (isNaN(parseInt(duration)))    errs.push('Valid duration required');
-  if (isNaN(parseFloat(co2Saved)))  errs.push('Valid CO₂ value required');
+  if (isNaN(parseFloat(distance))) errs.push('Valid distance required');
+  if (isNaN(parseInt(duration)))   errs.push('Valid duration required');
+  if (isNaN(parseFloat(co2Saved))) errs.push('Valid CO₂ value required');
 
   const checkCoords = (c, label) => {
     if (!c || isNaN(c.lat) || isNaN(c.lng)) { errs.push(`${label} coordinates invalid`); return; }
@@ -378,19 +386,20 @@ router.post(
     body('maxWalkingDistance').optional().isNumeric().withMessage('Must be a number'),
     body('maxCyclingDistance').optional().isNumeric().withMessage('Must be a number'),
     body('monthlyGoal').optional().isNumeric().withMessage('Must be a number'),
-    body('sustainabilityPriority').optional().isIn(['Eco First','Balanced','Speed First']),
+    body('sustainabilityPriority').optional().isIn(['Eco First', 'Balanced', 'Speed First']),
   ],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     try {
-      const user = await User.findByIdAndUpdate(
-        req.user.id,
-        { $set: { preferences: req.body } },
-        { new: true }
-      );
-      res.json(Object.fromEntries(user.preferences || []));
+      const user = await User.findById(req.user.id);
+      if (!user) return res.status(404).json({ error: 'User not found.' });
+      if (!user.preferences) user.preferences = new Map();
+      Object.entries(req.body).forEach(([k, v]) => user.preferences.set(k, v));
+      await user.save();
+      res.json(Object.fromEntries(user.preferences));
     } catch (err) {
+      console.error('[preferences POST]', err);
       res.status(500).json({ error: 'Server error.' });
     }
   }
@@ -402,7 +411,7 @@ router.post(
 router.post('/theme', ensureAuth, async (req, res) => {
   try {
     const { theme } = req.body;
-    if (!['light','dark','auto'].includes(theme))
+    if (!['light', 'dark', 'auto'].includes(theme))
       return res.status(400).json({ error: 'Invalid theme value.' });
     await User.findByIdAndUpdate(req.user.id, { theme });
     res.json({ message: 'Theme updated.' });
@@ -437,7 +446,10 @@ router.put(
       const { displayName, email } = req.body;
       const user = await User.findByIdAndUpdate(
         req.user.id,
-        { ...(displayName && { displayName }), ...(email && { email: email.toLowerCase() }) },
+        {
+          ...(displayName && { displayName }),
+          ...(email && { email: email.toLowerCase() }),
+        },
         { new: true }
       ).select('-password');
       res.json(user);
@@ -460,25 +472,29 @@ router.get('/stats', ensureAuth, async (req, res) => {
     const sow   = new Date(sod); sow.setDate(sod.getDate() - sod.getDay());
     const som   = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const blank = () => ({ co2Saved:0, trips:0, distance:0, calories:0 });
-    const stats = { today:blank(), week:blank(), month:blank(), allTime:blank() };
+    const blank = () => ({ co2Saved: 0, trips: 0, distance: 0, calories: 0 });
+    const stats = { today: blank(), week: blank(), month: blank(), allTime: blank() };
 
     trips.forEach(t => {
       const d   = new Date(t.date);
       const co2 = parseFloat(t.co2Saved) || 0;
       const dst = parseFloat(t.distance) || 0;
       const cal = parseInt(t.calories)   || 0;
-      const add = (bucket) => { bucket.co2Saved+=co2; bucket.trips++; bucket.distance+=dst; bucket.calories+=cal; };
+      const add = (bucket) => {
+        bucket.co2Saved  += co2;
+        bucket.trips     += 1;
+        bucket.distance  += dst;
+        bucket.calories  += cal;
+      };
       add(stats.allTime);
       if (d >= sod) add(stats.today);
       if (d >= sow) add(stats.week);
       if (d >= som) add(stats.month);
     });
 
-    // Round for cleaner output
     Object.values(stats).forEach(b => {
-      b.co2Saved  = parseFloat(b.co2Saved.toFixed(2));
-      b.distance  = parseFloat(b.distance.toFixed(1));
+      b.co2Saved = parseFloat(b.co2Saved.toFixed(2));
+      b.distance = parseFloat(b.distance.toFixed(1));
     });
 
     res.json(stats);

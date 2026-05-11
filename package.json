@@ -1,25 +1,19 @@
 {
-<<<<<<< HEAD
   "name": "fullstack-app",
-  "private": true,
-  "scripts": {
-    "dev": "concurrently \"npm start --prefix server\" \"npm start --prefix client\"",
-    "install-all": "npm install --prefix client && npm install --prefix server"
-  },
-  "dependencies": {
-    "concurrently": "^8.2.0"
-=======
-  "name": "server",
   "version": "2.0.0",
+  "private": true,
   "description": "Advanced backend for GreenRoute",
   "main": "server.js",
   "scripts": {
+    "dev": "concurrently \"npm start --prefix server\" \"npm start --prefix client\"",
+    "install-all": "npm install --prefix client && npm install --prefix server",
     "start": "node server.js"
   },
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.15.6",
     "axios": "^1.11.0",
     "bcryptjs": "^3.0.2",
+    "concurrently": "^8.2.0",
     "connect-mongo": "^5.1.0",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
@@ -39,6 +33,5 @@
     "socket.io": "^4.8.1",
     "uuid": "^13.0.0",
     "winston": "^3.19.0"
->>>>>>> db9de6dacdbfce3ac82ac037265dca14ad03b36a
   }
 }
