@@ -729,78 +729,118 @@ const Login = ({ onLogin }) => {
         }
 
         /* ─── Loader Animation ─────────────────────────────────────────── */
-        .loader-container {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 0.25rem 0;
-        }
+.loader-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 0;
+}
 
-        .green-loader {
-          width: fit-content;
-          font-size: 12px;
-          font-family: monospace;
-          line-height: 1.4;
-          font-weight: bold;
-          color: white;
-          background: 
-            linear-gradient(white 0 0) left,
-            linear-gradient(white 0 0) right;
-          background-repeat: no-repeat;
-          border-right: 3px solid transparent;
-          border-left: 3px solid transparent;
-          background-origin: border-box;
-          position: relative;
-          animation: loader-fill 2s infinite;
-        }
+.green-loader {
+  width: 180px;
+  height: 40px;
+  position: relative;
 
-        .loader-text::before {
-          content: "Loading";
-        }
+  font-size: 18px;
+  font-family: monospace;
+  font-weight: 700;
+  line-height: 40px;
+  letter-spacing: 2px;
+  text-align: center;
 
-        .loader-truck {
-          position: absolute;
-          top: 100%;
-          left: 0;
-          width: 18px;
-          height: 48px;
-          background: 
-            linear-gradient(90deg, white 3px, transparent 0 calc(100% - 3px), white 0) bottom / 18px 16px,
-            linear-gradient(90deg, rgba(255,255,255,0.8) 3px, transparent 0 calc(100% - 3px), rgba(255,255,255,0.8) 0) bottom 8px left 0 / 18px 5px,
-            linear-gradient(white 0 0) bottom 2px left 0 / 18px 6px,
-            linear-gradient(white 0 0) bottom 0 left 50% / 6px 12px;
-          background-repeat: no-repeat;
-          animation: loader-truck 2s infinite;
-        }
+  color: #ffffff;
 
-        @keyframes loader-fill {
-          0%, 25% { background-size: 50% 100%; }
-          25.1%, 75% { background-size: 0 0, 50% 100%; }
-          75.1%, 100% { background-size: 0 0, 0 0; }
-        }
+  border-left: 4px solid #22c55e;
+  border-right: 4px solid #22c55e;
 
-        @keyframes loader-truck {
-          25% { 
-            background-position: bottom, bottom 44px left 0, bottom 2px left 0, bottom 0 left 50%;
-            left: 0;
-          }
-          25.1% { 
-            background-position: bottom, bottom 8px left 0, bottom 2px left 0, bottom 0 left 50%;
-            left: 0;
-          }
-          50% { 
-            background-position: bottom, bottom 8px left 0, bottom 2px left 0, bottom 0 left 50%;
-            left: calc(100% - 18px);
-          }
-          75% { 
-            background-position: bottom, bottom 44px left 0, bottom 2px left 0, bottom 0 left 50%;
-            left: calc(100% - 18px);
-          }
-          75.1% { 
-            background-position: bottom, bottom 8px left 0, bottom 2px left 0, bottom 0 left 50%;
-            left: calc(100% - 18px);
-          }
-        }
+  background:
+    linear-gradient(#22c55e 0 0) left,
+    linear-gradient(#22c55e 0 0) right;
+
+  background-repeat: no-repeat;
+  background-size: 50% 100%;
+
+  border-radius: 10px;
+
+  box-shadow:
+    0 0 10px rgba(34,197,94,0.5),
+    0 0 25px rgba(34,197,94,0.3);
+
+  overflow: visible;
+
+  animation: loader-fill 2s infinite;
+}
+
+.loader-text::before {
+  content: "Loading";
+}
+
+.loader-truck {
+  position: absolute;
+  bottom: -20px;
+  left: 0;
+
+  width: 28px;
+  height: 14px;
+
+  border-radius: 4px;
+
+  background:
+    linear-gradient(#22c55e 0 0) left/18px 100% no-repeat,
+    linear-gradient(#16a34a 0 0) right/10px 70% no-repeat;
+
+  box-shadow:
+    0 0 10px rgba(34,197,94,0.7);
+
+  animation: loader-truck 2s infinite;
+}
+
+.loader-truck::before,
+.loader-truck::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+}
+
+.loader-truck::before {
+  left: 3px;
+}
+
+.loader-truck::after {
+  right: 3px;
+}
+
+@keyframes loader-fill {
+  0%, 25% {
+    background-size: 50% 100%, 0% 100%;
+  }
+
+  50% {
+    background-size: 0% 100%, 50% 100%;
+  }
+
+  75%, 100% {
+    background-size: 0% 100%, 0% 100%;
+  }
+}
+
+@keyframes loader-truck {
+  0% {
+    left: 0;
+  }
+
+  50% {
+    left: calc(100% - 28px);
+  }
+
+  100% {
+    left: 0;
+  }
+}
 
         /* ─── Responsive ───────────────────────────────────────────────── */
         @media (max-width: 968px) {
