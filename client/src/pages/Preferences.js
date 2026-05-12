@@ -1,29 +1,29 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 
 // ─── Reusable Components ───────────────────────────────────────────────────────
 
-const RangeSlider = ({ 
-  label, 
-  icon, 
-  value, 
-  min, 
-  max, 
-  step = 1, 
-  unit, 
+const RangeSlider = ({
+  label,
+  icon,
+  value,
+  min,
+  max,
+  step = 1,
+  unit,
   color = 'var(--primary-green)',
   onChange,
   formatLabel,
-  extraInfo
+  // removed unused extraInfo prop
 }) => {
   const percentage = ((value - min) / (max - min)) * 100;
 
   return (
     <div className="form-group">
-      <label style={{ 
-        fontWeight: '700', 
-        fontSize: '0.95rem', 
-        marginBottom: '1rem', 
+      <label style={{
+        fontWeight: '700',
+        fontSize: '0.95rem',
+        marginBottom: '1rem',
         display: 'flex',
         alignItems: 'center',
         gap: '0.5rem'
@@ -31,7 +31,7 @@ const RangeSlider = ({
         {icon && <span style={{ fontSize: '1.25rem' }}>{icon}</span>}
         {label}: <span style={{ color }}>{value} {unit}</span>
       </label>
-      
+
       <div style={{ position: 'relative' }}>
         <input
           type="range"
@@ -57,30 +57,27 @@ const RangeSlider = ({
         />
       </div>
 
-      {(formatLabel || extraInfo) && (
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+      {formatLabel && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
-          fontSize: '0.85rem', 
+          fontSize: '0.85rem',
           color: 'var(--text-light)',
           marginTop: '0.75rem'
         }}>
           <span>{min} {unit}</span>
-          {formatLabel && (
-            <span style={{ 
-              background: `${color}15`,
-              color: color,
-              padding: '0.3rem 0.85rem',
-              borderRadius: 'var(--radius-full)',
-              fontWeight: '600',
-              fontSize: '0.8rem',
-              border: `1.5px solid ${color}`
-            }}>
-              {formatLabel(value)}
-            </span>
-          )}
-          {extraInfo && <span>{extraInfo}</span>}
+          <span style={{
+            background: `${color}15`,
+            color: color,
+            padding: '0.3rem 0.85rem',
+            borderRadius: 'var(--radius-full)',
+            fontWeight: '600',
+            fontSize: '0.8rem',
+            border: `1.5px solid ${color}`
+          }}>
+            {formatLabel(value)}
+          </span>
           <span>{max} {unit}</span>
         </div>
       )}
@@ -161,13 +158,15 @@ const RadioGroup = ({ options, value, onChange, name }) => (
   </div>
 );
 
-const TransportModeCard = ({ mode, isSelected, onToggle }) => (
+const TransportModeCard = ({ mode, isSelected, onToggle, isOnlySelected }) => (
   <button
     onClick={onToggle}
     aria-pressed={isSelected}
+    // FIX: disable button (visually) when it's the last selected mode
+    title={isOnlySelected ? 'At least one transport mode must be selected' : undefined}
     style={{
       position: 'relative',
-      cursor: 'pointer',
+      cursor: isOnlySelected ? 'not-allowed' : 'pointer',
       padding: '1.5rem',
       border: `2.5px solid ${isSelected ? mode.color : 'var(--border-color)'}`,
       borderRadius: 'var(--radius-lg)',
@@ -175,9 +174,11 @@ const TransportModeCard = ({ mode, isSelected, onToggle }) => (
       transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
       textAlign: 'left',
       width: '100%',
-      outline: 'none'
+      outline: 'none',
+      opacity: isOnlySelected ? 0.6 : 1,
     }}
     onMouseEnter={(e) => {
+      if (isOnlySelected) return;
       e.currentTarget.style.transform = 'translateY(-4px)';
       e.currentTarget.style.boxShadow = 'var(--shadow-md)';
       if (!isSelected) e.currentTarget.style.borderColor = mode.color;
@@ -194,9 +195,9 @@ const TransportModeCard = ({ mode, isSelected, onToggle }) => (
       e.currentTarget.style.boxShadow = 'none';
     }}
   >
-    <span style={{ 
-      fontSize: '2.5rem', 
-      display: 'block', 
+    <span style={{
+      fontSize: '2.5rem',
+      display: 'block',
       marginBottom: '0.75rem',
       filter: isSelected ? 'none' : 'grayscale(0.3)'
     }}>
@@ -208,7 +209,7 @@ const TransportModeCard = ({ mode, isSelected, onToggle }) => (
     <div style={{ fontSize: '0.85rem', color: 'var(--text-light)', lineHeight: '1.4' }}>
       {mode.description}
     </div>
-    
+
     {isSelected && (
       <div style={{
         position: 'absolute',
@@ -240,9 +241,9 @@ const SectionCard = ({ icon, title, subtitle, children }) => (
         <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '700' }}>{title}</h3>
       </div>
       {subtitle && (
-        <p style={{ 
-          margin: '0.5rem 0 1.5rem 2.25rem', 
-          fontSize: '0.9rem', 
+        <p style={{
+          margin: '0.5rem 0 1.5rem 2.25rem',
+          fontSize: '0.9rem',
           color: 'var(--text-light)',
           lineHeight: '1.5'
         }}>
@@ -285,6 +286,43 @@ const Toast = ({ message, type }) => {
   );
 };
 
+// FIX: Inline confirm dialog replaces window.confirm (which is blocked in iframes
+// and is a jarring, synchronous UX pattern).
+const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
+  <div style={{
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(0,0,0,0.4)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2000,
+    animation: 'fadeIn 0.15s ease'
+  }}>
+    <div style={{
+      background: 'var(--bg-primary)',
+      borderRadius: 'var(--radius-lg)',
+      padding: '2rem',
+      maxWidth: '360px',
+      width: '90%',
+      boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+      animation: 'scaleIn 0.2s ease'
+    }}>
+      <p style={{ margin: '0 0 1.5rem', fontSize: '1rem', fontWeight: '600', lineHeight: '1.5' }}>
+        {message}
+      </p>
+      <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+        <button onClick={onCancel} className="btn btn-secondary" style={{ padding: '0.6rem 1.25rem' }}>
+          Cancel
+        </button>
+        <button onClick={onConfirm} className="btn btn-primary" style={{ padding: '0.6rem 1.25rem' }}>
+          Reset
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 // ─── Configuration ─────────────────────────────────────────────────────────────
 
 const TRANSPORT_MODES = [
@@ -301,7 +339,7 @@ const PRIORITY_OPTIONS = [
 ];
 
 const WEATHER_OPTIONS = [
-  { value: 'Low', label: 'Low', icon: '☀️', description: 'I'll travel in any weather' },
+  { value: 'Low', label: 'Low', icon: '☀️', description: 'I\'ll travel in any weather' },
   { value: 'Moderate', label: 'Moderate', icon: '🌤️', description: 'Some weather consideration' },
   { value: 'High', label: 'High', icon: '🌧️', description: 'Weather strongly influences my choice' }
 ];
@@ -321,17 +359,40 @@ const DEFAULT_PREFERENCES = {
 
 const Preferences = ({ user }) => {
   const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
-  const [originalPreferences, setOriginalPreferences] = useState(DEFAULT_PREFERENCES);
+  const [originalPreferences, setOriginalPreferences] = useState(null); // FIX: null sentinel so hasChanges stays false until load completes
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState({ message: '', type: 'success' });
+  const [confirmReset, setConfirmReset] = useState(false);
 
-  const hasChanges = useMemo(() => 
+  // FIX: use a ref for the toast timer to properly clear it on unmount,
+  // preventing a setState call on an unmounted component.
+  const toastTimerRef = useRef(null);
+
+  // FIX: hasChanges is false until originalPreferences is set (i.e., load finished).
+  // Previously both started as DEFAULT_PREFERENCES so hasChanges was always false on
+  // first render, hiding the save bar if the user edited before the API responded.
+  const hasChanges = useMemo(() =>
+    originalPreferences !== null &&
     JSON.stringify(preferences) !== JSON.stringify(originalPreferences),
     [preferences, originalPreferences]
   );
 
   // ── API Calls ────────────────────────────────────────────────────────────────
+
+  // FIX: showToast defined before useEffect so it can be listed as a dependency
+  // without triggering re-renders (stable reference via useCallback).
+  const showToast = useCallback((message, type = 'success') => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ message, type });
+    toastTimerRef.current = setTimeout(() => setToast({ message: '', type: 'success' }), 4000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchPreferences = async () => {
@@ -343,20 +404,15 @@ const Preferences = ({ user }) => {
       } catch (error) {
         console.error('Failed to fetch preferences:', error);
         showToast('Unable to load preferences. Using defaults.', 'error');
-        setOriginalPreferences(DEFAULT_PREFERENCES);
+        setOriginalPreferences(DEFAULT_PREFERENCES); // FIX: unblock hasChanges after failed load too
       } finally {
         setLoading(false);
       }
     };
     fetchPreferences();
-  }, []);
+  }, [showToast]); // FIX: showToast is now a stable dep — no stale closure
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
-
-  const showToast = useCallback((message, type = 'success') => {
-    setToast({ message, type });
-    setTimeout(() => setToast({ message: '', type: 'success' }), 4000);
-  }, []);
 
   const updatePreference = useCallback((field, value) => {
     setPreferences(prev => ({ ...prev, [field]: value }));
@@ -365,12 +421,17 @@ const Preferences = ({ user }) => {
   // ── Handlers ─────────────────────────────────────────────────────────────────
 
   const handleTransportToggle = useCallback((modeId) => {
-    setPreferences(prev => ({
-      ...prev,
-      transportModes: prev.transportModes.includes(modeId)
-        ? prev.transportModes.filter(m => m !== modeId)
-        : [...prev.transportModes, modeId]
-    }));
+    setPreferences(prev => {
+      const isCurrentlySelected = prev.transportModes.includes(modeId);
+      // FIX: prevent deselecting the last remaining mode
+      if (isCurrentlySelected && prev.transportModes.length === 1) return prev;
+      return {
+        ...prev,
+        transportModes: isCurrentlySelected
+          ? prev.transportModes.filter(m => m !== modeId)
+          : [...prev.transportModes, modeId]
+      };
+    });
   }, []);
 
   const handleSave = async () => {
@@ -389,16 +450,19 @@ const Preferences = ({ user }) => {
     }
   };
 
-  const handleReset = () => {
-    if (window.confirm('Reset all preferences to defaults?')) {
-      setPreferences(DEFAULT_PREFERENCES);
-    }
+  const handleReset = () => setConfirmReset(true);
+
+  const handleConfirmReset = () => {
+    setPreferences(DEFAULT_PREFERENCES);
+    setConfirmReset(false);
   };
 
+  // FIX: revoke the object URL after a small delay so Firefox has time to
+  // initiate the download before the blob is released.
   const handleExport = () => {
     try {
       const blob = new Blob(
-        [JSON.stringify(preferences, null, 2)], 
+        [JSON.stringify(preferences, null, 2)],
         { type: 'application/json' }
       );
       const url = URL.createObjectURL(blob);
@@ -408,7 +472,7 @@ const Preferences = ({ user }) => {
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 100); // FIX: deferred revoke
       showToast('📦 Settings exported successfully', 'success');
     } catch (error) {
       showToast('Export failed', 'error');
@@ -421,8 +485,8 @@ const Preferences = ({ user }) => {
 
   if (loading) {
     return (
-      <div style={{ 
-        padding: '4rem 2rem', 
+      <div style={{
+        padding: '4rem 2rem',
         textAlign: 'center',
         display: 'flex',
         flexDirection: 'column',
@@ -441,6 +505,14 @@ const Preferences = ({ user }) => {
 
   return (
     <div style={{ paddingBottom: '120px' }}>
+      {confirmReset && (
+        <ConfirmDialog
+          message="Reset all preferences to defaults? This cannot be undone."
+          onConfirm={handleConfirmReset}
+          onCancel={() => setConfirmReset(false)}
+        />
+      )}
+
       {/* Header */}
       <div style={{ padding: '0 2rem', marginBottom: '2rem' }}>
         <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.75rem', fontWeight: '800' }}>
@@ -458,21 +530,27 @@ const Preferences = ({ user }) => {
         <SectionCard
           icon="🚗"
           title="Transport Modes"
-          subtitle="Select your preferred ways to travel. We'll prioritize these in route suggestions."
+          subtitle="Select your preferred ways to travel. At least one must be active."
         >
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', 
-            gap: '1rem' 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+            gap: '1rem'
           }}>
-            {TRANSPORT_MODES.map(mode => (
-              <TransportModeCard
-                key={mode.id}
-                mode={mode}
-                isSelected={preferences.transportModes.includes(mode.id)}
-                onToggle={() => handleTransportToggle(mode.id)}
-              />
-            ))}
+            {TRANSPORT_MODES.map(mode => {
+              const isSelected = preferences.transportModes.includes(mode.id);
+              // FIX: pass isOnlySelected so card can disable itself
+              const isOnlySelected = isSelected && preferences.transportModes.length === 1;
+              return (
+                <TransportModeCard
+                  key={mode.id}
+                  mode={mode}
+                  isSelected={isSelected}
+                  isOnlySelected={isOnlySelected}
+                  onToggle={() => handleTransportToggle(mode.id)}
+                />
+              );
+            })}
           </div>
         </SectionCard>
 
@@ -482,10 +560,10 @@ const Preferences = ({ user }) => {
           title="Route Priorities"
           subtitle="Tell us what matters most when planning your routes."
         >
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-            gap: '2rem' 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '2rem'
           }}>
             <div>
               <h4 style={{ margin: '0 0 1rem', fontSize: '0.95rem', fontWeight: '700', color: 'var(--text-primary)' }}>
@@ -519,10 +597,10 @@ const Preferences = ({ user }) => {
           title="Distance Comfort Zones"
           subtitle="Set your maximum distances for walking and cycling routes."
         >
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
-            gap: '2rem' 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gap: '2rem'
           }}>
             <RangeSlider
               icon="🚶"
@@ -568,7 +646,7 @@ const Preferences = ({ user }) => {
             onChange={(val) => updatePreference('monthlyGoal', val)}
           />
 
-          <div style={{ 
+          <div style={{
             marginTop: '1.5rem',
             background: 'linear-gradient(135deg, var(--primary-green), var(--primary-green-light))',
             color: 'white',
@@ -599,17 +677,17 @@ const Preferences = ({ user }) => {
           title="Saved Locations"
           subtitle="Save your most frequent destinations for quick route planning."
         >
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-            gap: '1.25rem' 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '1.25rem'
           }}>
             <div className="form-group">
-              <label style={{ 
-                fontWeight: '700', 
-                marginBottom: '0.5rem', 
-                display: 'flex', 
-                alignItems: 'center', 
+              <label style={{
+                fontWeight: '700',
+                marginBottom: '0.5rem',
+                display: 'flex',
+                alignItems: 'center',
                 gap: '0.5rem',
                 fontSize: '0.9rem'
               }}>
@@ -629,11 +707,11 @@ const Preferences = ({ user }) => {
             </div>
 
             <div className="form-group">
-              <label style={{ 
-                fontWeight: '700', 
-                marginBottom: '0.5rem', 
-                display: 'flex', 
-                alignItems: 'center', 
+              <label style={{
+                fontWeight: '700',
+                marginBottom: '0.5rem',
+                display: 'flex',
+                alignItems: 'center',
                 gap: '0.5rem',
                 fontSize: '0.9rem'
               }}>
@@ -656,15 +734,15 @@ const Preferences = ({ user }) => {
 
         {/* Quick Actions */}
         <SectionCard icon="⚡" title="Quick Actions">
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-            gap: '1rem' 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '1rem'
           }}>
             <button
               onClick={handleReset}
               className="btn btn-secondary"
-              style={{ 
+              style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'flex-start',
@@ -687,7 +765,7 @@ const Preferences = ({ user }) => {
             <button
               onClick={handleExport}
               className="btn btn-secondary"
-              style={{ 
+              style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'flex-start',
@@ -716,6 +794,7 @@ const Preferences = ({ user }) => {
           position: 'fixed',
           bottom: '2rem',
           left: '50%',
+          // FIX: animation starts from the correct position — no flicker
           transform: 'translateX(-50%)',
           background: 'var(--bg-primary)',
           border: '2px solid var(--primary-green)',
@@ -726,12 +805,12 @@ const Preferences = ({ user }) => {
           gap: '1.5rem',
           boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
           zIndex: 1000,
-          animation: 'slideUp 0.3s ease',
+          animation: 'savebar-in 0.3s ease forwards',
           maxWidth: 'calc(100vw - 4rem)'
         }}>
-          <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
             gap: '0.75rem',
             fontSize: '0.9rem',
             fontWeight: '600',
@@ -752,7 +831,7 @@ const Preferences = ({ user }) => {
               onClick={handleCancel}
               className="btn btn-secondary"
               disabled={saving}
-              style={{ 
+              style={{
                 padding: '0.6rem 1.25rem',
                 fontSize: '0.9rem',
                 minWidth: '90px'
@@ -764,7 +843,7 @@ const Preferences = ({ user }) => {
               onClick={handleSave}
               className="btn btn-primary"
               disabled={saving}
-              style={{ 
+              style={{
                 padding: '0.6rem 1.5rem',
                 fontSize: '0.9rem',
                 minWidth: '140px',
@@ -785,7 +864,8 @@ const Preferences = ({ user }) => {
       )}
 
       <style>{`
-        @keyframes slideUp {
+        /* FIX: savebar-in keyframe keeps translateX(-50%) throughout to avoid flicker */
+        @keyframes savebar-in {
           from {
             opacity: 0;
             transform: translateX(-50%) translateY(20px);
@@ -797,27 +877,22 @@ const Preferences = ({ user }) => {
         }
 
         @keyframes scaleIn {
-          from {
-            transform: scale(0);
-          }
-          to {
-            transform: scale(1);
-          }
+          from { transform: scale(0); }
+          to   { transform: scale(1); }
         }
-        
+
         @keyframes pulse {
-          0%, 100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.5;
-          }
+          0%, 100% { opacity: 1; }
+          50%       { opacity: 0.5; }
         }
-        
-        input[type="range"] {
-          -webkit-appearance: none;
+
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
         }
-        
+
+        input[type="range"] { -webkit-appearance: none; }
+
         input[type="range"]::-webkit-slider-thumb {
           -webkit-appearance: none;
           width: 20px;
@@ -828,16 +903,14 @@ const Preferences = ({ user }) => {
           box-shadow: 0 2px 8px rgba(0,0,0,0.15);
           transition: transform 0.2s ease, box-shadow 0.2s ease;
         }
-        
+
         input[type="range"]::-webkit-slider-thumb:hover {
           transform: scale(1.15);
           box-shadow: 0 3px 12px rgba(16, 185, 129, 0.4);
         }
 
-        input[type="range"]::-webkit-slider-thumb:active {
-          transform: scale(1.05);
-        }
-        
+        input[type="range"]::-webkit-slider-thumb:active { transform: scale(1.05); }
+
         input[type="range"]::-moz-range-thumb {
           width: 20px;
           height: 20px;
@@ -848,14 +921,10 @@ const Preferences = ({ user }) => {
           box-shadow: 0 2px 8px rgba(0,0,0,0.15);
           transition: transform 0.2s ease;
         }
-        
-        input[type="range"]::-moz-range-thumb:hover {
-          transform: scale(1.15);
-        }
 
-        input[type="range"]:focus {
-          outline: none;
-        }
+        input[type="range"]::-moz-range-thumb:hover { transform: scale(1.15); }
+
+        input[type="range"]:focus { outline: none; }
 
         input[type="range"]:focus::-webkit-slider-thumb {
           box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
