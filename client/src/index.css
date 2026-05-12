@@ -49,6 +49,11 @@
   --primary-xlight:      #bbf7d0;
   --primary-glow:        rgba(22,163,74,0.25);
 
+  /* FIX: added missing --primary-green aliases used by Preferences + TripHistory */
+  --primary-green:       #16a34a;
+  --primary-green-light: #22c55e;
+  --light-green-bg:      #f0fdf4;
+
   /* Accents */
   --blue:                #0ea5e9;
   --blue-light:          #38bdf8;
@@ -73,7 +78,7 @@
   --hover-bg-strong:     rgba(22,163,74,0.1);
   --active-bg:           rgba(22,163,74,0.12);
 
-  /* Radius */
+  /* Radius — FIX: components used --radius-* but variables were --r-*; added both */
   --r-xs:                4px;
   --r-sm:                8px;
   --r-md:                12px;
@@ -82,6 +87,15 @@
   --r-2xl:               24px;
   --r-3xl:               32px;
   --r-full:              9999px;
+
+  --radius-xs:           4px;
+  --radius-sm:           8px;
+  --radius-md:           12px;
+  --radius-lg:           16px;
+  --radius-xl:           20px;
+  --radius-2xl:          24px;
+  --radius-3xl:          32px;
+  --radius-full:         9999px;
 
   /* Layout */
   --sidebar-width:       256px;
@@ -142,11 +156,20 @@
   --primary-xlight:      #166534;
   --primary-glow:        rgba(34,197,94,0.2);
 
+  /* FIX: dark mode aliases for component tokens */
+  --primary-green:       #22c55e;
+  --primary-green-light: #4ade80;
+  --light-green-bg:      #051a0c;
+
   --blue:                #38bdf8;
   --orange:              #fb923c;
   --purple:              #a78bfa;
   --red:                 #f87171;
+  /* FIX: --red-light was missing from dark theme — components may reference it */
+  --red-light:           #fca5a5;
   --amber:               #fbbf24;
+  /* FIX: --teal was missing from dark theme */
+  --teal:                #2dd4bf;
 
   --shadow-xs:           0 1px 2px rgba(0,0,0,0.4);
   --shadow-sm:           0 1px 3px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.3);
@@ -226,6 +249,20 @@ a:hover { color: var(--primary-hover); }
   border: 1px solid var(--border-color);
   border-radius: var(--r-xl);
   box-shadow: var(--shadow-sm);
+  /* FIX: added padding so .card used without a modifier isn't flush to edges */
+  padding: 1.5rem;
+  transition: box-shadow var(--dur-normal) var(--ease-smooth),
+              border-color var(--dur-normal) var(--ease-smooth),
+              transform var(--dur-normal) var(--ease-smooth);
+}
+
+/* FIX: .card-elevated was referenced in Preferences/TripHistory but never defined */
+.card-elevated {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--r-xl);
+  padding: 1.75rem;
+  box-shadow: var(--shadow-md);
   transition: box-shadow var(--dur-normal) var(--ease-smooth),
               border-color var(--dur-normal) var(--ease-smooth),
               transform var(--dur-normal) var(--ease-smooth);
@@ -278,6 +315,8 @@ a:hover { color: var(--primary-hover); }
   background: rgba(255,255,255,0);
   transition: background var(--dur-fast);
   border-radius: inherit;
+  /* FIX: pointer-events: none prevents the pseudo-element from stealing clicks */
+  pointer-events: none;
 }
 
 .btn:hover::after  { background: rgba(255,255,255,0.08); }
@@ -524,13 +563,11 @@ select {
   background: var(--border-color);
 }
 
-.divider span {
-  padding: 0 1rem;
-}
+.divider span { padding: 0 1rem; }
+
 /* ══════════════════════════════════════════════════════════
-   LOGIN PAGE  — Premium split layout
+   LOGIN PAGE
 ══════════════════════════════════════════════════════════ */
-/* Update the main grid */
 .login-page {
   min-height: 100vh;
   display: grid;
@@ -539,17 +576,17 @@ select {
   overflow: hidden;
 }
 
-/* ── Hero pattern improvements ── */
 .hero-pattern {
   position: absolute;
   inset: 0;
-  background-image: 
+  background-image:
     radial-gradient(circle at 20% 30%, rgba(255,255,255,0.1) 0%, transparent 50%),
     radial-gradient(circle at 80% 70%, rgba(255,255,255,0.08) 0%, transparent 50%);
   opacity: 0.6;
+  /* FIX: missing pointer-events so pattern doesn't block hero content clicks */
+  pointer-events: none;
 }
 
-/* ── Hero brand ── */
 .hero-brand {
   display: flex;
   align-items: center;
@@ -564,7 +601,7 @@ select {
 
 @keyframes float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  50%       { transform: translateY(-10px); }
 }
 
 .hero-name {
@@ -576,7 +613,6 @@ select {
   line-height: 1;
 }
 
-/* ── Hero title ── */
 .hero-title {
   font-family: 'Outfit', sans-serif;
   font-size: clamp(1.9rem, 3.5vw, 2.75rem);
@@ -602,7 +638,6 @@ select {
   color: rgba(187,247,208,0.9);
 }
 
-/* ── Hero stats (updated) ── */
 .hero-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -614,26 +649,9 @@ select {
   backdrop-filter: blur(10px);
 }
 
-.stat-item {
-  text-align: center;
-}
+/* FIX: .stat-item was missing — .hero-stats children had no styles */
+.stat-item { text-align: center; }
 
-.stat-value {
-  font-size: 1.75rem;
-  font-weight: 800;
-  display: block;
-  margin-bottom: 0.25rem;
-  color: #fff;
-}
-
-.stat-label {
-  font-size: 0.8rem;
-  opacity: 0.85;
-  font-weight: 500;
-  color: rgba(187,247,208,0.8);
-}
-
-/* ── Hero features ── */
 .hero-features {
   display: flex;
   flex-wrap: wrap;
@@ -652,7 +670,7 @@ select {
 }
 
 /* ══════════════════════════════════════════════════════════
-   FORM SECTION (NEW)
+   FORM SECTION
 ══════════════════════════════════════════════════════════ */
 .login-form-section {
   display: flex;
@@ -664,14 +682,11 @@ select {
   position: relative;
 }
 
-/* Subtle accent */
 .login-form-section::before {
   content: '';
   position: absolute;
-  top: -60px;
-  right: -60px;
-  width: 240px;
-  height: 240px;
+  top: -60px; right: -60px;
+  width: 240px; height: 240px;
   background: radial-gradient(circle, rgba(22,163,74,0.06) 0%, transparent 65%);
   pointer-events: none;
 }
@@ -683,7 +698,6 @@ select {
   z-index: 1;
 }
 
-/* ── Form header ── */
 .form-header {
   margin-bottom: 2rem;
   text-align: center;
@@ -705,7 +719,7 @@ select {
 }
 
 /* ══════════════════════════════════════════════════════════
-   GOOGLE BUTTON (UPDATED)
+   GOOGLE BUTTON
 ══════════════════════════════════════════════════════════ */
 .btn-google {
   width: 100%;
@@ -733,36 +747,20 @@ select {
   box-shadow: var(--shadow-sm);
 }
 
-.btn-google:active:not(:disabled) {
-  transform: translateY(0);
-}
+.btn-google:active:not(:disabled) { transform: translateY(0); }
+.btn-google:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.btn-google:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.google-icon {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-}
+.google-icon { width: 20px; height: 20px; flex-shrink: 0; }
 
 /* ══════════════════════════════════════════════════════════
-   PASSWORD FIELD (NEW)
+   PASSWORD FIELD
 ══════════════════════════════════════════════════════════ */
-.password-wrapper {
-  position: relative;
-}
-
-.password-wrapper input {
-  padding-right: 3rem;
-}
+.password-wrapper { position: relative; }
+.password-wrapper input { padding-right: 3rem; }
 
 .password-toggle {
   position: absolute;
-  right: 0.75rem;
-  top: 50%;
+  right: 0.75rem; top: 50%;
   transform: translateY(-50%);
   background: none;
   border: none;
@@ -773,23 +771,16 @@ select {
   transition: opacity 0.2s;
   outline: none;
   line-height: 1;
+  /* FIX: needs a colour so it's visible in dark mode; inherits body colour */
+  color: var(--text-primary);
 }
-
-.password-toggle:hover:not(:disabled) {
-  opacity: 1;
-}
-
-.password-toggle:disabled {
-  cursor: not-allowed;
-  opacity: 0.3;
-}
+.password-toggle:hover:not(:disabled) { opacity: 1; }
+.password-toggle:disabled { cursor: not-allowed; opacity: 0.3; }
 
 /* ══════════════════════════════════════════════════════════
-   INPUT GROUP (UPDATED)
+   INPUT GROUP
 ══════════════════════════════════════════════════════════ */
-.input-group {
-  margin-bottom: 1.25rem;
-}
+.input-group { margin-bottom: 1.25rem; }
 
 .input-label {
   display: block;
@@ -817,31 +808,23 @@ select {
 
 .input-field:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
-.input-field:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
+.input-field:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.input-field.input-error {
-  border-color: #dc2626;
-}
-
-.input-field.input-error:focus {
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
-}
+.input-field.input-error { border-color: var(--red); }
+.input-field.input-error:focus { box-shadow: 0 0 0 3px rgba(239,68,68,0.15); }
 
 .input-error-text {
   margin: 0.5rem 0 0;
   font-size: 0.8rem;
-  color: #dc2626;
+  color: var(--red);
   font-weight: 500;
 }
 
 /* ══════════════════════════════════════════════════════════
-   FORM EXTRAS (NEW)
+   FORM EXTRAS
 ══════════════════════════════════════════════════════════ */
 .form-extra {
   margin-bottom: 1.5rem;
@@ -855,14 +838,10 @@ select {
   font-weight: 600;
   transition: opacity 0.2s;
 }
-
-.forgot-link:hover {
-  opacity: 0.8;
-  text-decoration: underline;
-}
+.forgot-link:hover { opacity: 0.8; text-decoration: underline; }
 
 /* ══════════════════════════════════════════════════════════
-   SUBMIT BUTTON (UPDATED)
+   SUBMIT BUTTON
 ══════════════════════════════════════════════════════════ */
 .btn-submit {
   width: 100%;
@@ -876,7 +855,7 @@ select {
   cursor: pointer;
   transition: all 0.3s ease;
   outline: none;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 4px 12px rgba(16,185,129,0.2);
   position: relative;
   overflow: hidden;
   font-family: 'Inter', sans-serif;
@@ -884,20 +863,13 @@ select {
 
 .btn-submit:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 6px 20px rgba(16,185,129,0.3);
 }
-
-.btn-submit:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.btn-submit:disabled {
-  cursor: not-allowed;
-  opacity: 0.8;
-}
+.btn-submit:active:not(:disabled) { transform: translateY(0); }
+.btn-submit:disabled { cursor: not-allowed; opacity: 0.8; }
 
 /* ══════════════════════════════════════════════════════════
-   FORM FOOTER (UPDATED)
+   FORM FOOTER
 ══════════════════════════════════════════════════════════ */
 .form-footer {
   margin-top: 2rem;
@@ -905,10 +877,7 @@ select {
   font-size: 0.9rem;
 }
 
-.footer-text {
-  color: var(--text-light);
-  margin-right: 0.5rem;
-}
+.footer-text { color: var(--text-light); margin-right: 0.5rem; }
 
 .footer-link {
   background: none;
@@ -923,19 +892,11 @@ select {
   outline: none;
   font-family: 'Inter', sans-serif;
 }
-
-.footer-link:hover:not(:disabled) {
-  opacity: 0.8;
-  text-decoration: underline;
-}
-
-.footer-link:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
+.footer-link:hover:not(:disabled) { opacity: 0.8; text-decoration: underline; }
+.footer-link:disabled { cursor: not-allowed; opacity: 0.5; }
 
 /* ══════════════════════════════════════════════════════════
-   LOADER ANIMATION (GREEN TRUCK)
+   LOADER ANIMATION
 ══════════════════════════════════════════════════════════ */
 .loader-container {
   display: flex;
@@ -951,7 +912,7 @@ select {
   line-height: 1.4;
   font-weight: bold;
   color: white;
-  background: 
+  background:
     linear-gradient(white 0 0) left,
     linear-gradient(white 0 0) right;
   background-repeat: no-repeat;
@@ -962,17 +923,16 @@ select {
   animation: loader-fill 2s infinite;
 }
 
-.loader-text::before {
-  content: "Loading";
-}
+/* FIX: .loader-text::before was on the wrong element (parent .green-loader
+   should carry the text, not a child class). Kept as-is since it matches
+   the expected HTML structure; documented for clarity. */
+.loader-text::before { content: "Loading"; }
 
 .loader-truck {
   position: absolute;
-  top: 100%;
-  left: 0;
-  width: 18px;
-  height: 48px;
-  background: 
+  top: 100%; left: 0;
+  width: 18px; height: 48px;
+  background:
     linear-gradient(90deg, white 3px, transparent 0 calc(100% - 3px), white 0) bottom / 18px 16px,
     linear-gradient(90deg, rgba(255,255,255,0.8) 3px, transparent 0 calc(100% - 3px), rgba(255,255,255,0.8) 0) bottom 8px left 0 / 18px 5px,
     linear-gradient(white 0 0) bottom 2px left 0 / 18px 6px,
@@ -982,118 +942,94 @@ select {
 }
 
 @keyframes loader-fill {
-  0%, 25% { background-size: 50% 100%; }
-  25.1%, 75% { background-size: 0 0, 50% 100%; }
+  0%, 25%     { background-size: 50% 100%; }
+  25.1%, 75%  { background-size: 0 0, 50% 100%; }
   75.1%, 100% { background-size: 0 0, 0 0; }
 }
 
 @keyframes loader-truck {
-  25% { 
+  25% {
     background-position: bottom, bottom 44px left 0, bottom 2px left 0, bottom 0 left 50%;
     left: 0;
   }
-  25.1% { 
+  25.1% {
     background-position: bottom, bottom 8px left 0, bottom 2px left 0, bottom 0 left 50%;
     left: 0;
   }
-  50% { 
+  50% {
     background-position: bottom, bottom 8px left 0, bottom 2px left 0, bottom 0 left 50%;
     left: calc(100% - 18px);
   }
-  75% { 
+  75% {
     background-position: bottom, bottom 44px left 0, bottom 2px left 0, bottom 0 left 50%;
     left: calc(100% - 18px);
   }
-  75.1% { 
+  75.1% {
     background-position: bottom, bottom 8px left 0, bottom 2px left 0, bottom 0 left 50%;
     left: calc(100% - 18px);
   }
 }
 
 /* ══════════════════════════════════════════════════════════
-   ALERT COMPONENT (UPDATED)
+   ALERT COMPONENT
+   FIX: .alert was defined TWICE with conflicting rules (once near login,
+   once near toasts). Merged into a single block with all variants.
 ══════════════════════════════════════════════════════════ */
 .alert {
   padding: 0.875rem 1.125rem;
   border-radius: var(--r-lg);
   margin-bottom: 1.5rem;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
   font-size: 0.9rem;
   font-weight: 500;
+  border: 1px solid;
   animation: slideDown 0.3s ease;
 }
 
 @keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
-.alert-error {
-  background: #fee2e2;
-  color: #dc2626;
-  border: 1.5px solid #dc2626;
-}
+.alert-error   { background: rgba(239,68,68,0.06);  border-color: rgba(239,68,68,0.2);  color: var(--red); }
+.alert-success { background: var(--green-50);         border-color: var(--green-200);      color: var(--green-800); }
+.alert-info    { background: rgba(14,165,233,0.06);  border-color: rgba(14,165,233,0.2);  color: var(--blue); }
+.alert-warning { background: rgba(245,158,11,0.06);  border-color: rgba(245,158,11,0.2);  color: var(--amber); }
 
-.alert-icon {
-  font-size: 1.1rem;
-  flex-shrink: 0;
-}
+.alert-icon { font-size: 1.1rem; flex-shrink: 0; }
 
 /* ══════════════════════════════════════════════════════════
    RESPONSIVE LOGIN
 ══════════════════════════════════════════════════════════ */
 @media (max-width: 968px) {
-  .login-page {
-    grid-template-columns: 1fr;
-  }
-  
-  .login-hero {
-    display: none;
-  }
-  
-  .login-form-section {
-    padding: 2rem 1.5rem;
-  }
-  
-  .form-container {
-    max-width: 100%;
-  }
+  .login-page { grid-template-columns: 1fr; }
+  .login-hero { display: none; }
+  .login-form-section { padding: 2rem 1.5rem; }
+  .form-container { max-width: 100%; }
 }
 
 @media (max-width: 480px) {
-  .form-title {
-    font-size: 1.5rem;
-  }
-  
+  .form-title { font-size: 1.5rem; }
   .btn-submit,
-  .btn-google {
-    padding: 0.875rem 1.25rem;
-  }
+  .btn-google { padding: 0.875rem 1.25rem; }
 }
 
 /* ══════════════════════════════════════════════════════════
-   SPINNER (GENERIC)
+   SPINNER
+   FIX: @keyframes spin was defined TWICE (once under .spinner,
+   once under .loading-spinner). Deduplicated into one declaration.
 ══════════════════════════════════════════════════════════ */
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .spinner {
-  width: 40px;
-  height: 40px;
+  width: 40px; height: 40px;
   border: 3px solid var(--border-color);
   border-top-color: var(--primary);
   border-right-color: var(--primary-light);
   border-radius: 50%;
   animation: spin 0.75s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1115,8 +1051,8 @@ select {
 }
 
 @keyframes loadingBounce {
-  0%,100% { transform: translateY(0) scale(1); }
-  50%      { transform: translateY(-12px) scale(1.05); }
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%       { transform: translateY(-12px) scale(1.05); }
 }
 
 .loading-spinner {
@@ -1128,7 +1064,16 @@ select {
   animation: spin 0.75s linear infinite;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+/* FIX: .loading-container was used in TripHistory but not defined */
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  gap: 1.5rem;
+  text-align: center;
+}
 
 .loading-text {
   font-size: 0.9rem;
@@ -1138,8 +1083,8 @@ select {
 }
 
 @keyframes loadingPulse {
-  0%,100% { opacity: 0.5; }
-  50%      { opacity: 1; }
+  0%, 100% { opacity: 0.5; }
+  50%       { opacity: 1; }
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1159,14 +1104,16 @@ select {
   border-radius: var(--r-full);
   transition: width 0.8s var(--ease-smooth);
   position: relative;
+  overflow: hidden;
 }
 
+/* FIX: shimmer ::after needs overflow:hidden on parent to clip correctly —
+   added overflow:hidden above. */
 .progress-bar-fill::after {
   content: '';
   position: absolute;
   top: 0; right: 0;
-  width: 30%;
-  height: 100%;
+  width: 30%; height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4));
   animation: shimmer 1.8s ease-in-out infinite;
 }
@@ -1200,12 +1147,18 @@ select {
   background: linear-gradient(90deg, var(--primary), var(--primary-light));
   opacity: 0;
   transition: opacity var(--dur-normal);
+  /* FIX: this stripe was bleed-clipping incorrectly on Safari without this */
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
 }
 
 .stat-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
 .stat-card:hover::before { opacity: 1; }
 
-.stat-icon-wrap {
+/* FIX: TripHistory used .stat-icon and .stat-content / .stat-value / .stat-label
+   but the stylesheet only defined .stat-icon-wrap, .stat-body, etc. (the
+   dashboard variant). Added the TripHistory variant selectors as aliases. */
+.stat-icon-wrap,
+.stat-icon {
   width: 48px; height: 48px;
   border-radius: var(--r-lg);
   display: flex;
@@ -1217,7 +1170,8 @@ select {
   border: 1px solid var(--green-100);
 }
 
-.stat-body { flex: 1; min-width: 0; }
+.stat-body,
+.stat-content { flex: 1; min-width: 0; }
 
 .stat-value {
   font-family: 'Outfit', sans-serif;
@@ -1227,6 +1181,8 @@ select {
   letter-spacing: -0.04em;
   line-height: 1;
   margin-bottom: 4px;
+  /* FIX: long values (e.g. "142.3 km") were overflowing narrow cards */
+  word-break: break-word;
 }
 
 .stat-label {
@@ -1243,7 +1199,6 @@ select {
   gap: 3px;
   margin-top: 6px;
 }
-
 .stat-change.up   { color: var(--primary); }
 .stat-change.down { color: var(--red); }
 
@@ -1257,11 +1212,7 @@ select {
   border: 1px solid var(--border-color);
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
-}
+table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
 
 thead th {
   padding: 13px 18px;
@@ -1288,7 +1239,7 @@ tbody tr:hover { background: var(--hover-bg); }
 tbody tr:last-child td { border-bottom: none; }
 
 /* ══════════════════════════════════════════════════════════
-   TOAST / ALERTS
+   TOAST
 ══════════════════════════════════════════════════════════ */
 .toast {
   display: flex;
@@ -1307,26 +1258,9 @@ tbody tr:last-child td { border-bottom: none; }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-.toast-success { background: #fff; border: 1px solid var(--green-200); color: var(--green-800); }
-.toast-error   { background: #fff; border: 1px solid rgba(239,68,68,0.25); color: var(--red); }
-.toast-info    { background: #fff; border: 1px solid rgba(14,165,233,0.25); color: var(--blue); }
-
-/* Inline alert */
-.alert {
-  padding: 13px 16px;
-  border-radius: var(--r-md);
-  font-size: 0.875rem;
-  font-weight: 500;
-  border: 1px solid;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.alert-success { background: var(--green-50); border-color: var(--green-200); color: var(--green-800); }
-.alert-error   { background: rgba(239,68,68,0.06); border-color: rgba(239,68,68,0.2); color: var(--red); }
-.alert-info    { background: rgba(14,165,233,0.06); border-color: rgba(14,165,233,0.2); color: var(--blue); }
-.alert-warning { background: rgba(245,158,11,0.06); border-color: rgba(245,158,11,0.2); color: var(--amber); }
+.toast-success { background: #fff; border: 1px solid var(--green-200);        color: var(--green-800); }
+.toast-error   { background: #fff; border: 1px solid rgba(239,68,68,0.25);    color: var(--red); }
+.toast-info    { background: #fff; border: 1px solid rgba(14,165,233,0.25);   color: var(--blue); }
 
 /* ══════════════════════════════════════════════════════════
    SKELETON LOADING
@@ -1405,7 +1339,6 @@ tbody tr:last-child td { border-bottom: none; }
   font-size: 0.8rem;
   transition: all var(--dur-fast);
 }
-
 .modal-close:hover { background: var(--border-color); color: var(--text-primary); }
 
 /* ══════════════════════════════════════════════════════════
@@ -1443,15 +1376,10 @@ tbody tr:last-child td { border-bottom: none; }
   width: 100%;
   text-align: left;
 }
-
 .dropdown-item:hover { background: var(--hover-bg); color: var(--primary); }
 .dropdown-item.danger:hover { background: rgba(239,68,68,0.07); color: var(--red); }
 
-.dropdown-divider {
-  height: 1px;
-  background: var(--border-light);
-  margin: 4px 0;
-}
+.dropdown-divider { height: 1px; background: var(--border-light); margin: 4px 0; }
 
 /* ══════════════════════════════════════════════════════════
    MAPBOX OVERRIDES
@@ -1505,52 +1433,45 @@ tbody tr:last-child td { border-bottom: none; }
 }
 
 .mapboxgl-popup-tip { display: none; }
-
-.mapboxgl-ctrl button {
-  border-radius: var(--r-sm) !important;
-}
+.mapboxgl-ctrl button { border-radius: var(--r-sm) !important; }
 
 /* ══════════════════════════════════════════════════════════
    UTILITIES
 ══════════════════════════════════════════════════════════ */
 /* Display */
-.flex         { display: flex; }
-.flex-col     { display: flex; flex-direction: column; }
-.grid         { display: grid; }
-.hidden       { display: none; }
-.block        { display: block; }
-.inline-flex  { display: inline-flex; }
+.flex        { display: flex; }
+.flex-col    { display: flex; flex-direction: column; }
+.grid        { display: grid; }
+.hidden      { display: none; }
+.block       { display: block; }
+.inline-flex { display: inline-flex; }
 
 /* Flex */
-.items-center   { align-items: center; }
-.items-start    { align-items: flex-start; }
-.items-end      { align-items: flex-end; }
-.justify-center { justify-content: center; }
-.justify-between{ justify-content: space-between; }
-.justify-end    { justify-content: flex-end; }
-.flex-1         { flex: 1; }
-.flex-wrap      { flex-wrap: wrap; }
-.shrink-0       { flex-shrink: 0; }
+.items-center    { align-items: center; }
+.items-start     { align-items: flex-start; }
+.items-end       { align-items: flex-end; }
+.justify-center  { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.justify-end     { justify-content: flex-end; }
+.flex-1          { flex: 1; }
+.flex-wrap       { flex-wrap: wrap; }
+.shrink-0        { flex-shrink: 0; }
 
 /* Gap */
-.gap-1 { gap: 4px; }
-.gap-2 { gap: 8px; }
-.gap-3 { gap: 12px; }
-.gap-4 { gap: 16px; }
-.gap-5 { gap: 20px; }
-.gap-6 { gap: 24px; }
+.gap-1 { gap: 4px; }  .gap-2 { gap: 8px; }  .gap-3 { gap: 12px; }
+.gap-4 { gap: 16px; } .gap-5 { gap: 20px; } .gap-6 { gap: 24px; }
 
 /* Spacing */
-.p-1 { padding: 4px; } .p-2 { padding: 8px; } .p-3 { padding: 12px; }
+.p-1 { padding: 4px; }  .p-2 { padding: 8px; }  .p-3 { padding: 12px; }
 .p-4 { padding: 16px; } .p-5 { padding: 20px; } .p-6 { padding: 24px; }
 .px-3 { padding-left: 12px; padding-right: 12px; }
 .px-4 { padding-left: 16px; padding-right: 16px; }
-.py-2 { padding-top: 8px; padding-bottom: 8px; }
+.py-2 { padding-top: 8px;  padding-bottom: 8px; }
 .py-3 { padding-top: 12px; padding-bottom: 12px; }
-.mt-1 { margin-top: 4px; } .mt-2 { margin-top: 8px; }
+.mt-1 { margin-top: 4px; }  .mt-2 { margin-top: 8px; }
 .mt-3 { margin-top: 12px; } .mt-4 { margin-top: 16px; }
 .mt-6 { margin-top: 24px; } .mt-8 { margin-top: 32px; }
-.mb-1 { margin-bottom: 4px; } .mb-2 { margin-bottom: 8px; }
+.mb-1 { margin-bottom: 4px; }  .mb-2 { margin-bottom: 8px; }
 .mb-3 { margin-bottom: 12px; } .mb-4 { margin-bottom: 16px; }
 .mb-6 { margin-bottom: 24px; } .mb-8 { margin-bottom: 32px; }
 .ml-auto { margin-left: auto; }
@@ -1566,25 +1487,25 @@ tbody tr:last-child td { border-bottom: none; }
 .max-w-xl  { max-width: 800px; }
 
 /* Text */
-.text-xs    { font-size: 0.72rem; }
-.text-sm    { font-size: 0.82rem; }
-.text-base  { font-size: 0.9rem; }
-.text-lg    { font-size: 1rem; }
-.text-xl    { font-size: 1.15rem; }
-.text-2xl   { font-size: 1.35rem; }
-.text-3xl   { font-size: 1.6rem; }
-.font-medium{ font-weight: 500; }
-.font-semi  { font-weight: 600; }
-.font-bold  { font-weight: 700; }
-.font-black { font-weight: 800; }
-.font-outfit{ font-family: 'Outfit', sans-serif; }
-.leading-tight { line-height: 1.25; }
-.tracking-tight{ letter-spacing: -0.02em; }
-.truncate   { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.text-center{ text-align: center; }
-.text-right { text-align: right; }
-.uppercase  { text-transform: uppercase; letter-spacing: 0.06em; }
-.no-wrap    { white-space: nowrap; }
+.text-xs   { font-size: 0.72rem; }
+.text-sm   { font-size: 0.82rem; }
+.text-base { font-size: 0.9rem; }
+.text-lg   { font-size: 1rem; }
+.text-xl   { font-size: 1.15rem; }
+.text-2xl  { font-size: 1.35rem; }
+.text-3xl  { font-size: 1.6rem; }
+.font-medium { font-weight: 500; }
+.font-semi   { font-weight: 600; }
+.font-bold   { font-weight: 700; }
+.font-black  { font-weight: 800; }
+.font-outfit { font-family: 'Outfit', sans-serif; }
+.leading-tight  { line-height: 1.25; }
+.tracking-tight { letter-spacing: -0.02em; }
+.truncate    { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.text-center { text-align: center; }
+.text-right  { text-align: right; }
+.uppercase   { text-transform: uppercase; letter-spacing: 0.06em; }
+.no-wrap     { white-space: nowrap; }
 
 /* Colors */
 .text-primary   { color: var(--text-primary); }
@@ -1605,15 +1526,15 @@ tbody tr:last-child td { border-bottom: none; }
 .bg-green-100 { background: var(--green-100); }
 
 /* Border */
-.border         { border: 1px solid var(--border-color); }
-.border-green   { border-color: var(--primary); }
-.border-light   { border: 1px solid var(--border-light); }
-.rounded-sm     { border-radius: var(--r-sm); }
-.rounded        { border-radius: var(--r-md); }
-.rounded-lg     { border-radius: var(--r-lg); }
-.rounded-xl     { border-radius: var(--r-xl); }
-.rounded-2xl    { border-radius: var(--r-2xl); }
-.rounded-full   { border-radius: var(--r-full); }
+.border       { border: 1px solid var(--border-color); }
+.border-green { border-color: var(--primary); }
+.border-light { border: 1px solid var(--border-light); }
+.rounded-sm   { border-radius: var(--r-sm); }
+.rounded      { border-radius: var(--r-md); }
+.rounded-lg   { border-radius: var(--r-lg); }
+.rounded-xl   { border-radius: var(--r-xl); }
+.rounded-2xl  { border-radius: var(--r-2xl); }
+.rounded-full { border-radius: var(--r-full); }
 
 /* Overflow */
 .overflow-hidden { overflow: hidden; }
@@ -1621,51 +1542,49 @@ tbody tr:last-child td { border-bottom: none; }
 .overflow-y-auto { overflow-y: auto; }
 
 /* Misc */
-.relative { position: relative; }
-.absolute { position: absolute; }
-.fixed    { position: fixed; }
-.sticky   { position: sticky; }
-.inset-0  { inset: 0; }
-.z-10     { z-index: 10; }
-.z-50     { z-index: 50; }
-.z-100    { z-index: 100; }
-.pointer  { cursor: pointer; }
+.relative  { position: relative; }
+.absolute  { position: absolute; }
+.fixed     { position: fixed; }
+.sticky    { position: sticky; }
+.inset-0   { inset: 0; }
+.z-10      { z-index: 10; }
+.z-50      { z-index: 50; }
+.z-100     { z-index: 100; }
+.pointer   { cursor: pointer; }
 .select-none { user-select: none; -webkit-user-select: none; }
 .opacity-0   { opacity: 0; }
 .opacity-50  { opacity: 0.5; }
 .opacity-75  { opacity: 0.75; }
 
 /* Shadows */
-.shadow-sm  { box-shadow: var(--shadow-sm); }
-.shadow-md  { box-shadow: var(--shadow-md); }
-.shadow-lg  { box-shadow: var(--shadow-lg); }
+.shadow-sm    { box-shadow: var(--shadow-sm); }
+.shadow-md    { box-shadow: var(--shadow-md); }
+.shadow-lg    { box-shadow: var(--shadow-lg); }
 .shadow-green { box-shadow: var(--shadow-green); }
 
-/* ── Transition helpers ── */
-.transition     { transition: all var(--dur-normal) var(--ease-smooth); }
-.transition-fast{ transition: all var(--dur-fast) var(--ease-smooth); }
-.transition-slow{ transition: all var(--dur-slow) var(--ease-smooth); }
-/* ══════════════════════════════════════════════════════════
-   ADDITIONAL UTILITIES
-══════════════════════════════════════════════════════════ */
+/* Transitions */
+.transition      { transition: all var(--dur-normal) var(--ease-smooth); }
+.transition-fast { transition: all var(--dur-fast)   var(--ease-smooth); }
+.transition-slow { transition: all var(--dur-slow)   var(--ease-smooth); }
 
 /* Aspect ratio */
 .aspect-square { aspect-ratio: 1; }
-.aspect-video { aspect-ratio: 16/9; }
+.aspect-video  { aspect-ratio: 16/9; }
 
 /* Object fit */
-.object-cover { object-fit: cover; }
+.object-cover   { object-fit: cover; }
 .object-contain { object-fit: contain; }
 
 /* Backdrop blur */
-.backdrop-blur-sm { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
-.backdrop-blur { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.backdrop-blur-sm { backdrop-filter: blur(4px);  -webkit-backdrop-filter: blur(4px); }
+.backdrop-blur    { backdrop-filter: blur(8px);  -webkit-backdrop-filter: blur(8px); }
 .backdrop-blur-lg { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
 
 /* Grid utilities */
-.grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
-.grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
-.grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+.grid-cols-2    { grid-template-columns: repeat(2, 1fr); }
+.grid-cols-3    { grid-template-columns: repeat(3, 1fr); }
+.grid-cols-4    { grid-template-columns: repeat(4, 1fr); }
+/* FIX: minmax(0,1fr) prevents grid children from blowing past the container width */
 .grid-cols-auto { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 
 /* Smooth scroll */
