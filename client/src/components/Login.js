@@ -1,39 +1,83 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
+// ─── Custom Loader Component ───────────────────────────────────────────────────
+
+const GreenLoader = () => (
+  <div className="loader-container">
+    <div className="green-loader">
+      <div className="loader-text">Loading</div>
+      <div className="loader-truck"></div>
+    </div>
+  </div>
+);
+
+// ─── Main Component ────────────────────────────────────────────────────────────
+
 const Login = ({ onLogin }) => {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [formData, setFormData] = useState({ displayName: '', email: '', password: '' });
+  const [mode, setMode] = useState('login'); // 'login' | 'signup'
+  const [form, setForm] = useState({ displayName: '', email: '', password: '' });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const isSignup = mode === 'signup';
+
+  // ── Handlers ─────────────────────────────────────────────────────────────────
 
   const handleChange = (e) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-    if (errors[e.target.name]) setErrors(prev => ({ ...prev, [e.target.name]: '' }));
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors(prev => ({ ...prev, [name]: '' }));
+    if (errors.general) setErrors(prev => ({ ...prev, general: '' }));
   };
 
   const validate = () => {
     const errs = {};
-    if (isSignUp && !formData.displayName.trim()) errs.displayName = 'Display name is required';
-    if (!formData.email.trim()) errs.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) errs.email = 'Enter a valid email';
-    if (!formData.password.trim()) errs.password = 'Password is required';
-    else if (isSignUp && formData.password.length < 6) errs.password = 'Minimum 6 characters';
+    
+    if (isSignup && !form.displayName.trim()) {
+      errs.displayName = 'Name is required';
+    }
+    
+    if (!form.email.trim()) {
+      errs.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      errs.email = 'Please enter a valid email';
+    }
+    
+    if (!form.password.trim()) {
+      errs.password = 'Password is required';
+    } else if (isSignup && form.password.length < 6) {
+      errs.password = 'Password must be at least 6 characters';
+    }
+    
     return errs;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setErrors({});
-    const errs = validate();
-    if (Object.keys(errs).length) { setErrors(errs); return; }
+    
+    const validationErrors = validate();
+    if (Object.keys(validationErrors).length) {
+      setErrors(validationErrors);
+      return;
+    }
+
     setLoading(true);
+    setErrors({});
+
     try {
-      const endpoint = isSignUp ? '/api/auth/register' : '/api/auth/login';
-      const { data } = await axios.post(endpoint, formData);
+      const endpoint = isSignup ? '/api/auth/register' : '/api/auth/login';
+      const { data } = await axios.post(endpoint, form);
+      
+      // Small delay for better UX (shows success state)
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       if (data) onLogin(data);
     } catch (err) {
-      setErrors({ general: err.response?.data?.message || 'Something went wrong. Please try again.' });
+      const message = err.response?.data?.message || 
+        `${isSignup ? 'Registration' : 'Login'} failed. Please try again.`;
+      setErrors({ general: message });
     } finally {
       setLoading(false);
     }
@@ -43,67 +87,90 @@ const Login = ({ onLogin }) => {
     window.location.href = 'https://greenroute-backend-syxi.onrender.com/api/auth/google/callback';
   };
 
-  const toggle = () => {
-    setIsSignUp(v => !v);
-    setFormData({ displayName: '', email: '', password: '' });
+  const switchMode = () => {
+    setMode(isSignup ? 'login' : 'signup');
+    setForm({ displayName: '', email: '', password: '' });
     setErrors({});
+    setShowPassword(false);
   };
+
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div className="login-page">
-      {/* ── Hero side ── */}
+      {/* Hero Section */}
       <div className="login-hero">
-        <div className="hero-bg-pattern" />
+        <div className="hero-pattern" />
+        
         <div className="hero-content">
-          <div className="hero-logo">
-            <span className="hero-logo-icon">🌱</span>
-            <span className="hero-logo-name">GreenRoute</span>
+          <div className="hero-brand">
+            <div className="hero-icon">🌱</div>
+            <div className="hero-name">GreenRoute</div>
           </div>
 
-          <h2 className="hero-headline">
+          <h1 className="hero-title">
             Travel Smarter,<br />
-            <span>Save the Planet</span>
-          </h2>
-          <p className="hero-sub">
-            Find the most eco-friendly routes for your daily commute.
-            Reduce emissions, save money, and track your impact.
+            <span className="hero-title-accent">Save the Planet</span>
+          </h1>
+          
+          <p className="hero-description">
+            Discover eco-friendly routes for your daily commute.
+            Track your carbon savings and make every journey count.
           </p>
 
           <div className="hero-stats">
-            <div className="hero-stat">
-              <span className="hero-stat-value">2.4t</span>
-              <span className="hero-stat-label">CO₂ Saved</span>
+            <div className="stat-item">
+              <div className="stat-value">2.4t</div>
+              <div className="stat-label">CO₂ Saved</div>
             </div>
-            <div className="hero-stat">
-              <span className="hero-stat-value">12k+</span>
-              <span className="hero-stat-label">Green Trips</span>
+            <div className="stat-item">
+              <div className="stat-value">12k+</div>
+              <div className="stat-label">Green Trips</div>
             </div>
-            <div className="hero-stat">
-              <span className="hero-stat-value">98%</span>
-              <span className="hero-stat-label">Happy Users</span>
+            <div className="stat-item">
+              <div className="stat-value">98%</div>
+              <div className="stat-label">Happy Users</div>
             </div>
+          </div>
+
+          <div className="hero-features">
+            <div className="feature-badge">🚶 Walk & Cycle</div>
+            <div className="feature-badge">🚌 Public Transit</div>
+            <div className="feature-badge">📊 Impact Tracking</div>
           </div>
         </div>
       </div>
 
-      {/* ── Form side ── */}
-      <div className="login-form-side">
-        <div className="login-card">
-          <div className="login-card-header">
-            <h2>{isSignUp ? 'Create account' : 'Welcome back'}</h2>
-            <p>{isSignUp ? 'Join thousands of eco-conscious commuters' : 'Sign in to continue your green journey'}</p>
+      {/* Form Section */}
+      <div className="login-form-section">
+        <div className="form-container">
+          
+          <div className="form-header">
+            <h2 className="form-title">
+              {isSignup ? 'Start Your Green Journey' : 'Welcome Back'}
+            </h2>
+            <p className="form-subtitle">
+              {isSignup 
+                ? 'Join thousands making a difference' 
+                : 'Continue your sustainable commute'}
+            </p>
           </div>
 
           {errors.general && (
-            <div className="error-banner">
-              <span>⚠️</span>
-              {errors.general}
+            <div className="alert alert-error" role="alert">
+              <span className="alert-icon">⚠️</span>
+              <span>{errors.general}</span>
             </div>
           )}
 
-          {/* Google */}
-          <button type="button" className="google-btn" onClick={handleGoogleLogin}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          {/* Google Sign In */}
+          <button 
+            type="button" 
+            className="btn-google"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+          >
+            <svg className="google-icon" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
               <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
@@ -112,89 +179,650 @@ const Login = ({ onLogin }) => {
             Continue with Google
           </button>
 
-          <div className="divider"><span>or</span></div>
+          <div className="divider">
+            <span>or {isSignup ? 'sign up' : 'sign in'} with email</span>
+          </div>
 
-          <form onSubmit={handleSubmit}>
-            {isSignUp && (
-              <div className="form-field">
-                <label htmlFor="displayName">Display Name</label>
+          {/* Main Form */}
+          <form onSubmit={handleSubmit} noValidate>
+            
+            {isSignup && (
+              <div className="input-group">
+                <label htmlFor="displayName" className="input-label">
+                  Full Name
+                </label>
                 <input
                   id="displayName"
-                  type="text"
                   name="displayName"
+                  type="text"
+                  className={`input-field ${errors.displayName ? 'input-error' : ''}`}
                   placeholder="John Doe"
-                  value={formData.displayName}
+                  value={form.displayName}
                   onChange={handleChange}
-                  style={errors.displayName ? { borderColor: 'var(--danger-red)' } : {}}
                   autoComplete="name"
+                  disabled={loading}
                 />
-                {errors.displayName && <div className="field-error">⚠ {errors.displayName}</div>}
+                {errors.displayName && (
+                  <p className="input-error-text">{errors.displayName}</p>
+                )}
               </div>
             )}
 
-            <div className="form-field">
-              <label htmlFor="email">Email Address</label>
+            <div className="input-group">
+              <label htmlFor="email" className="input-label">
+                Email Address
+              </label>
               <input
                 id="email"
-                type="email"
                 name="email"
+                type="email"
+                className={`input-field ${errors.email ? 'input-error' : ''}`}
                 placeholder="you@example.com"
-                value={formData.email}
+                value={form.email}
                 onChange={handleChange}
-                style={errors.email ? { borderColor: 'var(--danger-red)' } : {}}
                 autoComplete="email"
-              />
-              {errors.email && <div className="field-error">⚠ {errors.email}</div>}
-            </div>
-
-            <div className="form-field">
-              <label htmlFor="password">Password</label>
-              <input
-                id="password"
-                type="password"
-                name="password"
-                placeholder={isSignUp ? 'At least 6 characters' : 'Your password'}
-                value={formData.password}
-                onChange={handleChange}
-                style={errors.password ? { borderColor: 'var(--danger-red)' } : {}}
-                autoComplete={isSignUp ? 'new-password' : 'current-password'}
-              />
-              {errors.password && <div className="field-error">⚠ {errors.password}</div>}
-            </div>
-
-            <div style={{ marginTop: '8px' }}>
-              <button
-                type="submit"
-                className="btn btn-primary btn-lg btn-full"
                 disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <span style={{
-                      display: 'inline-block',
-                      width: 16, height: 16,
-                      border: '2px solid rgba(255,255,255,0.4)',
-                      borderTopColor: '#fff',
-                      borderRadius: '50%',
-                      animation: 'spin 0.7s linear infinite',
-                    }} />
-                    Please wait…
-                  </>
-                ) : (
-                  isSignUp ? '🌱 Create Account' : '→ Sign In'
-                )}
-              </button>
+              />
+              {errors.email && (
+                <p className="input-error-text">{errors.email}</p>
+              )}
             </div>
+
+            <div className="input-group">
+              <label htmlFor="password" className="input-label">
+                Password
+              </label>
+              <div className="password-wrapper">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  className={`input-field ${errors.password ? 'input-error' : ''}`}
+                  placeholder={isSignup ? 'Min. 6 characters' : '••••••••'}
+                  value={form.password}
+                  onChange={handleChange}
+                  autoComplete={isSignup ? 'new-password' : 'current-password'}
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                  disabled={loading}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? '👁️' : '👁️‍🗨️'}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="input-error-text">{errors.password}</p>
+              )}
+            </div>
+
+            {!isSignup && (
+              <div className="form-extra">
+                <a href="/forgot-password" className="forgot-link">
+                  Forgot password?
+                </a>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="btn-submit"
+              disabled={loading}
+            >
+              {loading ? (
+                <GreenLoader />
+              ) : (
+                <>
+                  {isSignup ? '🌱 Create Account' : '→ Sign In'}
+                </>
+              )}
+            </button>
           </form>
 
-          <div className="form-toggle">
-            {isSignUp ? 'Already have an account?' : "Don't have an account?"}
-            <button type="button" onClick={toggle}>
-              {isSignUp ? 'Sign In' : 'Sign Up'}
+          <div className="form-footer">
+            <span className="footer-text">
+              {isSignup ? 'Already have an account?' : "Don't have an account?"}
+            </span>
+            <button 
+              type="button" 
+              className="footer-link"
+              onClick={switchMode}
+              disabled={loading}
+            >
+              {isSignup ? 'Sign In' : 'Sign Up'}
             </button>
           </div>
+
         </div>
       </div>
+
+      {/* Styles */}
+      <style>{`
+        /* ─── Page Layout ──────────────────────────────────────────────── */
+        .login-page {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          min-height: 100vh;
+          background: var(--bg-primary);
+        }
+
+        @media (max-width: 968px) {
+          .login-page {
+            grid-template-columns: 1fr;
+          }
+          .login-hero {
+            display: none;
+          }
+        }
+
+        /* ─── Hero Section ─────────────────────────────────────────────── */
+        .login-hero {
+          position: relative;
+          background: linear-gradient(135deg, var(--primary-green) 0%, var(--primary-green-light) 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 3rem;
+          overflow: hidden;
+        }
+
+        .hero-pattern {
+          position: absolute;
+          inset: 0;
+          background-image: 
+            radial-gradient(circle at 20% 30%, rgba(255,255,255,0.1) 0%, transparent 50%),
+            radial-gradient(circle at 80% 70%, rgba(255,255,255,0.08) 0%, transparent 50%);
+          opacity: 0.6;
+        }
+
+        .hero-content {
+          position: relative;
+          max-width: 500px;
+          color: white;
+          z-index: 1;
+        }
+
+        .hero-brand {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          margin-bottom: 2.5rem;
+        }
+
+        .hero-icon {
+          font-size: 2.5rem;
+          animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
+        }
+
+        .hero-name {
+          font-size: 1.75rem;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+        }
+
+        .hero-title {
+          font-size: 2.75rem;
+          font-weight: 800;
+          line-height: 1.1;
+          margin: 0 0 1.25rem;
+          letter-spacing: -0.03em;
+        }
+
+        .hero-title-accent {
+          background: linear-gradient(to right, #fff 0%, rgba(255,255,255,0.8) 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+        }
+
+        .hero-description {
+          font-size: 1.1rem;
+          line-height: 1.6;
+          margin: 0 0 2.5rem;
+          opacity: 0.95;
+          font-weight: 400;
+        }
+
+        .hero-stats {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 1.5rem;
+          margin-bottom: 2rem;
+          padding: 1.5rem;
+          background: rgba(255,255,255,0.1);
+          border-radius: var(--radius-lg);
+          backdrop-filter: blur(10px);
+        }
+
+        .stat-item {
+          text-align: center;
+        }
+
+        .stat-value {
+          font-size: 1.75rem;
+          font-weight: 800;
+          display: block;
+          margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+          font-size: 0.8rem;
+          opacity: 0.85;
+          font-weight: 500;
+        }
+
+        .hero-features {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.75rem;
+        }
+
+        .feature-badge {
+          padding: 0.5rem 1rem;
+          background: rgba(255,255,255,0.15);
+          border-radius: var(--radius-full);
+          font-size: 0.85rem;
+          font-weight: 600;
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        /* ─── Form Section ─────────────────────────────────────────────── */
+        .login-form-section {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 2rem;
+          background: var(--bg-secondary);
+        }
+
+        .form-container {
+          width: 100%;
+          max-width: 420px;
+        }
+
+        .form-header {
+          margin-bottom: 2rem;
+          text-align: center;
+        }
+
+        .form-title {
+          font-size: 1.75rem;
+          font-weight: 800;
+          margin: 0 0 0.5rem;
+          color: var(--text-primary);
+        }
+
+        .form-subtitle {
+          font-size: 0.95rem;
+          color: var(--text-light);
+          margin: 0;
+        }
+
+        /* ─── Alert ────────────────────────────────────────────────────── */
+        .alert {
+          padding: 0.875rem 1.125rem;
+          border-radius: var(--radius-lg);
+          margin-bottom: 1.5rem;
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          font-size: 0.9rem;
+          font-weight: 500;
+          animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .alert-error {
+          background: #fee2e2;
+          color: #dc2626;
+          border: 1.5px solid #dc2626;
+        }
+
+        .alert-icon {
+          font-size: 1.1rem;
+        }
+
+        /* ─── Google Button ────────────────────────────────────────────── */
+        .btn-google {
+          width: 100%;
+          padding: 0.875rem 1.25rem;
+          border: 2px solid var(--border-color);
+          border-radius: var(--radius-lg);
+          background: var(--bg-primary);
+          color: var(--text-primary);
+          font-size: 0.95rem;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.75rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          outline: none;
+        }
+
+        .btn-google:hover:not(:disabled) {
+          background: var(--bg-secondary);
+          border-color: var(--text-light);
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-sm);
+        }
+
+        .btn-google:active:not(:disabled) {
+          transform: translateY(0);
+        }
+
+        .btn-google:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .google-icon {
+          width: 20px;
+          height: 20px;
+        }
+
+        /* ─── Divider ──────────────────────────────────────────────────── */
+        .divider {
+          display: flex;
+          align-items: center;
+          margin: 1.5rem 0;
+          color: var(--text-light);
+          font-size: 0.85rem;
+        }
+
+        .divider::before,
+        .divider::after {
+          content: '';
+          flex: 1;
+          height: 1px;
+          background: var(--border-color);
+        }
+
+        .divider span {
+          padding: 0 1rem;
+        }
+
+        /* ─── Form Inputs ──────────────────────────────────────────────── */
+        .input-group {
+          margin-bottom: 1.25rem;
+        }
+
+        .input-label {
+          display: block;
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: var(--text-primary);
+          margin-bottom: 0.5rem;
+        }
+
+        .input-field {
+          width: 100%;
+          padding: 0.875rem 1rem;
+          border: 2px solid var(--border-color);
+          border-radius: var(--radius-lg);
+          background: var(--bg-primary);
+          color: var(--text-primary);
+          font-size: 0.95rem;
+          transition: all 0.2s ease;
+          outline: none;
+          box-sizing: border-box;
+        }
+
+        .input-field:focus {
+          border-color: var(--primary-green);
+          box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        .input-field:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .input-field.input-error {
+          border-color: #dc2626;
+        }
+
+        .input-field.input-error:focus {
+          box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+        }
+
+        .input-error-text {
+          margin: 0.5rem 0 0;
+          font-size: 0.8rem;
+          color: #dc2626;
+          font-weight: 500;
+        }
+
+        /* ─── Password Field ───────────────────────────────────────────── */
+        .password-wrapper {
+          position: relative;
+        }
+
+        .password-toggle {
+          position: absolute;
+          right: 0.75rem;
+          top: 50%;
+          transform: translateY(-50%);
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-size: 1.25rem;
+          padding: 0.25rem;
+          opacity: 0.6;
+          transition: opacity 0.2s;
+          outline: none;
+        }
+
+        .password-toggle:hover:not(:disabled) {
+          opacity: 1;
+        }
+
+        .password-toggle:disabled {
+          cursor: not-allowed;
+          opacity: 0.3;
+        }
+
+        /* ─── Form Extra ───────────────────────────────────────────────── */
+        .form-extra {
+          margin-bottom: 1.5rem;
+          text-align: right;
+        }
+
+        .forgot-link {
+          font-size: 0.85rem;
+          color: var(--primary-green);
+          text-decoration: none;
+          font-weight: 600;
+          transition: opacity 0.2s;
+        }
+
+        .forgot-link:hover {
+          opacity: 0.8;
+          text-decoration: underline;
+        }
+
+        /* ─── Submit Button ────────────────────────────────────────────── */
+        .btn-submit {
+          width: 100%;
+          padding: 1rem 1.5rem;
+          border: none;
+          border-radius: var(--radius-lg);
+          background: linear-gradient(135deg, var(--primary-green) 0%, var(--primary-green-light) 100%);
+          color: white;
+          font-size: 1rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          outline: none;
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+          position: relative;
+          overflow: hidden;
+        }
+
+        .btn-submit:hover:not(:disabled) {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-submit:active:not(:disabled) {
+          transform: translateY(0);
+        }
+
+        .btn-submit:disabled {
+          cursor: not-allowed;
+          opacity: 0.8;
+        }
+
+        /* ─── Form Footer ──────────────────────────────────────────────── */
+        .form-footer {
+          margin-top: 2rem;
+          text-align: center;
+          font-size: 0.9rem;
+        }
+
+        .footer-text {
+          color: var(--text-light);
+          margin-right: 0.5rem;
+        }
+
+        .footer-link {
+          background: none;
+          border: none;
+          color: var(--primary-green);
+          font-weight: 700;
+          cursor: pointer;
+          text-decoration: none;
+          font-size: 0.9rem;
+          transition: opacity 0.2s;
+          padding: 0;
+          outline: none;
+        }
+
+        .footer-link:hover:not(:disabled) {
+          opacity: 0.8;
+          text-decoration: underline;
+        }
+
+        .footer-link:disabled {
+          cursor: not-allowed;
+          opacity: 0.5;
+        }
+
+        /* ─── Loader Animation ─────────────────────────────────────────── */
+        .loader-container {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0.25rem 0;
+        }
+
+        .green-loader {
+          width: fit-content;
+          font-size: 12px;
+          font-family: monospace;
+          line-height: 1.4;
+          font-weight: bold;
+          color: white;
+          background: 
+            linear-gradient(white 0 0) left,
+            linear-gradient(white 0 0) right;
+          background-repeat: no-repeat;
+          border-right: 3px solid transparent;
+          border-left: 3px solid transparent;
+          background-origin: border-box;
+          position: relative;
+          animation: loader-fill 2s infinite;
+        }
+
+        .loader-text::before {
+          content: "Loading";
+        }
+
+        .loader-truck {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          width: 18px;
+          height: 48px;
+          background: 
+            linear-gradient(90deg, white 3px, transparent 0 calc(100% - 3px), white 0) bottom / 18px 16px,
+            linear-gradient(90deg, rgba(255,255,255,0.8) 3px, transparent 0 calc(100% - 3px), rgba(255,255,255,0.8) 0) bottom 8px left 0 / 18px 5px,
+            linear-gradient(white 0 0) bottom 2px left 0 / 18px 6px,
+            linear-gradient(white 0 0) bottom 0 left 50% / 6px 12px;
+          background-repeat: no-repeat;
+          animation: loader-truck 2s infinite;
+        }
+
+        @keyframes loader-fill {
+          0%, 25% { background-size: 50% 100%; }
+          25.1%, 75% { background-size: 0 0, 50% 100%; }
+          75.1%, 100% { background-size: 0 0, 0 0; }
+        }
+
+        @keyframes loader-truck {
+          25% { 
+            background-position: bottom, bottom 44px left 0, bottom 2px left 0, bottom 0 left 50%;
+            left: 0;
+          }
+          25.1% { 
+            background-position: bottom, bottom 8px left 0, bottom 2px left 0, bottom 0 left 50%;
+            left: 0;
+          }
+          50% { 
+            background-position: bottom, bottom 8px left 0, bottom 2px left 0, bottom 0 left 50%;
+            left: calc(100% - 18px);
+          }
+          75% { 
+            background-position: bottom, bottom 44px left 0, bottom 2px left 0, bottom 0 left 50%;
+            left: calc(100% - 18px);
+          }
+          75.1% { 
+            background-position: bottom, bottom 8px left 0, bottom 2px left 0, bottom 0 left 50%;
+            left: calc(100% - 18px);
+          }
+        }
+
+        /* ─── Responsive ───────────────────────────────────────────────── */
+        @media (max-width: 968px) {
+          .login-form-section {
+            padding: 2rem 1.5rem;
+          }
+          
+          .form-container {
+            max-width: 100%;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .form-title {
+            font-size: 1.5rem;
+          }
+          
+          .btn-submit {
+            padding: 0.875rem 1.25rem;
+          }
+        }
+      `}</style>
     </div>
   );
 };
