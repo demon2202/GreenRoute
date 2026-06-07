@@ -216,6 +216,14 @@ router.get('/weather', ensureAuth, async (req, res) => {
   if (!lat || !lon)
     return res.status(400).json({ error: 'lat and lon are required.' });
 
+  // Validate lat/lon are real numbers within geographic bounds
+  const latNum = parseFloat(lat);
+  const lonNum = parseFloat(lon);
+  if (isNaN(latNum) || isNaN(lonNum))
+    return res.status(400).json({ error: 'lat and lon must be numeric.' });
+  if (Math.abs(latNum) > 90 || Math.abs(lonNum) > 180)
+    return res.status(400).json({ error: 'Coordinates out of valid range.' });
+
   const key = process.env.OPENWEATHERMAP_API_KEY;
   if (!key) {
     console.warn('[weather] OPENWEATHERMAP_API_KEY not set');
@@ -223,7 +231,7 @@ router.get('/weather', ensureAuth, async (req, res) => {
   }
 
   try {
-    const url  = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${key}&units=metric`;
+    const url  = `https://api.openweathermap.org/data/2.5/weather?lat=${latNum}&lon=${lonNum}&appid=${key}&units=metric`;
     const resp = await fetch(url);
     const data = await resp.json();
 
@@ -248,6 +256,14 @@ router.get('/aqi', ensureAuth, async (req, res) => {
   if (!lat || !lon)
     return res.status(400).json({ error: 'lat and lon are required.' });
 
+  // Validate lat/lon are real numbers within geographic bounds
+  const latNum = parseFloat(lat);
+  const lonNum = parseFloat(lon);
+  if (isNaN(latNum) || isNaN(lonNum))
+    return res.status(400).json({ error: 'lat and lon must be numeric.' });
+  if (Math.abs(latNum) > 90 || Math.abs(lonNum) > 180)
+    return res.status(400).json({ error: 'Coordinates out of valid range.' });
+
   const key = process.env.WAQI_API_KEY;
   if (!key) {
     console.warn('[aqi] WAQI_API_KEY not set');
@@ -255,7 +271,7 @@ router.get('/aqi', ensureAuth, async (req, res) => {
   }
 
   try {
-    const url  = `https://api.waqi.info/feed/geo:${lat};${lon}/?token=${key}`;
+    const url  = `https://api.waqi.info/feed/geo:${latNum};${lonNum}/?token=${key}`;
     const resp = await fetch(url);
     const data = await resp.json();
 
@@ -294,8 +310,11 @@ router.post('/history', ensureAuth, async (req, res) => {
   } = req.body;
 
   const errs = [];
+  const MAX_NAME_LEN = 200;
   if (!originName?.trim())      errs.push('Origin name required');
+  else if (originName.trim().length > MAX_NAME_LEN) errs.push(`Origin name too long (max ${MAX_NAME_LEN} chars)`);
   if (!destinationName?.trim()) errs.push('Destination name required');
+  else if (destinationName.trim().length > MAX_NAME_LEN) errs.push(`Destination name too long (max ${MAX_NAME_LEN} chars)`);
   if (!mode?.trim())            errs.push('Transport mode required');
   if (isNaN(parseFloat(distance))) errs.push('Valid distance required');
   if (isNaN(parseInt(duration)))   errs.push('Valid duration required');
@@ -379,6 +398,13 @@ router.get('/preferences', ensureAuth, async (req, res) => {
   }
 });
 
+// Explicit allowlist of preference keys that can be set by the user
+const ALLOWED_PREF_KEYS = new Set([
+  'transportModes', 'maxWalkingDistance', 'maxCyclingDistance',
+  'sustainabilityPriority', 'weatherSensitivity', 'monthlyGoal',
+  'homeAddress', 'workAddress',
+]);
+
 router.post(
   '/preferences',
   ensureAuth,
@@ -395,7 +421,10 @@ router.post(
       const user = await User.findById(req.user.id);
       if (!user) return res.status(404).json({ error: 'User not found.' });
       if (!user.preferences) user.preferences = new Map();
-      Object.entries(req.body).forEach(([k, v]) => user.preferences.set(k, v));
+      // Only allow known preference keys — reject anything else
+      Object.entries(req.body).forEach(([k, v]) => {
+        if (ALLOWED_PREF_KEYS.has(k)) user.preferences.set(k, v);
+      });
       await user.save();
       res.json(Object.fromEntries(user.preferences));
     } catch (err) {
@@ -436,14 +465,24 @@ router.put(
   '/profile',
   ensureAuth,
   [
-    body('displayName').optional().trim().notEmpty().withMessage('Display name cannot be empty'),
-    body('email').optional().isEmail().withMessage('Invalid email'),
+    body('displayName').optional().trim().notEmpty().isLength({ max: 100 }).withMessage('Display name cannot be empty or exceed 100 chars'),
+    body('email').optional().isEmail().normalizeEmail().withMessage('Invalid email'),
   ],
   async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
     try {
       const { displayName, email } = req.body;
+
+      // Check email uniqueness if email is being changed
+      if (email) {
+        const normalizedEmail = email.toLowerCase();
+        const existing = await User.findOne({ email: normalizedEmail, _id: { $ne: req.user.id } });
+        if (existing) {
+          return res.status(400).json({ error: 'Email already in use by another account.' });
+        }
+      }
+
       const user = await User.findByIdAndUpdate(
         req.user.id,
         {

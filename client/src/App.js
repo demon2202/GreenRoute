@@ -1,104 +1,107 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import Login from './components/Login';
 import Layout from './components/Layout';
+import StartupLoader from './components/StartupLoader';
 import RoutePlanner from './pages/RoutePlanner';
 import TripHistory from './pages/TripHistory';
 import Preferences from './pages/Preferences';
 import Settings from './pages/Settings';
 import './index.css';
-axios.defaults.baseURL = 'http://localhost:5000';
+
+axios.defaults.baseURL    = 'https://greenroute-backend-syxi.onrender.com';
 axios.defaults.withCredentials = true;
+// Generous timeout so the cold-start doesn't fail mid-request
+axios.defaults.timeout    = 60000;
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Phase 1: waiting for the backend to be alive (Render cold-start)
+  const [serverReady, setServerReady] = useState(false);
+  // Phase 2: checking if there's an existing session
+  const [authChecked, setAuthChecked] = useState(false);
+
+  const [user,  setUser]  = useState(null);
   const [theme, setTheme] = useState('light');
 
-  useEffect(() => {
-    fetchCurrentUser();
+  /* ── Called by StartupLoader once the /health ping succeeds ── */
+  const handleServerReady = useCallback(async () => {
+    setServerReady(true);
+    // Now check if the user already has a session
+    try {
+      const { data } = await axios.get('/api/auth/current_user');
+      setUser(data);
+      if (data?.theme) setTheme(data.theme);
+    } catch {
+      // Not logged in — that's fine
+    } finally {
+      setAuthChecked(true);
+    }
   }, []);
 
-  const fetchCurrentUser = async () => {
-    try {
-      const response = await axios.get('/api/auth/current_user');
-      setUser(response.data);
-      if (response.data?.theme) {
-        setTheme(response.data.theme);
-      }
-    } catch (error) {
-      console.log('User not authenticated');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  /* ── Auth handlers ── */
   const handleLogin = (userData) => {
     setUser(userData);
-    if (userData.theme) {
-      setTheme(userData.theme);
-    }
+    if (userData?.theme) setTheme(userData.theme);
   };
 
   const handleLogout = async () => {
     try {
-      await axios.get('/api/auth/logout');
-      setUser(null);
-      setTheme('light');
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
+      await axios.post('/api/auth/logout');
+    } catch { /* ignore */ }
+    setUser(null);
+    setTheme('light');
   };
 
   const updateTheme = async (newTheme) => {
     try {
       await axios.post('/api/theme', { theme: newTheme });
       setTheme(newTheme);
-    } catch (error) {
-      console.error('Theme update error:', error);
+    } catch (err) {
+      console.error('Theme update error:', err);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl">Loading...</div>
-      </div>
-    );
+  /* ─── Phase 1: show animated loader until backend is warm ─── */
+  if (!serverReady) {
+    return <StartupLoader onReady={handleServerReady} />;
   }
 
+  /* ─── Phase 2: tiny flash while we confirm session ─── */
+  if (!authChecked) {
+    return null; // virtually instant, no flash needed
+  }
+
+  /* ─── Phase 3: normal app ─── */
   return (
     <div className={theme}>
       <Router>
         <Routes>
-          <Route 
-            path="/login" 
-            element={
-              user ? <Navigate to="/" /> : <Login onLogin={handleLogin} />
-            } 
+          <Route
+            path="/login"
+            element={user ? <Navigate to="/" /> : <Login onLogin={handleLogin} />}
           />
-          <Route 
-            path="/*" 
+          <Route
+            path="/*"
             element={
               user ? (
-                <Layout 
-                  user={user} 
-                  onLogout={handleLogout} 
+                <Layout
+                  user={user}
+                  onLogout={handleLogout}
                   theme={theme}
                   onThemeChange={updateTheme}
                 >
                   <Routes>
-                    <Route path="/" element={<RoutePlanner user={user} />} />
-                    <Route path="/history" element={<TripHistory user={user} />} />
-                    <Route path="/preferences" element={<Preferences user={user} />} />
-                    <Route path="/settings" element={<Settings user={user} theme={theme} onThemeChange={updateTheme} />} />
+                    <Route path="/"            element={<RoutePlanner user={user} />} />
+                    <Route path="/history"     element={<TripHistory  user={user} />} />
+                    <Route path="/preferences" element={<Preferences  user={user} />} />
+                    <Route path="/settings"    element={<Settings user={user} theme={theme} onThemeChange={updateTheme} />} />
                   </Routes>
                 </Layout>
               ) : (
                 <Navigate to="/login" />
               )
-            } 
+            }
           />
         </Routes>
       </Router>

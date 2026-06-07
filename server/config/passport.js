@@ -74,7 +74,7 @@ passport.use(
                 googleId: profile.id,
                 displayName: profile.displayName,
                 email: profile.emails[0].value.toLowerCase(),
-                image: profile.photos[0].value
+                image: profile.photos?.[0]?.value || ''
             }).save();
             
             done(null, user);

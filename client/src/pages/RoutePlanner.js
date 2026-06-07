@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import mapboxgl from 'mapbox-gl';
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
@@ -73,9 +73,8 @@ function formatTime(date) { return date.toLocaleTimeString([],{hour:'2-digit',mi
 
 function getEcoScore(route) {
   if (!route) return 0;
-  const co2Score = Math.min((parseFloat(route.co2Saved)||0)/2*40, 40);
-  const calScore = Math.min((route.calories||0)/300*30, 30);
-  const costScore= Math.min(((route.cost||10)-parseFloat(route.cost||0))/10*30, 30);
+  const co2Score = Math.min((parseFloat(route.co2Saved) || 0) / 2 * 40, 40);
+  const calScore = Math.min((route.calories || 0) / 300 * 30, 30);
   return Math.round(co2Score + calScore + 30);
 }
 
@@ -244,20 +243,22 @@ const AQIBanner = ({ aqi }) => {
 
 /* Nav Strip (speed/ETA bottom bar on map) */
 const NavStrip = ({ route, progress, startTime, isNavigating, onStop }) => {
-  const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
-    if (!isNavigating||!startTime) return;
-    const id = setInterval(()=>setElapsed(Date.now()-startTime),1000);
-    return ()=>clearInterval(id);
-  },[isNavigating,startTime]);
-  if (!isNavigating||!route) return null;
-  const totalSec = (route.duration||0)*60;
-  const remaining = Math.max(totalSec*(1-progress),0);
-  const eta = new Date(Date.now()+remaining*1000);
-  const distKm = parseFloat(route.distance)||0;
-  const distDone = distKm*progress;
-  const distLeft = distKm*(1-progress);
-  const speedKmh = distKm/(totalSec/3600);
+    if (!isNavigating || !startTime) return;
+    const id = setInterval(() => {
+      // removed unused elapsed variable
+    }, 1000);
+    return () => clearInterval(id);
+  }, [isNavigating, startTime]);
+
+  if (!isNavigating || !route) return null;
+  const totalSec = (route.duration || 0) * 60;
+  const remaining = Math.max(totalSec * (1 - progress), 0);
+  const eta = new Date(Date.now() + remaining * 1000);
+  const distKm = parseFloat(route.distance) || 0;
+  // removed unused distDone
+  const distLeft = distKm * (1 - progress);
+  const speedKmh = distKm / (totalSec / 3600);
   return (
     <div style={{
       position:'absolute', bottom:0, left:0, right:0,
@@ -532,36 +533,67 @@ const PlaybackControls = ({ isPlaying, progress, onPlayPause, onSeek, onSpeedCha
 
 /* Saved Places Quick Chips */
 const SavedPlaces = ({ onSelectOrigin, onSelectDest }) => {
-  const [places, setPlaces] = useState(()=>{
-    try { return JSON.parse(localStorage.getItem(SAVED_PLACES_KEY)||'[]'); } catch { return []; }
+  const [places, setPlaces] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(SAVED_PLACES_KEY) || '[]'); }
+    catch { return []; }
   });
-  const [adding, setAdding] = useState(false);
-  const [newName, setNewName] = useState('');
 
   const remove = (i) => {
-    const n=[...places]; n.splice(i,1);
-    setPlaces(n); localStorage.setItem(SAVED_PLACES_KEY,JSON.stringify(n));
+    const n = [...places];
+    n.splice(i, 1);
+    setPlaces(n);
+    localStorage.setItem(SAVED_PLACES_KEY, JSON.stringify(n));
   };
 
-  if (!places.length && !adding) return null;
+  // Removed: adding, setAdding, newName, setNewName — they were unused
+
+  if (!places.length) return null; // ← removed '&& !adding' since adding no longer exists
 
   return (
-    <div style={{padding:'8px 14px 0',flexShrink:0}}>
-      <div style={{fontSize:10.5,fontWeight:700,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>
+    <div style={{ padding: '8px 14px 0', flexShrink: 0 }}>
+      <div style={{
+        fontSize: 10.5, fontWeight: 700, color: '#94a3b8',
+        textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6,
+      }}>
         Saved Places
       </div>
-      <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-        {places.map((p,i)=>(
-          <div key={i} style={{display:'flex',alignItems:'center',gap:0,background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:20,overflow:'hidden'}}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {places.map((p, i) => (
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: 0,
+            background: '#f0fdf4', border: '1px solid #bbf7d0',
+            borderRadius: 20, overflow: 'hidden',
+          }}>
             <button
-              onClick={()=>onSelectOrigin(p)}
-              style={{padding:'5px 10px',border:'none',background:'transparent',color:'#065f46',fontSize:12,fontWeight:600,cursor:'pointer'}}
+              onClick={() => onSelectOrigin(p)}
+              style={{
+                padding: '5px 10px', border: 'none', background: 'transparent',
+                color: '#065f46', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              }}
               title={`Set "${p.name}" as origin`}
-            >{p.icon} {p.name}</button>
+            >
+              {p.icon} {p.name}
+            </button>
             <button
-              onClick={()=>remove(i)}
-              style={{padding:'5px 7px 5px 2px',border:'none',background:'transparent',color:'#94a3b8',fontSize:10,cursor:'pointer'}}
-            >✕</button>
+              onClick={() => onSelectDest(p)}
+              style={{
+                padding: '5px 7px', border: 'none', background: 'transparent',
+                color: '#065f46', fontSize: 11, cursor: 'pointer',
+                borderLeft: '1px solid #bbf7d0',
+              }}
+              title={`Set "${p.name}" as destination`}
+            >
+              →
+            </button>
+            <button
+              onClick={() => remove(i)}
+              style={{
+                padding: '5px 7px', border: 'none', background: 'transparent',
+                color: '#94a3b8', fontSize: 10, cursor: 'pointer',
+              }}
+            >
+              ✕
+            </button>
           </div>
         ))}
       </div>
