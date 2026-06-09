@@ -865,6 +865,19 @@ const RoutePlanner = ({ user }) => {
     };
   }, []);
 
+  const fetchCarbon = async()=>{
+    try{
+      const[h,p]=await Promise.all([axios.get('/api/history'),axios.get('/api/preferences')]);
+      const goal=p.data.monthlyGoal||60, now=new Date(), som=new Date(now.getFullYear(),now.getMonth(),1);
+      let today=0,month=0;
+      h.data.forEach(t=>{const d=new Date(t.date),c=parseFloat(t.co2Saved)||0;if(d.toDateString()===now.toDateString())today+=c;if(d>=som)month+=c;});
+      setCarbon({today,month,goal,pct:Math.min((month/goal)*100,100)});
+    }catch{}
+  };
+  const fetchHistory = async()=>{
+    try{const r=await axios.get('/api/history');setHistory(r.data||[]);}catch{}
+  };
+
   const startResizing = useCallback((e) => {
     isResizing.current = true;
     document.body.style.cursor = 'col-resize';
@@ -1592,19 +1605,6 @@ const fetchAqi = async (lat, lon) => {
     setAqi(null);
   }
 };
-  const fetchCarbon = async()=>{
-    try{
-      const[h,p]=await Promise.all([axios.get('/api/history'),axios.get('/api/preferences')]);
-      const goal=p.data.monthlyGoal||60, now=new Date(), som=new Date(now.getFullYear(),now.getMonth(),1);
-      let today=0,month=0;
-      h.data.forEach(t=>{const d=new Date(t.date),c=parseFloat(t.co2Saved)||0;if(d.toDateString()===now.toDateString())today+=c;if(d>=som)month+=c;});
-      setCarbon({today,month,goal,pct:Math.min((month/goal)*100,100)});
-    }catch{}
-  };
-  const fetchHistory = async()=>{
-    try{const r=await axios.get('/api/history');setHistory(r.data||[]);}catch{}
-  };
-
   const wxIcon=c=>({'01d':'Sunny','01n':'Clear','02d':'Partly Cloudy','02n':'Cloudy','03d':'Cloudy','04d':'Overcast','09d':'Rain','10d':'Showers','11d':'Thunderstorm','13d':'Snow','50d':'Fog'}[c]||'');
   const LOAD_MSGS=['Finding routes…','Calculating CO₂…','Comparing modes…','Optimising…'];
 
