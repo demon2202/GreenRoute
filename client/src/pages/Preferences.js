@@ -28,7 +28,6 @@ const RangeSlider = ({
         alignItems: 'center',
         gap: '0.5rem'
       }}>
-        {icon && <span style={{ fontSize: '1.25rem' }}>{icon}</span>}
         {label}: <span style={{ color }}>{value} {unit}</span>
       </label>
 
@@ -196,12 +195,14 @@ const TransportModeCard = ({ mode, isSelected, onToggle, isOnlySelected }) => (
     }}
   >
     <span style={{
-      fontSize: '2.5rem',
-      display: 'block',
-      marginBottom: '0.75rem',
+      width: 44, height: 44, borderRadius: 12,
+      background: `${mode.color}15`,
+      border: `2px solid ${mode.color}30`,
+      display: 'block', marginBottom: '0.75rem',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
       filter: isSelected ? 'none' : 'grayscale(0.3)'
     }}>
-      {mode.icon}
+      <span style={{ fontSize: '0.8rem', fontWeight: 800, color: mode.color }}>{mode.label.slice(0,2)}</span>
     </span>
     <div style={{ fontWeight: '700', marginBottom: '0.3rem', fontSize: '1rem', color: 'var(--text-primary)' }}>
       {mode.label}
@@ -233,27 +234,43 @@ const TransportModeCard = ({ mode, isSelected, onToggle, isOnlySelected }) => (
   </button>
 );
 
-const SectionCard = ({ icon, title, subtitle, children }) => (
-  <div className="card card-elevated" style={{ marginBottom: '1.5rem' }}>
-    <div style={{ marginBottom: subtitle ? '0.5rem' : '1.5rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <span style={{ fontSize: '1.5rem' }}>{icon}</span>
-        <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '700' }}>{title}</h3>
+const SectionCard = ({ icon, title, subtitle, children }) => {
+  const sectionIconSvg = (icon) => {
+    switch(icon) {
+      case 'transport': return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>;
+      case 'priority':  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>;
+      case 'distance':  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>;
+      case 'goal':      return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>;
+      case 'location':  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>;
+      case 'actions':   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>;
+      default:          return null;
+    }
+  };
+
+  return (
+    <div className="card card-elevated" style={{ marginBottom: '1.5rem' }}>
+      <div style={{ marginBottom: subtitle ? '0.5rem' : '1.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary-green)', flexShrink: 0 }}>
+            {sectionIconSvg(icon)}
+          </div>
+          <h3 style={{ margin: 0, fontSize: '1.3rem', fontWeight: '700' }}>{title}</h3>
+        </div>
+        {subtitle && (
+          <p style={{
+            margin: '0.5rem 0 1.5rem 2.75rem',
+            fontSize: '0.9rem',
+            color: 'var(--text-light)',
+            lineHeight: '1.5'
+          }}>
+            {subtitle}
+          </p>
+        )}
       </div>
-      {subtitle && (
-        <p style={{
-          margin: '0.5rem 0 1.5rem 2.25rem',
-          fontSize: '0.9rem',
-          color: 'var(--text-light)',
-          lineHeight: '1.5'
-        }}>
-          {subtitle}
-        </p>
-      )}
+      {children}
     </div>
-    {children}
-  </div>
-);
+  );
+};
 
 const Toast = ({ message, type }) => {
   if (!message) return null;
@@ -326,22 +343,22 @@ const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
 // ─── Configuration ─────────────────────────────────────────────────────────────
 
 const TRANSPORT_MODES = [
-  { id: 'Walking', icon: '🚶', label: 'Walking', description: 'Zero emissions, keep fit', color: '#10b981' },
-  { id: 'Cycling', icon: '🚴', label: 'Cycling', description: 'Fast & eco-friendly', color: '#3b82f6' },
-  { id: 'Public Transit', icon: '🚌', label: 'Public Transit', description: 'Shared & efficient', color: '#8b5cf6' },
-  { id: 'Mixed Routes', icon: '🔄', label: 'Mixed Routes', description: 'Combine multiple modes', color: '#f59e0b' }
+  { id: 'Walking',       label: 'Walking',       description: 'Zero emissions, keep fit',    color: '#10b981' },
+  { id: 'Cycling',       label: 'Cycling',       description: 'Fast & eco-friendly',         color: '#3b82f6' },
+  { id: 'Public Transit',label: 'Public Transit',description: 'Shared & efficient',          color: '#8b5cf6' },
+  { id: 'Mixed Routes',  label: 'Mixed Routes',  description: 'Combine multiple modes',      color: '#f59e0b' }
 ];
 
 const PRIORITY_OPTIONS = [
-  { value: 'Eco First', label: 'Eco First', icon: '🌱', description: 'Minimize carbon footprint above all' },
-  { value: 'Balanced', label: 'Balanced', icon: '⚖️', description: 'Balance time and sustainability' },
-  { value: 'Speed First', label: 'Speed First', icon: '⚡', description: 'Fastest route with green options' }
+  { value: 'Eco First',   label: 'Eco First',   description: 'Minimize carbon footprint above all' },
+  { value: 'Balanced',    label: 'Balanced',    description: 'Balance time and sustainability'      },
+  { value: 'Speed First', label: 'Speed First', description: 'Fastest route with green options'    }
 ];
 
 const WEATHER_OPTIONS = [
-  { value: 'Low', label: 'Low', icon: '☀️', description: 'I\'ll travel in any weather' },
-  { value: 'Moderate', label: 'Moderate', icon: '🌤️', description: 'Some weather consideration' },
-  { value: 'High', label: 'High', icon: '🌧️', description: 'Weather strongly influences my choice' }
+  { value: 'Low',      label: 'Low',      description: "I'll travel in any weather"          },
+  { value: 'Moderate', label: 'Moderate', description: 'Some weather consideration'           },
+  { value: 'High',     label: 'High',     description: 'Weather strongly influences my choice'}
 ];
 
 const DEFAULT_PREFERENCES = {
@@ -441,7 +458,7 @@ const Preferences = ({ user }) => {
     try {
       await axios.post('/api/preferences', preferences);
       setOriginalPreferences(preferences);
-      showToast('✨ Preferences saved! Your routes are now personalized.', 'success');
+      showToast('Preferences saved! Your routes are now personalized.', 'success');
     } catch (error) {
       console.error('Save failed:', error);
       showToast('Failed to save. Please check your connection.', 'error');
@@ -473,7 +490,7 @@ const Preferences = ({ user }) => {
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 100); // FIX: deferred revoke
-      showToast('📦 Settings exported successfully', 'success');
+      showToast('Settings exported successfully', 'success');
     } catch (error) {
       showToast('Export failed', 'error');
     }
@@ -528,7 +545,7 @@ const Preferences = ({ user }) => {
 
         {/* Transport Modes */}
         <SectionCard
-          icon="🚗"
+          icon="transport"
           title="Transport Modes"
           subtitle="Select your preferred ways to travel. At least one must be active."
         >
@@ -556,7 +573,7 @@ const Preferences = ({ user }) => {
 
         {/* Priority & Weather */}
         <SectionCard
-          icon="🎯"
+          icon="priority"
           title="Route Priorities"
           subtitle="Tell us what matters most when planning your routes."
         >
@@ -593,7 +610,7 @@ const Preferences = ({ user }) => {
 
         {/* Distance Limits */}
         <SectionCard
-          icon="📏"
+          icon="distance"
           title="Distance Comfort Zones"
           subtitle="Set your maximum distances for walking and cycling routes."
         >
@@ -603,7 +620,6 @@ const Preferences = ({ user }) => {
             gap: '2rem'
           }}>
             <RangeSlider
-              icon="🚶"
               label="Max Walking Distance"
               value={preferences.maxWalkingDistance}
               min={1}
@@ -615,7 +631,6 @@ const Preferences = ({ user }) => {
             />
 
             <RangeSlider
-              icon="🚴"
               label="Max Cycling Distance"
               value={preferences.maxCyclingDistance}
               min={1}
@@ -630,12 +645,11 @@ const Preferences = ({ user }) => {
 
         {/* Goals */}
         <SectionCard
-          icon="🌱"
+          icon="goal"
           title="Sustainability Goal"
           subtitle="Challenge yourself to reduce your carbon footprint."
         >
           <RangeSlider
-            icon="🎯"
             label="Monthly CO₂ Savings Target"
             value={preferences.monthlyGoal}
             min={10}
@@ -660,7 +674,12 @@ const Preferences = ({ user }) => {
             gap: '1rem',
             boxShadow: 'var(--shadow-green)'
           }}>
-            <span style={{ fontSize: '2.5rem' }}>🌳</span>
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22V12"/>
+              <path d="M5 12H2a10 10 0 0 0 20 0h-3"/>
+              <circle cx="12" cy="5" r="3"/>
+              <path d="M6.6 18.4C5.6 17.2 5 15.7 5 14c0-3.9 3.1-7 7-7s7 3.1 7 7c0 1.7-.6 3.2-1.6 4.4"/>
+            </svg>
             <span style={{ fontSize: '1rem' }}>
               That's like planting{' '}
               <span style={{ fontSize: '1.4rem', fontWeight: '800' }}>
@@ -673,7 +692,7 @@ const Preferences = ({ user }) => {
 
         {/* Saved Locations */}
         <SectionCard
-          icon="📍"
+          icon="location"
           title="Saved Locations"
           subtitle="Save your most frequent destinations for quick route planning."
         >
@@ -691,7 +710,6 @@ const Preferences = ({ user }) => {
                 gap: '0.5rem',
                 fontSize: '0.9rem'
               }}>
-                <span style={{ fontSize: '1.2rem' }}>🏠</span>
                 Home Address
               </label>
               <input
@@ -715,7 +733,6 @@ const Preferences = ({ user }) => {
                 gap: '0.5rem',
                 fontSize: '0.9rem'
               }}>
-                <span style={{ fontSize: '1.2rem' }}>💼</span>
                 Work Address
               </label>
               <input
@@ -733,7 +750,7 @@ const Preferences = ({ user }) => {
         </SectionCard>
 
         {/* Quick Actions */}
-        <SectionCard icon="⚡" title="Quick Actions">
+        <SectionCard icon="actions" title="Quick Actions">
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -751,7 +768,9 @@ const Preferences = ({ user }) => {
                 gap: '0.5rem'
               }}
             >
-              <span style={{ fontSize: '1.75rem' }}>🔄</span>
+              <div style={{ width:32, height:32, borderRadius:8, background:'#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              </div>
               <div style={{ textAlign: 'left' }}>
                 <div style={{ fontWeight: '700', fontSize: '0.95rem', marginBottom: '0.2rem' }}>
                   Reset to Defaults
@@ -774,7 +793,9 @@ const Preferences = ({ user }) => {
                 gap: '0.5rem'
               }}
             >
-              <span style={{ fontSize: '1.75rem' }}>📥</span>
+              <div style={{ width:32, height:32, borderRadius:8, background:'#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </div>
               <div style={{ textAlign: 'left' }}>
                 <div style={{ fontWeight: '700', fontSize: '0.95rem', marginBottom: '0.2rem' }}>
                   Export Settings

@@ -3,10 +3,10 @@ import axios from 'axios';
 
 /* ─── Constants ─────────────────────────────────────────────────────────────── */
 const MODE_META = {
-  walking: { icon: '🚶', color: '#10b981', bg: '#ecfdf5', label: 'Walking',  gradient: 'linear-gradient(135deg,#10b981,#34d399)' },
-  cycling: { icon: '🚴', color: '#3b82f6', bg: '#eff6ff', label: 'Cycling',  gradient: 'linear-gradient(135deg,#3b82f6,#60a5fa)' },
-  driving: { icon: '🚗', color: '#f59e0b', bg: '#fffbeb', label: 'Driving',  gradient: 'linear-gradient(135deg,#f59e0b,#fbbf24)' },
-  transit: { icon: '🚌', color: '#8b5cf6', bg: '#f5f3ff', label: 'Transit',  gradient: 'linear-gradient(135deg,#8b5cf6,#a78bfa)' },
+  walking: { color: '#10b981', bg: '#ecfdf5', label: 'Walking',  gradient: 'linear-gradient(135deg,#10b981,#34d399)' },
+  cycling: { color: '#3b82f6', bg: '#eff6ff', label: 'Cycling',  gradient: 'linear-gradient(135deg,#3b82f6,#60a5fa)' },
+  driving: { color: '#f59e0b', bg: '#fffbeb', label: 'Driving',  gradient: 'linear-gradient(135deg,#f59e0b,#fbbf24)' },
+  transit: { color: '#8b5cf6', bg: '#f5f3ff', label: 'Transit',  gradient: 'linear-gradient(135deg,#8b5cf6,#a78bfa)' },
 };
 
 const getMeta = (mode = '') => MODE_META[mode.toLowerCase()] || MODE_META.transit;
@@ -33,10 +33,10 @@ const fmt = {
 
 const ecoEquiv = (kg) => {
   kg = parseFloat(kg) || 0;
-  if (kg >= 21.7) return `🌳 ${(kg / 21.7).toFixed(1)} trees absorbed`;
-  if (kg >= 0.5)  return `☕ ${Math.round(kg / 0.021)} coffees worth`;
-  if (kg >= 0.05) return `🔋 ${Math.round(kg / 0.008)} phone charges`;
-  return `🌿 Every kg counts!`;
+  if (kg >= 21.7) return `${(kg / 21.7).toFixed(1)} trees absorbed`;
+  if (kg >= 0.5)  return `${Math.round(kg / 0.021)} coffees saved`;
+  if (kg >= 0.05) return `${Math.round(kg / 0.008)} phone charges`;
+  return `Every gram counts!`;
 };
 
 const calcStats = (trips) => {
@@ -88,7 +88,12 @@ const StatCard = ({ icon, value, label, sub, color, bg }) => {
   return (
     <div style={{ ...S.statCard, background: bg, border: `1.5px solid ${color}22` }}>
       <div style={{ ...S.statIconBg, background: `${color}18` }}>
-        <span style={{ fontSize: '1.5rem' }}>{icon}</span>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {icon === 'co2'  && <><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></>}
+          {icon === 'trip' && <><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></>}
+          {icon === 'dist' && <><path d="M3 12h18M3 6h18M3 18h18"/></>}
+          {icon === 'cal'  && <><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></>}
+        </svg>
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: '1.65rem', fontWeight: 800, color, letterSpacing: '-0.03em', lineHeight: 1 }}>
@@ -175,11 +180,12 @@ const TripCard = ({ trip, onCopy, copiedId }) => {
       <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:'0.75rem', flexWrap:'wrap' }}>
         <div style={{ display:'flex', alignItems:'center', gap:'0.85rem', flex:1, minWidth:0 }}>
           <div style={{
-            width:46, height:46, borderRadius:14, background:meta.bg,
+            width:46, height:46, borderRadius:14, background: meta.gradient,
             display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:'1.4rem', flexShrink:0, boxShadow:`0 2px 8px ${meta.color}25`,
+            fontSize:'0.78rem', fontWeight:800, color:'white', flexShrink:0,
+            boxShadow:`0 2px 8px ${meta.color}30`, letterSpacing:'-0.01em',
           }}>
-            {meta.icon}
+            {meta.label.slice(0,2)}
           </div>
           <div style={{ minWidth:0, flex:1 }}>
             <div style={{ fontSize:'0.9rem', fontWeight:800, color:'#0f172a', lineHeight:1.3,
@@ -187,7 +193,7 @@ const TripCard = ({ trip, onCopy, copiedId }) => {
               {trip.originName?.split(',')[0]}
             </div>
             <div style={{ fontSize:'0.75rem', color:'#94a3b8', fontWeight:600, margin:'3px 0' }}>
-              ↓
+              TO
             </div>
             <div style={{ fontSize:'0.9rem', fontWeight:800, color:'#0f172a', lineHeight:1.3,
               overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
@@ -206,7 +212,7 @@ const TripCard = ({ trip, onCopy, copiedId }) => {
           {isHighImpact && (
             <span style={{ padding:'0.25rem 0.6rem', borderRadius:999, fontSize:'0.68rem', fontWeight:700,
               background:'linear-gradient(135deg,#fbbf24,#f59e0b)', color:'white' }}>
-              🏆 High Impact
+              High Impact
             </span>
           )}
         </div>
@@ -218,13 +224,12 @@ const TripCard = ({ trip, onCopy, copiedId }) => {
       {/* Metrics row */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(72px,1fr))', gap:'0.5rem' }}>
         {[
-          { icon:'⏱️', val: fmt.dur(trip.duration), label:'Duration'  },
-          { icon:'📍', val: `${fmt.dist(trip.distance)}km`, label:'Distance' },
-          { icon:'🌱', val: `${fmt.co2(trip.co2Saved)}kg`, label:'CO₂ Saved', color:'#10b981' },
-          ...(trip.calories > 0 ? [{ icon:'🔥', val: trip.calories, label:'Calories' }] : []),
+          { label: 'Duration',  val: fmt.dur(trip.duration),           color: null        },
+          { label: 'Distance',  val: `${fmt.dist(trip.distance)}km`,   color: null        },
+          { label: 'CO₂ Saved', val: `${fmt.co2(trip.co2Saved)}kg`,    color: '#10b981'   },
+          ...(trip.calories > 0 ? [{ label: 'Calories', val: trip.calories, color: null }] : []),
         ].map((m, i) => (
           <div key={i} style={{ background:'#f8fafc', borderRadius:12, padding:'0.65rem 0.5rem', textAlign:'center' }}>
-            <div style={{ fontSize:'1rem', marginBottom:2 }}>{m.icon}</div>
             <div style={{ fontSize:'0.85rem', fontWeight:800, color: m.color || '#0f172a', lineHeight:1 }}>{m.val}</div>
             <div style={{ fontSize:'0.68rem', color:'#94a3b8', fontWeight:600, marginTop:3 }}>{m.label}</div>
           </div>
@@ -249,13 +254,13 @@ const TripCard = ({ trip, onCopy, copiedId }) => {
           ...S.actionBtn, flex:1, background:'#f8fafc', color:'#475569',
           ...(copiedId === (trip._id || trip.date) ? { background:'#ecfdf5', color:'#10b981' } : {})
         }}>
-          {copiedId === (trip._id || trip.date) ? '✅ Copied!' : '📋 Copy'}
+          {copiedId === (trip._id || trip.date) ? 'Copied!' : 'Copy'}
         </button>
         <button onClick={() => {
           const p = new URLSearchParams({ from: trip.originName, to: trip.destinationName, mode: trip.mode });
           window.location.href = `/?${p}`;
         }} style={{ ...S.actionBtn, flex:1, background: meta.bg, color: meta.color }}>
-          🔄 Repeat
+          Repeat
         </button>
       </div>
     </div>
@@ -374,7 +379,14 @@ const TripHistory = ({ user }) => {
       {showConfirm && (
         <div style={S.overlay}>
           <div style={S.modal}>
-            <div style={{ fontSize:'2.5rem', textAlign:'center', marginBottom:'1rem' }}>🗑️</div>
+          <div style={{ width:56, height:56, borderRadius:16, background:'linear-gradient(135deg,#ef4444,#dc2626)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 1rem' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-1 14H6L5 6"/>
+              <path d="M10 11v6M14 11v6"/>
+              <path d="M9 6V4h6v2"/>
+            </svg>
+          </div>
             <h3 style={{ margin:'0 0 0.5rem', fontSize:'1.15rem', fontWeight:800, textAlign:'center' }}>
               Clear all history?
             </h3>
@@ -397,7 +409,7 @@ const TripHistory = ({ user }) => {
       <div style={S.header}>
         <div>
           <h2 style={{ margin:'0 0 0.25rem', fontSize:'1.75rem', fontWeight:800, letterSpacing:'-0.03em' }}>
-            🗺️ Trip History
+            Trip History
           </h2>
           <p style={{ margin:0, color:'#64748b', fontSize:'0.92rem' }}>
             {trips.length > 0 ? `${trips.length} eco-friendly trips recorded` : 'Your green journey starts here'}
@@ -405,10 +417,10 @@ const TripHistory = ({ user }) => {
         </div>
         <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
           <button onClick={exportCSV} disabled={!trips.length} style={S.headerBtn}>
-            📥 Export CSV
+            Export CSV
           </button>
           <button onClick={() => setShowConfirm(true)} disabled={!trips.length} style={{ ...S.headerBtn, background:'#fef2f2', color:'#dc2626', borderColor:'#fca5a5' }}>
-            🗑️ Clear All
+            Clear All
           </button>
         </div>
       </div>
@@ -420,10 +432,10 @@ const TripHistory = ({ user }) => {
         </div>
       ) : trips.length > 0 ? (
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:'0.75rem', marginBottom:'1.5rem' }}>
-          <StatCard icon="🌱" value={stats.totalCO2}      sub=" kg" label="Total CO₂ Saved"   color="#10b981" bg="#f0fdf4" />
-          <StatCard icon="🗺️" value={stats.totalTrips}    sub=""    label="Eco-Friendly Trips" color="#3b82f6" bg="#eff6ff" />
-          <StatCard icon="📍" value={stats.totalDistance} sub=" km" label="Green Distance"     color="#8b5cf6" bg="#f5f3ff" />
-          <StatCard icon="🔥" value={stats.totalCalories} sub=""    label="Calories Burned"    color="#f59e0b" bg="#fffbeb" />
+          <StatCard icon="co2"  value={stats.totalCO2}      sub=" kg" label="Total CO₂ Saved"   color="#10b981" bg="#f0fdf4" />
+          <StatCard icon="trip" value={stats.totalTrips}    sub=""    label="Eco-Friendly Trips" color="#3b82f6" bg="#eff6ff" />
+          <StatCard icon="dist" value={stats.totalDistance} sub=" km" label="Green Distance"     color="#8b5cf6" bg="#f5f3ff" />
+          <StatCard icon="cal"  value={stats.totalCalories} sub=""    label="Calories Burned"    color="#f59e0b" bg="#fffbeb" />
         </div>
       ) : null}
 
@@ -442,7 +454,7 @@ const TripHistory = ({ user }) => {
               </div>
               <div style={{ display:'flex', gap:'1.25rem' }}>
                 {[
-                  { icon:'🌳', val:`${Math.max(1, (stats.totalCO2/21.7).toFixed(1))}`, lbl:'trees/year equiv.' },
+                  { icon:'🌲', val:`${Math.max(1, (stats.totalCO2/21.7).toFixed(1))}`, lbl:'trees/year equiv.' },
                   { icon:'⛽', val:`${(stats.totalDistance*0.08).toFixed(0)}L`, lbl:'fuel saved' },
                 ].map((s,i) => (
                   <div key={i}>
@@ -467,18 +479,18 @@ const TripHistory = ({ user }) => {
         <div style={S.filtersBar}>
           <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', flex:1 }}>
             {[
-              { key:'all',     label:'All',     icon:'🗺️' },
-              { key:'walking', label:'Walking',  icon:'🚶' },
-              { key:'cycling', label:'Cycling',  icon:'🚴' },
-              { key:'driving', label:'Driving',  icon:'🚗' },
-              { key:'transit', label:'Transit',  icon:'🚌' },
-            ].map(({ key, label, icon }) => (
+              { key:'all',     label:'All',     color:'#10b981' },
+              { key:'walking', label:'Walk',    color: getMeta('walking').color },
+              { key:'cycling', label:'Cycle',   color: getMeta('cycling').color },
+              { key:'driving', label:'Drive',   color: getMeta('driving').color },
+              { key:'transit', label:'Transit', color: getMeta('transit').color },
+            ].map(({ key, label, color }) => (
               <Pill
                 key={key}
                 label={label}
-                icon={icon}
+                icon={null}
                 active={modeFilter === key}
-                color={key === 'all' ? '#10b981' : getMeta(key).color}
+                color={color}
                 onClick={() => setModeFilter(key)}
               />
             ))}
@@ -507,8 +519,18 @@ const TripHistory = ({ user }) => {
         </div>
       ) : filtered.length === 0 ? (
         <div style={S.emptyState}>
-          <div style={{ fontSize:'4rem', marginBottom:'1rem' }}>
-            {trips.length === 0 ? '🌱' : '🔍'}
+          <div style={{ width:64, height:64, borderRadius:18, marginBottom:'1rem',
+            background: trips.length === 0
+              ? 'linear-gradient(135deg,#10b981,#34d399)'
+              : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+          }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {trips.length === 0
+                ? <><path d="M3 12h18M3 6h18M3 18h18"/></>
+                : <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>
+              }
+            </svg>
           </div>
           <h3 style={{ margin:'0 0 0.5rem', fontSize:'1.25rem', fontWeight:800 }}>
             {trips.length === 0 ? 'No trips yet' : 'No trips match your filters'}
@@ -525,7 +547,7 @@ const TripHistory = ({ user }) => {
             color:'white', fontWeight:700, fontSize:'0.9rem', textDecoration:'none',
             boxShadow:'0 4px 14px rgba(16,185,129,0.35)',
           }}>
-            🗺️ {trips.length === 0 ? 'Plan First Route' : 'Plan New Route'}
+            {trips.length === 0 ? 'Plan First Route' : 'Plan New Route'}
           </a>
         </div>
       ) : (

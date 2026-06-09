@@ -8,6 +8,7 @@ import RoutePlanner from './pages/RoutePlanner';
 import TripHistory from './pages/TripHistory';
 import Preferences from './pages/Preferences';
 import Settings from './pages/Settings';
+import SavedPlaces from './pages/SavedPlaces';
 import './index.css';
 
 axios.defaults.baseURL    = 'https://greenroute-backend-syxi.onrender.com';
@@ -67,9 +68,9 @@ function App() {
     return <StartupLoader onReady={handleServerReady} />;
   }
 
-  /* ─── Phase 2: tiny flash while we confirm session ─── */
+  /* ─── Phase 2: keep showing the loader while we confirm session ─── */
   if (!authChecked) {
-    return null; // virtually instant, no flash needed
+    return <StartupLoader onReady={() => {}} />;
   }
 
   /* ─── Phase 3: normal app ─── */
@@ -95,6 +96,7 @@ function App() {
                     <Route path="/"            element={<RoutePlanner user={user} />} />
                     <Route path="/history"     element={<TripHistory  user={user} />} />
                     <Route path="/preferences" element={<Preferences  user={user} />} />
+                    <Route path="/saved"       element={<SavedPlaces  user={user} />} />
                     <Route path="/settings"    element={<Settings user={user} theme={theme} onThemeChange={updateTheme} />} />
                   </Routes>
                 </Layout>

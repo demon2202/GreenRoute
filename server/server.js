@@ -77,26 +77,38 @@ app.use(mongoSanitize());
 
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 200,
     message: 'Too many requests from this IP'
 });
 
 app.use('/api', limiter);
 
+// Auth limiter only on mutation endpoints — NOT on /current_user which fires every page load
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 10,
-    message: 'Too many login attempts'
+    max: 15,
+    message: 'Too many login attempts, please try again later'
 });
 
-app.use('/api/auth', authLimiter);
+app.use('/api/auth/login',    authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/google',   authLimiter);
+
+const ALLOWED_ORIGINS = [
+    process.env.CLIENT_URL,
+    'https://green-route-seven.vercel.app',
+    // Allow localhost in development
+    'http://localhost:3000',
+    'http://localhost:3001',
+].filter(Boolean);
 
 app.use(
     cors({
-        origin: [
-            process.env.CLIENT_URL,
-            'https://green-route-seven.vercel.app'
-        ],
+        origin: (origin, cb) => {
+            // Allow requests with no origin (curl, Postman, same-origin)
+            if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+            cb(new Error(`CORS: origin ${origin} not allowed`));
+        },
         credentials: true
     })
 );

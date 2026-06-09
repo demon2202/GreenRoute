@@ -11,32 +11,43 @@ mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_API_KEY;
    CONSTANTS & HELPERS
 ═══════════════════════════════════════════════════════════ */
 const MODE_META = {
-  walking: { icon:'🚶', color:'#10b981', label:'Walk',    desc:'Zero emissions',      bg:'#ecfdf5', co2PerKm:0    },
-  cycling: { icon:'🚴', color:'#3b82f6', label:'Cycle',   desc:'Fast & green',         bg:'#eff6ff', co2PerKm:0.021},
-  driving: { icon:'🚗', color:'#f59e0b', label:'Drive',   desc:'Door to door',         bg:'#fffbeb', co2PerKm:0.21 },
-  transit: { icon:'🚌', color:'#8b5cf6', label:'Transit', desc:'Shared & affordable',  bg:'#f5f3ff', co2PerKm:0.089},
+  walking: { color:'#10b981', label:'Walk',    desc:'Zero emissions',      bg:'#ecfdf5', co2PerKm:0    },
+  cycling: { color:'#3b82f6', label:'Cycle',   desc:'Fast & green',         bg:'#eff6ff', co2PerKm:0.021},
+  driving: { color:'#f59e0b', label:'Drive',   desc:'Door to door',         bg:'#fffbeb', co2PerKm:0.21 },
+  transit: { color:'#8b5cf6', label:'Transit', desc:'Shared & affordable',  bg:'#f5f3ff', co2PerKm:0.089},
 };
 
-const MANEUVER_ICONS = {
-  'turn-right':'↱','turn-left':'↰','turn-slight-right':'↗','turn-slight-left':'↖',
-  'turn-sharp-right':'⮞','turn-sharp-left':'⮜','straight':'↑','continue':'↑',
-  'merge':'⤵','roundabout':'↻','rotary':'↻','fork-right':'↱','fork-left':'↰',
-  'depart':'🔵','arrive':'🏁',default:'•',
-};
-
-// ← ADD THIS RIGHT HERE
-function getManeuverIcon(step) {
-  if (!step?.type) return MANEUVER_ICONS.default;
-  const key = step.modifier ? `${step.type}-${step.modifier}` : step.type;
-  return MANEUVER_ICONS[key] || MANEUVER_ICONS[step.type] || MANEUVER_ICONS.default;
+/* SVG direction arrows — no emoji, consistent cross-platform */
+function DirectionArrow({ type, modifier, size = 22, color = 'currentColor' }) {
+  const s = { width: size, height: size, display: 'block' };
+  const p = { fill: 'none', stroke: color, strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round' };
+  const key = modifier ? `${type}-${modifier}` : type;
+  switch (key) {
+    case 'turn-right':        return <svg style={s} viewBox="0 0 24 24"><path {...p} d="M6 18V8h8m0 0-4-4m4 4-4 4"/></svg>;
+    case 'turn-left':         return <svg style={s} viewBox="0 0 24 24"><path {...p} d="M18 18V8h-8m0 0 4-4m-4 4 4 4"/></svg>;
+    case 'turn-slight-right': return <svg style={s} viewBox="0 0 24 24"><path {...p} d="M6 18V10l6-6m0 0v4m0-4h-4"/></svg>;
+    case 'turn-slight-left':  return <svg style={s} viewBox="0 0 24 24"><path {...p} d="M18 18V10l-6-6m0 0v4m0-4h4"/></svg>;
+    case 'turn-sharp-right':  return <svg style={s} viewBox="0 0 24 24"><path {...p} d="M5 18V7h9m0 0-3-3m3 3-3 3"/></svg>;
+    case 'turn-sharp-left':   return <svg style={s} viewBox="0 0 24 24"><path {...p} d="M19 18V7h-9m0 0 3-3m-3 3 3 3"/></svg>;
+    case 'roundabout':
+    case 'rotary':            return <svg style={s} viewBox="0 0 24 24"><circle {...p} cx="12" cy="12" r="5"/><path {...p} d="M12 4v3m7 5h-3"/></svg>;
+    case 'merge':             return <svg style={s} viewBox="0 0 24 24"><path {...p} d="M12 20V8m0 0L8 4m4 4 4-4M8 12l4-4 4 4"/></svg>;
+    case 'fork-right':        return <svg style={s} viewBox="0 0 24 24"><path {...p} d="M12 20v-8m0 0 5-5m-5 5V4"/></svg>;
+    case 'fork-left':         return <svg style={s} viewBox="0 0 24 24"><path {...p} d="M12 20v-8m0 0-5-5m5 5V4"/></svg>;
+    case 'depart':            return <svg style={s} viewBox="0 0 24 24"><circle fill={color} cx="12" cy="12" r="4"/><path {...p} d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>;
+    case 'arrive':            return <svg style={s} viewBox="0 0 24 24"><path {...p} d="M12 20V4m0 0-4 4m4-4 4 4"/><rect fill={color} x="8" y="18" width="8" height="2" rx="1"/></svg>;
+    case 'straight':
+    case 'continue':          return <svg style={s} viewBox="0 0 24 24"><path {...p} d="M12 20V4m0 0-4 4m4-4 4 4"/></svg>;
+    default:                  return <svg style={s} viewBox="0 0 24 24"><path {...p} d="M12 20V4m0 0-4 4m4-4 4 4"/></svg>;
+  }
 }
 
 const CARBON_EQUIVALENTS = [
-  { threshold:0.1, icon:'🔋', text:(kg)=>`= charging your phone ${Math.round(kg/0.008)} times` },
-  { threshold:0.5, icon:'☕', text:(kg)=>`= ${Math.round(kg/0.021)} cups of coffee carbon footprint` },
-  { threshold:1,   icon:'🌳', text:(kg)=>`= ${(kg/21.7*365).toFixed(1)} days of a tree absorbing CO₂` },
-  { threshold:5,   icon:'🏠', text:(kg)=>`= powering a home for ${Math.round(kg/0.9)} hours` },
-  { threshold:999, icon:'✈️', text:(kg)=>`= ${(kg/255).toFixed(2)} hours of flight emissions saved` },
+  { threshold:0.1, text:(kg)=>`${Math.round(kg/0.008)}x phone charges`               },
+  { threshold:0.5, text:(kg)=>`${Math.round(kg/0.021)} cups of coffee footprint`     },
+  { threshold:1,   text:(kg)=>`${(kg/21.7*365).toFixed(1)} days of tree absorption`  },
+  { threshold:5,   text:(kg)=>`powering a home for ${Math.round(kg/0.9)} hrs`        },
+  { threshold:999, text:(kg)=>`${(kg/255).toFixed(2)} hrs of flight emissions saved` },
 ];
 
 const KEYBOARD_SHORTCUTS = [
@@ -151,7 +162,7 @@ const Co2Chart = ({ routes, selectedMode }) => {
         return (
           <div key={i} style={{marginBottom:6}}>
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
-              <span style={{fontSize:13}}>{m.icon}</span>
+              <div style={{width:10,height:10,borderRadius:3,background:m.color,flexShrink:0}}/>
               <span style={{fontSize:11.5,fontWeight:600,color:isSel?m.color:'#64748b',flex:1}}>{m.label}</span>
               <span style={{fontSize:11.5,fontWeight:700,color:m.color}}>{val.toFixed(2)} kg</span>
             </div>
@@ -213,12 +224,12 @@ const ElevationProfile = ({ data, color='#10b981' }) => {
 const AQIBanner = ({ aqi }) => {
   if (!aqi) return null;
   const levels = [
-    { max:50,  color:'#10b981', bg:'#ecfdf5', label:'Good',            icon:'😊', msg:'Great air quality for outdoor activity!' },
-    { max:100, color:'#84cc16', bg:'#f7fee7', label:'Moderate',         icon:'🙂', msg:'Acceptable air quality.' },
-    { max:150, color:'#f59e0b', bg:'#fffbeb', label:'Unhealthy (Sens)', icon:'😐', msg:'Sensitive groups should limit outdoor exertion.' },
-    { max:200, color:'#ef4444', bg:'#fff5f5', label:'Unhealthy',        icon:'😷', msg:'Everyone may experience health effects. Consider transit.' },
-    { max:300, color:'#8b5cf6', bg:'#f5f3ff', label:'Very Unhealthy',   icon:'🚫', msg:'Avoid outdoor activity. Take transit or drive.' },
-    { max:999, color:'#7f1d1d', bg:'#fef2f2', label:'Hazardous',        icon:'☠️', msg:'Stay indoors! Extremely dangerous air quality.' },
+    { max:50,  color:'#10b981', bg:'#ecfdf5', label:'Good',            msg:'Great air quality for outdoor activity!' },
+    { max:100, color:'#84cc16', bg:'#f7fee7', label:'Moderate',         msg:'Acceptable air quality.' },
+    { max:150, color:'#f59e0b', bg:'#fffbeb', label:'Unhealthy (Sens)', msg:'Sensitive groups should limit outdoor exertion.' },
+    { max:200, color:'#ef4444', bg:'#fff5f5', label:'Unhealthy',        msg:'Everyone may experience health effects. Consider transit.' },
+    { max:300, color:'#8b5cf6', bg:'#f5f3ff', label:'Very Unhealthy',   msg:'Avoid outdoor activity. Take transit or drive.' },
+    { max:999, color:'#7f1d1d', bg:'#fef2f2', label:'Hazardous',        msg:'Stay indoors! Extremely dangerous air quality.' },
   ];
   const level = levels.find(l=>aqi<=l.max)||levels[levels.length-1];
   return (
@@ -229,7 +240,13 @@ const AQIBanner = ({ aqi }) => {
       borderRadius:14, padding:'10px 14px',
       display:'flex', alignItems:'flex-start', gap:10,
     }}>
-      <span style={{fontSize:'1.4rem'}}>{level.icon}</span>
+      <div style={{ width:32, height:32, borderRadius:9, background:level.color, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+          <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/>
+          <path d="M12 8v4"/>
+          <circle cx="12" cy="16" r="1" fill="white"/>
+        </svg>
+      </div>
       <div style={{flex:1}}>
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:2}}>
           <span style={{fontSize:13,fontWeight:700,color:level.color}}>{level.label}</span>
@@ -241,69 +258,134 @@ const AQIBanner = ({ aqi }) => {
   );
 };
 
-/* Nav Strip (speed/ETA bottom bar on map) */
-const NavStrip = ({ route, progress, startTime, isNavigating, onStop }) => {
-  useEffect(() => {
-    if (!isNavigating || !startTime) return;
-    const id = setInterval(() => {
-      // removed unused elapsed variable
-    }, 1000);
-    return () => clearInterval(id);
-  }, [isNavigating, startTime]);
-
+/* Nav Strip — Google Maps style bottom bar */
+const NavStrip = ({ route, progress, isNavigating, onStop, activeStep }) => {
   if (!isNavigating || !route) return null;
-  const totalSec = (route.duration || 0) * 60;
-  const remaining = Math.max(totalSec * (1 - progress), 0);
-  const eta = new Date(Date.now() + remaining * 1000);
-  const distKm = parseFloat(route.distance) || 0;
-  // removed unused distDone
-  const distLeft = distKm * (1 - progress);
-  const speedKmh = distKm / (totalSec / 3600);
+  const totalSec   = (route.duration || 0) * 60;
+  const remaining  = Math.max(totalSec * (1 - progress), 0);
+  const eta        = new Date(Date.now() + remaining * 1000);
+  const distKm     = parseFloat(route.distance) || 0;
+  const distLeft   = Math.max(distKm * (1 - progress), 0);
+  const m          = MODE_META[route.mode] || {};
+  const remMin     = Math.round(remaining / 60);
+
   return (
     <div style={{
       position:'absolute', bottom:0, left:0, right:0,
-      background:'linear-gradient(135deg,#0f172a,#1e293b)',
-      color:'#fff', padding:'14px 20px 18px',
-      display:'flex', alignItems:'center', gap:0,
+      background:'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)',
+      color:'#fff', padding:'16px 20px 20px',
+      display:'flex', alignItems:'center', gap:16,
       zIndex:200,
-      boxShadow:'0 -4px 24px rgba(0,0,0,0.3)',
+      boxShadow:'0 -6px 32px rgba(0,0,0,0.4)',
       borderTop:'1px solid rgba(255,255,255,0.08)',
     }}>
-      {/* Speed */}
-      <div style={{textAlign:'center',flex:1,borderRight:'1px solid rgba(255,255,255,0.1)',paddingRight:16}}>
-        <div style={{fontSize:'1.8rem',fontWeight:800,letterSpacing:'-0.04em',lineHeight:1,color:'#4ade80'}}>
-          {Math.round(speedKmh)}
-        </div>
-        <div style={{fontSize:10,opacity:.6,textTransform:'uppercase',letterSpacing:'0.08em',marginTop:2}}>km/h</div>
-      </div>
-      {/* Distance left */}
-      <div style={{textAlign:'center',flex:1,borderRight:'1px solid rgba(255,255,255,0.1)',padding:'0 16px'}}>
-        <div style={{fontSize:'1.4rem',fontWeight:800,letterSpacing:'-0.03em',lineHeight:1}}>
-          {distLeft<1?`${Math.round(distLeft*1000)}m`:`${distLeft.toFixed(1)}km`}
-        </div>
-        <div style={{fontSize:10,opacity:.6,textTransform:'uppercase',letterSpacing:'0.08em',marginTop:2}}>remaining</div>
-      </div>
       {/* ETA */}
-      <div style={{textAlign:'center',flex:1,borderRight:'1px solid rgba(255,255,255,0.1)',padding:'0 16px'}}>
-        <div style={{fontSize:'1.4rem',fontWeight:800,letterSpacing:'-0.03em',lineHeight:1}}>{formatTime(eta)}</div>
-        <div style={{fontSize:10,opacity:.6,textTransform:'uppercase',letterSpacing:'0.08em',marginTop:2}}>arrive</div>
-      </div>
-      {/* CO2 */}
-      <div style={{textAlign:'center',flex:1,padding:'0 0 0 16px'}}>
-        <div style={{fontSize:'1.4rem',fontWeight:800,letterSpacing:'-0.03em',lineHeight:1,color:'#34d399'}}>
-          {(parseFloat(route.co2Saved||0)*progress).toFixed(2)}
+      <div style={{textAlign:'center', minWidth:56}}>
+        <div style={{fontSize:'1.9rem', fontWeight:800, letterSpacing:'-0.04em', lineHeight:1, color:'#fff'}}>
+          {formatTime(eta)}
         </div>
-        <div style={{fontSize:10,opacity:.6,textTransform:'uppercase',letterSpacing:'0.08em',marginTop:2}}>kg saved</div>
+        <div style={{fontSize:10, opacity:.55, textTransform:'uppercase', letterSpacing:'0.08em', marginTop:3}}>arrive</div>
       </div>
-      {/* Stop btn */}
+
+      <div style={{width:1, height:36, background:'rgba(255,255,255,0.12)'}} />
+
+      {/* Time left */}
+      <div style={{textAlign:'center', minWidth:48}}>
+        <div style={{fontSize:'1.5rem', fontWeight:800, letterSpacing:'-0.03em', lineHeight:1, color:'#4ade80'}}>
+          {remMin < 60 ? `${remMin}` : `${Math.floor(remMin/60)}h${remMin%60}`}
+        </div>
+        <div style={{fontSize:10, opacity:.55, textTransform:'uppercase', letterSpacing:'0.08em', marginTop:3}}>
+          {remMin < 60 ? 'min left' : 'h left'}
+        </div>
+      </div>
+
+      <div style={{width:1, height:36, background:'rgba(255,255,255,0.12)'}} />
+
+      {/* Distance left */}
+      <div style={{textAlign:'center', flex:1}}>
+        <div style={{fontSize:'1.5rem', fontWeight:800, letterSpacing:'-0.03em', lineHeight:1}}>
+          {distLeft < 1 ? `${Math.round(distLeft*1000)}m` : `${distLeft.toFixed(1)}km`}
+        </div>
+        <div style={{fontSize:10, opacity:.55, textTransform:'uppercase', letterSpacing:'0.08em', marginTop:3}}>remaining</div>
+      </div>
+
+      <div style={{width:1, height:36, background:'rgba(255,255,255,0.12)'}} />
+
+      {/* CO2 saved so far */}
+      <div style={{textAlign:'center', minWidth:52}}>
+        <div style={{fontSize:'1.3rem', fontWeight:800, letterSpacing:'-0.03em', lineHeight:1, color:'#34d399'}}>
+          {(parseFloat(route.co2Saved||0) * progress).toFixed(2)}
+        </div>
+        <div style={{fontSize:10, opacity:.55, textTransform:'uppercase', letterSpacing:'0.08em', marginTop:3}}>kg saved</div>
+      </div>
+
+      {/* Stop button */}
       <button onClick={onStop} style={{
-        marginLeft:16, width:42, height:42, borderRadius:'50%',
-        background:'#ef4444', border:'none', color:'#fff',
-        fontSize:'1rem', cursor:'pointer', display:'flex',
+        width:44, height:44, borderRadius:'50%',
+        background:'#ef4444', border:'2px solid rgba(255,255,255,0.15)',
+        color:'#fff', cursor:'pointer', display:'flex',
         alignItems:'center', justifyContent:'center',
-        boxShadow:'0 2px 10px rgba(239,68,68,0.4)',
-        transition:'all 0.15s', flexShrink:0,
-      }}>⏹</button>
+        boxShadow:'0 2px 12px rgba(239,68,68,0.5)',
+        transition:'all 0.15s', flexShrink:0, marginLeft:4,
+      }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="4" y="4" width="16" height="16" rx="2"/>
+        </svg>
+      </button>
+    </div>
+  );
+};
+
+/* Floating turn card — shown on map during navigation */
+const NavTurnCard = ({ step, nextStep, isNavigating, progress, totalSteps }) => {
+  if (!isNavigating || !step) return null;
+  const stepNum = Math.round(progress * totalSteps);
+  return (
+    <div style={{
+      position:'absolute', top:16, left:'50%', transform:'translateX(-50%)',
+      zIndex:180,
+      background:'rgba(15,23,42,0.96)',
+      backdropFilter:'blur(12px)',
+      borderRadius:20,
+      padding:'14px 20px',
+      color:'#fff',
+      display:'flex', alignItems:'center', gap:16,
+      minWidth:280, maxWidth:440,
+      boxShadow:'0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08)',
+      animation:'navCardIn 0.25s cubic-bezier(0.34,1.56,0.64,1)',
+    }}>
+      <style>{`
+        @keyframes navCardIn {
+          from { opacity:0; transform:translateX(-50%) translateY(-8px) scale(0.95); }
+          to   { opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+        }
+      `}</style>
+      {/* Direction arrow */}
+      <div style={{
+        width:52, height:52, borderRadius:14, flexShrink:0,
+        background:'rgba(255,255,255,0.1)',
+        border:'1px solid rgba(255,255,255,0.15)',
+        display:'flex', alignItems:'center', justifyContent:'center',
+      }}>
+        <DirectionArrow type={step.type} modifier={step.modifier} size={28} color="#4ade80" />
+      </div>
+      {/* Instruction */}
+      <div style={{flex:1, minWidth:0}}>
+        <div style={{fontSize:15, fontWeight:700, lineHeight:1.3, color:'#fff', marginBottom:4}}>
+          {step.instruction}
+        </div>
+        {step.distance > 0 && (
+          <div style={{fontSize:12, color:'rgba(255,255,255,0.55)', fontWeight:500}}>
+            {formatDist(step.distance)}{nextStep ? ` · then ${nextStep.instruction?.split(' ').slice(0,3).join(' ')}…` : ''}
+          </div>
+        )}
+      </div>
+      {/* Step counter */}
+      <div style={{flexShrink:0, textAlign:'center'}}>
+        <div style={{fontSize:11, color:'rgba(255,255,255,0.4)', fontWeight:600}}>
+          {stepNum + 1}/{totalSteps}
+        </div>
+      </div>
     </div>
   );
 };
@@ -386,7 +468,7 @@ const EcoReport = ({ history, goal, onClose }) => {
 
           {/* vs Driving */}
           <div style={{background:'#f0fdf4',border:'1px solid #bbf7d0',borderRadius:16,padding:'16px 18px',marginBottom:20}}>
-            <div style={{fontSize:13,fontWeight:700,color:'#065f46',marginBottom:8}}>🌍 vs. If You'd Driven Everything</div>
+            <div style={{fontSize:13,fontWeight:700,color:'#065f46',marginBottom:8}}>vs. If You'd Driven Everything</div>
             <div style={{display:'flex',alignItems:'center',gap:12}}>
               <div style={{flex:1}}>
                 <div style={{display:'flex',justifyContent:'space-between',fontSize:12,color:'#475569',marginBottom:4}}>
@@ -417,7 +499,7 @@ const EcoReport = ({ history, goal, onClose }) => {
               if (!count) return null;
               return (
                 <div key={mode} style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
-                  <span style={{fontSize:16}}>{m.icon}</span>
+                  <div style={{width:10,height:10,borderRadius:3,background:m.color,flexShrink:0}}/>
                   <span style={{fontSize:13,color:'#475569',flex:1,fontWeight:500}}>{m.label}</span>
                   <div style={{width:100,height:6,background:'#f1f5f9',borderRadius:3,overflow:'hidden'}}>
                     <div style={{height:'100%',width:`${(count/ms.trips)*100}%`,background:m.color,borderRadius:3}}/>
@@ -431,15 +513,14 @@ const EcoReport = ({ history, goal, onClose }) => {
           {/* Fun stats */}
           <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10,marginBottom:20}}>
             {[
-              {icon:'🌳',val:`${(ms.co2/21.7*365).toFixed(0)} days`,lbl:'of tree absorption'},
-              {icon:'🔥',val:`${ms.cal.toLocaleString()}`,lbl:'calories burned'},
-              {icon:'⚡',val:`${Math.round(ms.co2/0.008)} charges`,lbl:'phones not charged'},
-              {icon:'🎯',val:`${Math.min(Math.round((ms.co2/goal)*100),100)}%`,lbl:`of ${goal}kg goal`},
+              { label:'tree absorption days', val:`${(ms.co2/21.7*365).toFixed(0)} days` },
+              { label:'calories burned',       val:ms.cal.toLocaleString()               },
+              { label:'phone charges avoided', val:`${Math.round(ms.co2/0.008)}`         },
+              { label:`of ${goal}kg goal`,     val:`${Math.min(Math.round((ms.co2/goal)*100),100)}%` },
             ].map((s,i)=>(
               <div key={i} style={{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:14,padding:'14px 14px',textAlign:'center'}}>
-                <div style={{fontSize:'1.6rem',marginBottom:4}}>{s.icon}</div>
                 <div style={{fontSize:'1.1rem',fontWeight:800,color:'#0f172a',letterSpacing:'-0.02em'}}>{s.val}</div>
-                <div style={{fontSize:11,color:'#94a3b8',marginTop:2}}>{s.lbl}</div>
+                <div style={{fontSize:11,color:'#94a3b8',marginTop:4}}>{s.label}</div>
               </div>
             ))}
           </div>
@@ -472,8 +553,13 @@ const ShortcutsModal = ({ onClose }) => (
       animation:'modalPop 0.25s ease',
     }}>
       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:20}}>
-        <h3 style={{fontSize:'1.1rem',fontWeight:800,color:'#0f172a',margin:0}}>⌨️ Keyboard Shortcuts</h3>
-        <button onClick={onClose} style={{width:32,height:32,borderRadius:'50%',border:'none',background:'#f1f5f9',color:'#64748b',cursor:'pointer',fontSize:13}}>✕</button>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0f172a" strokeWidth="2" strokeLinecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+          <h3 style={{fontSize:'1.1rem',fontWeight:800,color:'#0f172a',margin:0}}>Keyboard Shortcuts</h3>
+        </div>
+        <button onClick={onClose} style={{width:32,height:32,borderRadius:'50%',border:'none',background:'#f1f5f9',color:'#64748b',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:8}}>
         {KEYBOARD_SHORTCUTS.map((s,i)=>(
@@ -504,10 +590,15 @@ const PlaybackControls = ({ isPlaying, progress, onPlayPause, onSeek, onSpeedCha
       <button onClick={onPlayPause} style={{
         width:34,height:34,borderRadius:'50%',border:'none',
         background:'linear-gradient(135deg,#10b981,#059669)',
-        color:'#fff',fontSize:'0.9rem',cursor:'pointer',
+        color:'#fff',cursor:'pointer',
         display:'flex',alignItems:'center',justifyContent:'center',
         boxShadow:'0 2px 8px rgba(16,185,129,0.3)',flexShrink:0,
-      }}>{isPlaying?'⏸':'▶'}</button>
+      }}>
+        {isPlaying
+          ? <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+          : <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        }
+      </button>
       <input
         type="range" min={0} max={100} value={Math.round(progress*100)}
         onChange={e=>onSeek(e.target.value/100)}
@@ -1288,7 +1379,7 @@ const fetchAqi = async (lat, lon) => {
     try{const r=await axios.get('/api/history');setHistory(r.data||[]);}catch{}
   };
 
-  const wxIcon=c=>({'01d':'☀️','01n':'🌙','02d':'⛅','02n':'☁️','03d':'☁️','04d':'☁️','09d':'🌧️','10d':'🌦️','11d':'⛈️','13d':'❄️','50d':'🌫️'}[c]||'🌤️');
+  const wxIcon=c=>({'01d':'Sunny','01n':'Clear','02d':'Partly Cloudy','02n':'Cloudy','03d':'Cloudy','04d':'Overcast','09d':'Rain','10d':'Showers','11d':'Thunderstorm','13d':'Snow','50d':'Fog'}[c]||'');
   const LOAD_MSGS=['Finding routes…','Calculating CO₂…','Comparing modes…','Optimising…'];
 
   const handleRecentSelect=(r)=>{
@@ -1318,14 +1409,15 @@ const fetchAqi = async (lat, lon) => {
 
         /* Header */
         .rp-header { padding:14px 18px 12px;background:#fff;flex-shrink:0;border-bottom:1px solid #f1f5f9; }
-        .rp-hrow { display:flex;align-items:center;gap:8px;margin-bottom:12px; }
+        .rp-hrow { display:flex;align-items:center;gap:6px;margin-bottom:12px; }
         .rp-logo { display:flex;align-items:center;gap:8px;flex:1; }
-        .rp-logo-mark { width:32px;height:32px;background:linear-gradient(135deg,#10b981,#059669);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem;box-shadow:0 2px 8px rgba(16,185,129,0.35); }
+        .rp-logo-mark { width:28px;height:28px;background:linear-gradient(135deg,#059669,#34d399);border-radius:8px;flex-shrink:0;box-shadow:0 2px 8px rgba(5,150,105,0.35); }
         .rp-logo-name { font-size:1rem;font-weight:800;color:#0f172a;letter-spacing:-0.03em; }
         .rp-logo-name span{color:#10b981;}
-        .rp-hbtn { width:32px;height:32px;border-radius:9px;border:1px solid #e8ecf0;background:#f8fafc;color:#64748b;font-size:0.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0; }
+        .rp-hbtn { width:32px;height:32px;border-radius:9px;border:1px solid #e8ecf0;background:#f8fafc;color:#64748b;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0; }
         .rp-hbtn:hover{background:#f0fdf4;border-color:#10b981;color:#10b981;}
         .rp-hbtn.on{background:#ecfdf5;border-color:#10b981;color:#10b981;}
+        .rp-hbtn.night{background:#1e293b;color:#fbbf24;border-color:#1e293b;}
 
         /* Carbon */
         .rp-carbon{display:flex;align-items:center;background:linear-gradient(135deg,#064e3b,#065f46);border-radius:14px;padding:10px 14px;position:relative;overflow:hidden;}
@@ -1435,8 +1527,8 @@ const fetchAqi = async (lat, lon) => {
         .rp-step.on{background:#f0fdf4;}
         .rp-step:not(:last-child)::after{content:'';position:absolute;left:26px;top:42px;bottom:-14px;width:1.5px;background:#f1f5f9;}
         .rp-step.on::after{background:#d1fae5;}
-        .rp-step-ico{width:30px;height:30px;border-radius:50%;background:#f1f5f9;border:2px solid #e2e8f0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#475569;flex-shrink:0;transition:all 0.15s;z-index:1;}
-        .rp-step.on .rp-step-ico{background:#10b981;border-color:#10b981;color:#fff;box-shadow:0 0 0 4px rgba(16,185,129,0.2);}
+        .rp-step-ico{width:34px;height:34px;border-radius:50%;background:#f1f5f9;border:2px solid #e2e8f0;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;z-index:1;}
+        .rp-step.on .rp-step-ico{background:#10b981;border-color:#10b981;box-shadow:0 0 0 4px rgba(16,185,129,0.2);}
         .rp-step-body{flex:1;min-width:0;}
         .rp-step-inst{font-size:13.5px;font-weight:600;color:#1e293b;line-height:1.4;}
         .rp-step-dist{font-size:12px;color:#94a3b8;margin-top:3px;}
@@ -1554,20 +1646,37 @@ const fetchAqi = async (lat, lon) => {
           {/* Header */}
           <div className="rp-header">
             <div className="rp-hrow">
-              <div className="rp-logo">
-                <div className="rp-logo-mark">🌱</div>
+            <div className="rp-logo">
+                <div className="rp-logo-mark" />
                 <span className="rp-logo-name">Green<span>Route</span></span>
               </div>
-              {/* Controls */}
-              <button className={`rp-hbtn ${traffic?'on':''}`} onClick={toggleTraffic} title="Toggle traffic (T)">🚦</button>
+              {/* Controls — SVG icons, no emoji */}
+              <button className={`rp-hbtn ${traffic?'on':''}`} onClick={toggleTraffic} title="Toggle traffic (T)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <rect x="5" y="2" width="14" height="20" rx="3"/>
+                  <circle cx="12" cy="7" r="1.5" fill="currentColor"/>
+                  <circle cx="12" cy="12" r="1.5" fill="#f59e0b"/>
+                  <circle cx="12" cy="17" r="1.5" fill="currentColor"/>
+                </svg>
+              </button>
               <button className={`rp-hbtn ${voiceOn?'on':''}`} onClick={()=>setVoiceOn(v=>!v)} title="Toggle voice (V)">
-                {voiceOn?'🔊':'🔇'}
+                {voiceOn
+                  ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                  : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                }
               </button>
               <button className={`rp-hbtn ${nightMode?'night':''}`} onClick={toggleNightMode} title="Toggle night mode">
-                {nightMode?'☀️':'🌙'}
+                {nightMode
+                  ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                  : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                }
               </button>
-              <button className="rp-hbtn" onClick={()=>setShowReport(true)} title="Eco report">📊</button>
-              <button className="rp-hbtn" onClick={()=>setShowShortcuts(true)} title="Keyboard shortcuts (?)">⌨️</button>
+              <button className="rp-hbtn" onClick={()=>setShowReport(true)} title="Eco report">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              </button>
+              <button className="rp-hbtn" onClick={()=>setShowShortcuts(true)} title="Keyboard shortcuts (?)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+              </button>
             </div>
 
             {/* Carbon strip */}
@@ -1620,7 +1729,13 @@ const fetchAqi = async (lat, lon) => {
                   onClick={()=>(origin&&destination)?setShowModal(true):alert('Set start and destination first.')}
                   disabled={loading}
                 >
-                  {loading?<><span className="rp-spin"/>{LOAD_MSGS[loadingStep]}</>:<><span>🔍</span>Find Routes</>}
+                  {loading
+                    ? <><span className="rp-spin"/>{LOAD_MSGS[loadingStep]}</>
+                    : <>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        Find Routes
+                      </>
+                  }
                 </button>
               </div>
             </div>
@@ -1632,7 +1747,7 @@ const fetchAqi = async (lat, lon) => {
           {/* Scroll content */}
           <div className="rp-scroll">
 
-            {/* Mode chips */}
+            {/* Route chips */}
             {routes.length>0&&(
               <div className="rp-chips">
                 {Object.entries(MODE_META).map(([id,m])=>{
@@ -1640,7 +1755,7 @@ const fetchAqi = async (lat, lon) => {
                   const sel=selectedRoute?.mode===id;
                   return (
                     <button key={id} className={`rp-chip ${sel?'on':''}`} style={{'--cc':m.color}} onClick={()=>r&&selectRoute(r)}>
-                      {m.icon} {m.label}
+                      {m.label}
                       <span style={{opacity:.65}}> · {r.duration}m</span>
                     </button>
                   );
@@ -1661,13 +1776,16 @@ const fetchAqi = async (lat, lon) => {
                   const eq=getCarbonEquivalent(parseFloat(route.co2Saved)||0);
                   return (
                     <div key={route.id||i} className={`rp-card ${sel?'sel':''}`} style={{'--cc':m.color}} onClick={()=>selectRoute(route)}>
+                      {/* Route card icon — colored square with first letter */}
                       <div className="rp-card-head">
-                        <div className="rp-card-ico">{m.icon}</div>
+                        <div className="rp-card-ico" style={{background:`color-mix(in srgb, ${m.color} 12%, #fff)`, border:`1.5px solid color-mix(in srgb, ${m.color} 25%, transparent)`}}>
+                          <span style={{fontSize:'0.82rem', fontWeight:800, color:m.color, letterSpacing:'-0.01em'}}>{m.label}</span>
+                        </div>
                         <div className="rp-card-info">
                           <div className="rp-card-title">
                             <span className="rp-card-name">{m.label}</span>
-                            {i===0&&<span className="rp-bdg rp-bdg-rec">⭐ Best</span>}
-                            {(route.mode==='walking'||route.mode==='cycling')&&i>0&&<span className="rp-bdg rp-bdg-eco">🌿 Eco</span>}
+                            {i===0&&<span className="rp-bdg rp-bdg-rec">Best</span>}
+                            {(route.mode==='walking'||route.mode==='cycling')&&i>0&&<span className="rp-bdg rp-bdg-eco">Eco</span>}
                           </div>
                           <div className="rp-card-eta">Arrives {route.estimatedArrival}</div>
                         </div>
@@ -1676,17 +1794,17 @@ const fetchAqi = async (lat, lon) => {
                       </div>
 
                       <div className="rp-stats">
-                        <div className="rp-stat"><span>⏱</span><strong>{route.duration}</strong><span>min</span></div>
-                        <div className="rp-stat"><span>📏</span><strong>{route.distance}</strong><span>km</span></div>
-                        <div className="rp-stat rp-stat-eco"><span>🌱</span><strong>{route.co2Saved}</strong><span>kg CO₂</span></div>
-                        {route.calories>0&&<div className="rp-stat"><span>🔥</span><strong>{route.calories}</strong><span>cal</span></div>}
-                        {route.cost>0&&<div className="rp-stat"><span>₹</span><strong>{route.cost}</strong></div>}
+                        <div className="rp-stat"><span style={{fontSize:11,color:'#94a3b8'}}>Time</span><strong>{route.duration}</strong><span>min</span></div>
+                        <div className="rp-stat"><span style={{fontSize:11,color:'#94a3b8'}}>Dist</span><strong>{route.distance}</strong><span>km</span></div>
+                        <div className="rp-stat rp-stat-eco"><span style={{fontSize:11,color:'#10b981'}}>CO₂</span><strong>{route.co2Saved}</strong><span>kg</span></div>
+                        {route.calories>0&&<div className="rp-stat"><span style={{fontSize:11,color:'#94a3b8'}}>Cal</span><strong>{route.calories}</strong></div>}
+                        {route.cost>0&&<div className="rp-stat"><span style={{fontSize:11,color:'#94a3b8'}}>₹</span><strong>{route.cost}</strong></div>}
                       </div>
 
                       {/* Carbon equivalent */}
                       {sel&&(
                         <div style={{display:'flex',alignItems:'center',gap:6,padding:'7px 11px',background:'#f0fdf4',borderRadius:10,marginTop:8,fontSize:12,color:'#065f46'}}>
-                          <span>{eq.icon}</span><span>{eq.text}</span>
+                          <span>{eq.text}</span>
                         </div>
                       )}
 
@@ -1699,15 +1817,19 @@ const fetchAqi = async (lat, lon) => {
                         <div className="rp-ctas">
                           <button className="rp-go" style={{'--cc':m.color}}
                             onClick={e=>{e.stopPropagation();startNav(route);}}>
-                            ▶ Navigate
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            Navigate
                           </button>
                           <button className={`rp-save ${saveMsg==='saved'?'ok':''}`}
                             onClick={e=>{e.stopPropagation();saveTrip();}} title="Save trip">
-                            {saveMsg==='saved'?'✓':'🔖'}
+                            {saveMsg==='saved'
+                              ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                              : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                            }
                           </button>
                           <button className="rp-share"
                             onClick={e=>{e.stopPropagation();shareRoute();}} title="Share route">
-                            📤
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
                           </button>
                         </div>
                       )}
@@ -1761,10 +1883,24 @@ const fetchAqi = async (lat, lon) => {
                     )}
                   </div>
 
-                  <div className="rp-steps">
+                  {/* Directions panel — improved step list with SVG arrows */}
+                  <div className="rp-steps" ref={el => {
+                    // auto-scroll active step into view
+                    if (el && activeStep !== null) {
+                      const activeEl = el.querySelector('.rp-step.on');
+                      if (activeEl) activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                  }}>
                     {selectedRoute.steps?.map((step,idx)=>(
                       <div key={idx} className={`rp-step ${activeStep===idx?'on':''}`} onClick={()=>focusStep(step,idx)}>
-                        <div className="rp-step-ico">{getManeuverIcon(step)}</div>
+                        <div className="rp-step-ico">
+                          <DirectionArrow
+                            type={step.type}
+                            modifier={step.modifier}
+                            size={16}
+                            color={activeStep===idx ? '#fff' : '#475569'}
+                          />
+                        </div>
                         <div className="rp-step-body">
                           <div className="rp-step-inst">{step.instruction}</div>
                           <div className="rp-step-dist">
@@ -1775,7 +1911,9 @@ const fetchAqi = async (lat, lon) => {
                       </div>
                     ))}
                     <div className="rp-step rp-step-arrive">
-                      <div className="rp-step-ico">🏁</div>
+                      <div className="rp-step-ico">
+                        <DirectionArrow type="arrive" size={16} color="#10b981" />
+                      </div>
                       <div className="rp-step-body">
                         <div className="rp-step-inst">Arrive at {destination?.name?.split(',')[0]}</div>
                         <div className="rp-step-dist">You've reached your destination</div>
@@ -1790,7 +1928,13 @@ const fetchAqi = async (lat, lon) => {
             {/* Empty state */}
             {routes.length===0&&!loading&&(
               <div className="rp-empty">
-                <div className="rp-empty-ico">🗺️</div>
+                <div className="rp-empty-ico">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+                    <line x1="9" y1="3" x2="9" y2="18"/>
+                    <line x1="15" y1="6" x2="15" y2="21"/>
+                  </svg>
+                </div>
                 <div className="rp-empty-title">Plan your eco journey</div>
                 <div className="rp-empty-sub">Enter a start and destination to compare eco-friendly routes</div>
                 <div style={{fontSize:11,color:'#cbd5e1',marginTop:8}}>Press <kbd style={{background:'#f1f5f9',padding:'2px 6px',borderRadius:5,fontSize:11,border:'1px solid #e2e8f0'}}>?</kbd> for shortcuts</div>
@@ -1800,15 +1944,17 @@ const fetchAqi = async (lat, lon) => {
             {/* Weather */}
             {weather&&routes.length>0&&panel!=='directions'&&(
               <div className="rp-wx">
-                <span className="rp-wx-ico">{wxIcon(weather.weather?.[0]?.icon)}</span>
+                <div style={{flexShrink:0,textAlign:'center',minWidth:44}}>
+                  <div style={{fontSize:'1.4rem',fontWeight:800,letterSpacing:'-0.02em'}}>{Math.round(weather.main?.temp)}°</div>
+                  <div style={{fontSize:9,opacity:.7,textTransform:'uppercase',letterSpacing:'0.07em',marginTop:1}}>{wxIcon(weather.weather?.[0]?.icon)}</div>
+                </div>
                 <div className="rp-wx-body">
-                  <span className="rp-wx-temp">{Math.round(weather.main?.temp)}°C</span>
-                  <span className="rp-wx-desc">{weather.weather?.[0]?.description}</span>
+                  <span className="rp-wx-temp" style={{fontSize:'1rem'}}>{weather.weather?.[0]?.description}</span>
                 </div>
                 <div className="rp-wx-extra">
-                  <span>💧 {weather.main?.humidity}%</span>
-                  <span>💨 {Math.round((weather.wind?.speed||0)*3.6)} km/h</span>
-                  <span>👁 {Math.round((weather.visibility||0)/1000)} km</span>
+                  <span>Humidity {weather.main?.humidity}%</span>
+                  <span>Wind {Math.round((weather.wind?.speed||0)*3.6)} km/h</span>
+                  <span>Vis. {Math.round((weather.visibility||0)/1000)} km</span>
                 </div>
               </div>
             )}
@@ -1819,13 +1965,22 @@ const fetchAqi = async (lat, lon) => {
         <main className="rp-map-area">
           <div ref={mapContainer} className="rp-map"/>
 
-          {/* Nav strip (Google Maps bottom bar) */}
+          {/* Floating turn card — shown during navigation */}
+          <NavTurnCard
+            step={selectedRoute?.steps?.[activeStep ?? 0]}
+            nextStep={selectedRoute?.steps?.[activeStep != null ? activeStep + 1 : 1]}
+            isNavigating={isNavigating}
+            progress={animProgress}
+            totalSteps={selectedRoute?.steps?.length ?? 0}
+          />
+
+          {/* Nav strip — bottom bar */}
           <NavStrip
             route={selectedRoute}
             progress={animProgress}
-            startTime={navStartTime.current}
             isNavigating={isNavigating}
             onStop={stopNav}
+            activeStep={activeStep}
           />
 
           {/* Loading */}
@@ -1870,11 +2025,19 @@ const fetchAqi = async (lat, lon) => {
           {/* Map controls */}
           <div className="rp-map-ctrl">
             <button className={`rp-map-btn ${mapStyle==='satellite-streets-v12'?'on':''}`} onClick={toggleStyle} title="Toggle satellite (S)">
-              {mapStyle==='satellite-streets-v12'?'🗺️':'🛰️'}
+              {mapStyle==='satellite-streets-v12'
+                ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
+                : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              }
             </button>
-            <button className={`rp-map-btn ${traffic?'on':''}`} onClick={toggleTraffic} title="Toggle traffic (T)">🚦</button>
+            <button className={`rp-map-btn ${traffic?'on':''}`} onClick={toggleTraffic} title="Toggle traffic (T)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="2" width="14" height="20" rx="3"/><circle cx="12" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/></svg>
+            </button>
             <button className={`rp-map-btn ${nightMode?'night':''}`} onClick={toggleNightMode} title="Toggle night mode">
-              {nightMode?'☀️':'🌙'}
+              {nightMode
+                ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>
+                : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              }
             </button>
             {selectedRoute&&(
               <button className="rp-map-btn" title="Fit route" onClick={()=>{
@@ -1883,7 +2046,9 @@ const fetchAqi = async (lat, lon) => {
                   routes.forEach(r=>r.geometry?.coordinates?.forEach(c=>b.extend(c)));
                   map.current.fitBounds(b,{padding:80,duration:1200,easing:easeInOutCubic});
                 }
-              }}>⊕</button>
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+              </button>
             )}
           </div>
         </main>
@@ -1926,9 +2091,11 @@ const fetchAqi = async (lat, lon) => {
       {/* Toasts */}
       {(saveMsg||shareMsg)&&(
         <div className="rp-toast">
-          {saveMsg==='saved'?'✅ Trip saved!'
-           :saveMsg==='error'?'❌ Save failed'
-           :shareMsg?`📋 ${shareMsg}`:''}
+          {saveMsg==='saved'
+            ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg> Trip saved!</>
+            : saveMsg==='error'
+            ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Save failed</>
+            : shareMsg ? shareMsg : ''}
         </div>
       )}
     </>
