@@ -75,17 +75,9 @@ const Login = ({ onLogin }) => {
       {/* ── Left hero panel ── */}
       <div className="lp-hero">
         {/* Decorative circles */}
-        <div className="lp-circle lp-circle--1" />
-        <div className="lp-circle lp-circle--2" />
-        <div className="lp-circle lp-circle--3" />
+
 
         <div className="lp-hero-content">
-          {/* Brand */}
-          <div className="lp-brand">
-            <div className="lp-brand-dot" />
-            <span className="lp-brand-name">GreenRoute</span>
-          </div>
-
           <h1 className="lp-headline">
             Travel Smarter,<br />
             <span className="lp-headline-em">Save the Planet.</span>

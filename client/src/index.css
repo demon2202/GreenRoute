@@ -104,61 +104,69 @@
    DARK THEME
 ══════════════════════════════════════════════════════════ */
 .dark {
-  --bg-primary:          #080f0a;
-  --bg-secondary:        #0d1f12;
-  --bg-sidebar:          #0a1a0f;
-  --bg-card:             #0e1f14;
-  --bg-input:            #101e15;
-  --bg-tag:              #132a1b;
-  --bg-glass:            rgba(13,31,18,0.88);
-  --bg-glass-border:     rgba(255,255,255,0.07);
+  /* Backgrounds */
+  --bg-primary:          #090d16;
+  --bg-secondary:        #111827;
+  --bg-sidebar:          #0d131f;
+  --bg-card:             #111827;
+  --bg-input:            #1f2937;
+  --bg-tag:              #1f2937;
+  --bg-glass:            rgba(17,24,39,0.88);
+  --bg-glass-border:     rgba(255,255,255,0.08);
 
-  --border-color:        #1c3d28;
-  --border-light:        #152a1e;
-  --border-focus:        #22c55e;
+  /* Borders */
+  --border-color:        #1f2937;
+  --border-light:        #111827;
+  --border-focus:        #10b981;
 
-  --text-primary:        #e8faf0;
-  --text-secondary:      #7bc9a0;
-  --text-light:          #4a8866;
-  --text-muted:          #2d6040;
-  --text-placeholder:    #264f38;
-  --text-inverse:        #080f0a;
+  /* Text */
+  --text-primary:        #f9fafb;
+  --text-secondary:      #d1d5db;
+  --text-light:          #9ca3af;
+  --text-muted:          #6b7280;
+  --text-placeholder:    #4b5563;
+  --text-inverse:        #090d16;
 
-  --green-50:            #051a0c;
-  --green-100:           #0a2d14;
-  --green-200:           #14532d;
-  --green-300:           #166534;
-  --green-400:           #15803d;
-  --green-500:           #16a34a;
-  --green-600:           #22c55e;
-  --green-700:           #4ade80;
-  --green-800:           #86efac;
-  --green-900:           #bbf7d0;
-  --green-950:           #dcfce7;
+  /* Green Brand Palette */
+  --green-50:            #022c22;
+  --green-100:           #064e3b;
+  --green-200:           #065f46;
+  --green-300:           #047857;
+  --green-400:           #059669;
+  --green-500:           #10b981;
+  --green-600:           #34d399;
+  --green-700:           #6ee7b7;
+  --green-800:           #a7f3d0;
+  --green-900:           #c6f6d5;
+  --green-950:           #f0fdf4;
 
-  --primary:             #22c55e;
-  --primary-hover:       #4ade80;
-  --primary-light:       #4ade80;
-  --primary-xlight:      #166534;
-  --primary-glow:        rgba(34,197,94,0.2);
+  /* Primary */
+  --primary:             #10b981;
+  --primary-hover:       #34d399;
+  --primary-light:       #34d399;
+  --primary-xlight:      #064e3b;
+  --primary-glow:        rgba(16,185,129,0.2);
 
+  /* Accents */
   --blue:                #38bdf8;
   --orange:              #fb923c;
-  --purple:              #a78bfa;
+  --purple:              #c084fc;
   --red:                 #f87171;
   --amber:               #fbbf24;
 
-  --shadow-xs:           0 1px 2px rgba(0,0,0,0.4);
-  --shadow-sm:           0 1px 3px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.3);
-  --shadow-md:           0 4px 16px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.35);
-  --shadow-lg:           0 10px 40px rgba(0,0,0,0.55), 0 4px 16px rgba(0,0,0,0.4);
-  --shadow-xl:           0 20px 60px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.45);
-  --shadow-green:        0 4px 20px rgba(34,197,94,0.18);
-  --shadow-green-lg:     0 8px 32px rgba(34,197,94,0.25);
+  /* Shadows */
+  --shadow-xs:           0 1px 2px rgba(0,0,0,0.5);
+  --shadow-sm:           0 1px 3px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-md:           0 4px 16px rgba(0,0,0,0.6), 0 2px 6px rgba(0,0,0,0.45);
+  --shadow-lg:           0 10px 40px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.5);
+  --shadow-xl:           0 20px 60px rgba(0,0,0,0.7), 0 8px 24px rgba(0,0,0,0.55);
+  --shadow-green:        0 4px 20px rgba(16,185,129,0.15);
+  --shadow-green-lg:     0 8px 32px rgba(16,185,129,0.22);
 
-  --hover-bg:            rgba(34,197,94,0.07);
-  --hover-bg-strong:     rgba(34,197,94,0.12);
-  --active-bg:           rgba(34,197,94,0.15);
+  /* Hover states */
+  --hover-bg:            rgba(16,185,129,0.06);
+  --hover-bg-strong:     rgba(16,185,129,0.1);
+  --active-bg:           rgba(16,185,129,0.14);
 }
 
 /* ══════════════════════════════════════════════════════════

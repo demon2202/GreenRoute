@@ -596,10 +596,12 @@ const TripHistory = ({ user }) => {
 /* ─── Styles ─────────────────────────────────────────────────────────────────── */
 const S = {
   page: {
-    maxWidth: 960,
+    maxWidth: 1400,
     margin: '0 auto',
     fontFamily: 'inherit',
     paddingBottom: '3rem',
+    paddingLeft: '2rem',
+    paddingRight: '2rem',
   },
   header: {
     display: 'flex',

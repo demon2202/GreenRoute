@@ -281,7 +281,7 @@ const Settings = ({ user, theme, onThemeChange }) => {
 
   /* ── Render ── */
   return (
-    <div style={{ maxWidth: 820, margin: '0 auto', paddingBottom: '3rem' }}>
+    <div style={{ maxWidth: 1400, margin: '0 auto', paddingBottom: '3rem', paddingLeft: '2rem', paddingRight: '2rem' }}>
       {confirmClear && (
         <ConfirmDialog
           message="Delete all trip history? This cannot be undone."
@@ -480,102 +480,6 @@ const Settings = ({ user, theme, onThemeChange }) => {
             })}
           </div>
         </SectionCard>
-
-        {/* ── Privacy & Data ── */}
-        <SectionCard iconKey="lock" title="Privacy & Data" subtitle="Manage how your data is stored and used">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: '0.75rem' }}>
-            {[
-              {
-                iconKey: 'download', label: 'Export My Data', desc: 'Download all your trip history',
-                onClick: handleExport, danger: false,
-              },
-              {
-                iconKey: 'trash', label: 'Clear Trip History', desc: 'Permanently delete all saved trips',
-                onClick: handleClearHistory, danger: true,
-              },
-            ].map(({ iconKey, label, desc, onClick, danger }) => (
-              <button
-                key={label}
-                onClick={onClick}
-                disabled={saving}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '0.85rem',
-                  padding: '1rem 1.1rem', borderRadius: 14,
-                  border: `1.5px solid ${danger ? '#fca5a5' : '#e2e8f0'}`,
-                  background: danger ? '#fef2f2' : 'var(--bg-secondary, #f8fafc)',
-                  cursor: saving ? 'not-allowed' : 'pointer', textAlign: 'left',
-                  transition: 'all 0.2s', fontFamily: 'inherit',
-                  opacity: saving ? 0.7 : 1,
-                }}
-                onMouseOver={e => { if (!saving) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = danger ? '0 4px 12px rgba(239,68,68,0.15)' : '0 4px 12px rgba(0,0,0,0.08)'; } }}
-                onMouseOut={e  => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
-              >
-                <div style={{
-                  width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-                  background: danger ? '#fee2e2' : '#eff6ff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: danger ? '#ef4444' : '#3b82f6',
-                }}>
-                  {Icons[iconKey]?.()}
-                </div>
-                <div>
-                  <p style={{ margin: '0 0 0.15rem', fontWeight: 700, fontSize: '0.9rem', color: danger ? '#ef4444' : 'var(--text-primary, #0f172a)' }}>
-                    {label}
-                  </p>
-                  <p style={{ margin: 0, fontSize: '0.77rem', color: '#94a3b8', fontWeight: 500 }}>
-                    {desc}
-                  </p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </SectionCard>
-
-        {/* ── About ── */}
-        <SectionCard iconKey="leaf" title="About GreenRoute" accent>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: '0.5rem', marginBottom: '1.25rem' }}>
-            {[
-              { label: 'Version',  value: '2.0.0'      },
-              { label: 'Released', value: '15 Jan 2025' },
-            ].map(({ label, value }) => (
-              <div key={label} style={{
-                background: 'rgba(255,255,255,0.1)', borderRadius: 10,
-                padding: '0.75rem 1rem', border: '1px solid rgba(255,255,255,0.12)',
-              }}>
-                <div style={{ fontSize: '0.7rem', color: 'rgba(167,243,208,0.7)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>{label}</div>
-                <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'white' }}>{value}</div>
-              </div>
-            ))}
-          </div>
-
-          <p style={{ margin: '0 0 1.25rem', fontSize: '0.88rem', lineHeight: 1.7, color: 'rgba(255,255,255,0.8)' }}>
-            GreenRoute helps you make sustainable transportation choices by providing eco-friendly route recommendations and tracking your carbon impact. Join thousands of users making a difference, one trip at a time.
-          </p>
-
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            {[
-              { label: 'Support',        href: 'mailto:support@greenroute.com', iconKey: 'mail'   },
-              { label: 'Privacy Policy', href: '/privacy',                       iconKey: 'shield' },
-            ].map(({ label, href, iconKey }) => (
-              <a key={label} href={href} rel="noreferrer"
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-                  background: 'rgba(255,255,255,0.15)', color: 'white',
-                  border: '1.5px solid rgba(255,255,255,0.25)',
-                  padding: '0.6rem 1rem', borderRadius: 10,
-                  fontWeight: 700, fontSize: '0.82rem', textDecoration: 'none',
-                  transition: 'background 0.2s',
-                }}
-                onMouseOver={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.28)')}
-                onMouseOut={e  => (e.currentTarget.style.background = 'rgba(255,255,255,0.15)')}
-              >
-                <span style={{ opacity: 0.85 }}>{Icons[iconKey]?.()}</span>
-                {label}
-              </a>
-            ))}
-          </div>
-        </SectionCard>
-
       </div>
 
       <style>{`

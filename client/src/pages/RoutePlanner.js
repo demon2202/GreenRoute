@@ -11,10 +11,42 @@ mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_API_KEY;
    CONSTANTS & HELPERS
 ═══════════════════════════════════════════════════════════ */
 const MODE_META = {
-  walking: { color:'#10b981', label:'Walk',    desc:'Zero emissions',      bg:'#ecfdf5', co2PerKm:0    },
-  cycling: { color:'#3b82f6', label:'Cycle',   desc:'Fast & green',         bg:'#eff6ff', co2PerKm:0.021},
-  driving: { color:'#f59e0b', label:'Drive',   desc:'Door to door',         bg:'#fffbeb', co2PerKm:0.21 },
-  transit: { color:'#8b5cf6', label:'Transit', desc:'Shared & affordable',  bg:'#f5f3ff', co2PerKm:0.089},
+  walking: {
+    color:'#10b981',
+    label:'Walk',
+    desc:'Zero emissions',
+    bg:'#ecfdf5',
+    co2PerKm:0,
+    icon: '🚶',
+    mapIcon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="m14 12-1-2-3-1-3 3M4 18l4-2v-4M9 13v-3h3l2.5 3M12 16v5M15 21v-4l-2-2"/></svg>`
+  },
+  cycling: {
+    color:'#3b82f6',
+    label:'Cycle',
+    desc:'Fast & green',
+    bg:'#eff6ff',
+    co2PerKm:0.021,
+    icon: '🚲',
+    mapIcon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="2.5"/><circle cx="18.5" cy="17.5" r="2.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm-3 11.5 1-4.5 2-2.5h3.5M12 17.5 8 13.5l3-3.5 1 2"/></svg>`
+  },
+  driving: {
+    color:'#f59e0b',
+    label:'Drive',
+    desc:'Door to door',
+    bg:'#fffbeb',
+    co2PerKm:0.21,
+    icon: '🚗',
+    mapIcon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3C13 6.8 11.8 6 10.5 6H8.2C7.5 6 7 6.5 7 7.2v3.3C7 11.2 7.5 11.7 8.2 11.7h1.6c.7 0 1.2-.5 1.2-1.2V9M2 17h10c1.1 0 2-.9 2-2V9"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>`
+  },
+  transit: {
+    color:'#8b5cf6',
+    label:'Transit',
+    desc:'Shared & affordable',
+    bg:'#f5f3ff',
+    co2PerKm:0.089,
+    icon: '🚌',
+    mapIcon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="2" ry="2"/><path d="M6 6h12v4H6ZM6 14h2v2H6ZM16 14h2v2h-2ZM8 19v2M16 19v2"/></svg>`
+  },
 };
 
 /* SVG direction arrows — no emoji, consistent cross-platform */
@@ -43,11 +75,11 @@ function DirectionArrow({ type, modifier, size = 22, color = 'currentColor' }) {
 }
 
 const CARBON_EQUIVALENTS = [
-  { threshold:0.1, text:(kg)=>`${Math.round(kg/0.008)}x phone charges`               },
-  { threshold:0.5, text:(kg)=>`${Math.round(kg/0.021)} cups of coffee footprint`     },
-  { threshold:1,   text:(kg)=>`${(kg/21.7*365).toFixed(1)} days of tree absorption`  },
-  { threshold:5,   text:(kg)=>`powering a home for ${Math.round(kg/0.9)} hrs`        },
-  { threshold:999, text:(kg)=>`${(kg/255).toFixed(2)} hrs of flight emissions saved` },
+  { threshold:0.1, text:(kg)=>`⚡ ${Math.round(kg/0.008)}x phone charges`               },
+  { threshold:0.5, text:(kg)=>`☕ ${Math.round(kg/0.021)} cups of coffee footprint`     },
+  { threshold:1,   text:(kg)=>`🌳 ${(kg/21.7*365).toFixed(1)} days of tree absorption`  },
+  { threshold:5,   text:(kg)=>`🏠 powering a home for ${Math.round(kg/0.9)} hrs`        },
+  { threshold:999, text:(kg)=>`✈️ ${(kg/255).toFixed(2)} hrs of flight emissions saved` },
 ];
 
 const KEYBOARD_SHORTCUTS = [
@@ -91,7 +123,7 @@ function getEcoScore(route) {
 
 function getCarbonEquivalent(kgSaved) {
   const eq = CARBON_EQUIVALENTS.find(e=>kgSaved<=e.threshold) || CARBON_EQUIVALENTS[CARBON_EQUIVALENTS.length-1];
-  return { icon:eq.icon, text:eq.text(kgSaved) };
+  return { icon:'', text:eq.text(kgSaved) };
 }
 
 function getEcoScoreColor(score) {
@@ -1008,7 +1040,7 @@ const RoutePlanner = ({ user }) => {
       if(selectedRoute?.geometry?.coordinates){
         const meta=MODE_META[selectedRoute.mode]||{};
         animStart.current=null;
-        startRouteAnimation(selectedRoute.geometry.coordinates,meta.icon,meta.color,true,isNavigating);
+        startRouteAnimation(selectedRoute.geometry.coordinates,meta.mapIcon,meta.color,true,isNavigating);
       }
     }
   };
@@ -1093,7 +1125,7 @@ const RoutePlanner = ({ user }) => {
 
     /* Traveller */
     const meta=MODE_META[activeRoute.mode]||{};
-    startRouteAnimation(activeRoute.geometry.coordinates,meta.icon,meta.color,true,false);
+    startRouteAnimation(activeRoute.geometry.coordinates,meta.mapIcon,meta.color,true,false);
   },[startRouteAnimation,isNavigating]);
 
   const selectRoute = useCallback((route) => {
@@ -1262,7 +1294,7 @@ const RoutePlanner = ({ user }) => {
     cancelAnim();
     const meta=MODE_META[route.mode]||{};
     const coords=route?.geometry?.coordinates||[];
-    if(coords.length) startRouteAnimation(coords,meta.icon,meta.color,false,true);
+    if(coords.length) startRouteAnimation(coords,meta.mapIcon,meta.color,false,true);
     if(voiceOn) speak(`Starting navigation. ${route.duration} minutes to destination.`);
     map.current.easeTo({center:origin?.coordinates,bearing:0,pitch:55,zoom:17,duration:1600,easing:easeInOutCubic});
   },[startRouteAnimation,origin,voiceOn]);
@@ -1274,7 +1306,7 @@ const RoutePlanner = ({ user }) => {
     map.current.easeTo({pitch:0,bearing:0,zoom:12,duration:1200,easing:easeInOutCubic});
     if(selectedRoute?.geometry?.coordinates){
       const meta=MODE_META[selectedRoute.mode]||{};
-      startRouteAnimation(selectedRoute.geometry.coordinates,meta.icon,meta.color,true,false);
+      startRouteAnimation(selectedRoute.geometry.coordinates,meta.mapIcon,meta.color,true,false);
     }
   },[selectedRoute,startRouteAnimation]);
 

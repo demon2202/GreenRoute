@@ -242,7 +242,7 @@ const SavedPlaces = () => {
     : places;
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto', fontFamily: 'inherit', paddingBottom: '3rem' }}>
+    <div style={{ maxWidth: 1400, margin: '0 auto', fontFamily: 'inherit', paddingBottom: '3rem', paddingLeft: '2rem', paddingRight: '2rem' }}>
       {/* Toast */}
       {toast && (
         <div style={{
