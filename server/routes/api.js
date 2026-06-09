@@ -543,4 +543,44 @@ router.get('/stats', ensureAuth, async (req, res) => {
   }
 });
 
+/* ─────────────────────────────────────────────────────────────
+   LEADERBOARD
+   ───────────────────────────────────────────────────────────── */
+router.get('/leaderboard', ensureAuth, async (req, res) => {
+  try {
+    const users = await User.find({}, 'displayName image stats')
+      .sort({ 'stats.totalCo2Saved': -1 })
+      .lean();
+
+    const ranked = users.map((u, index) => ({
+      userId: u._id,
+      displayName: u.displayName,
+      image: u.image || '',
+      totalCo2Saved: parseFloat((u.stats?.totalCo2Saved || 0).toFixed(2)),
+      totalTrips: u.stats?.totalTrips || 0,
+      rank: index + 1
+    }));
+
+    const currentUserIdStr = req.user.id.toString();
+    const currentUserRankInfo = ranked.find(u => u.userId.toString() === currentUserIdStr);
+
+    const topLimit = 50;
+    const topUsers = ranked.slice(0, topLimit);
+
+    res.json({
+      leaderboard: topUsers,
+      currentUser: currentUserRankInfo ? {
+        rank: currentUserRankInfo.rank,
+        displayName: currentUserRankInfo.displayName,
+        image: currentUserRankInfo.image,
+        totalCo2Saved: currentUserRankInfo.totalCo2Saved,
+        totalTrips: currentUserRankInfo.totalTrips
+      } : null
+    });
+  } catch (err) {
+    console.error('[leaderboard]', err);
+    res.status(500).json({ error: 'Failed to fetch leaderboard.' });
+  }
+});
+
 module.exports = router;

@@ -60,6 +60,12 @@ const Icon = ({ name, size = 18 }) => {
         <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
       </svg>
     ),
+    award: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="8" r="6"/>
+        <path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/>
+      </svg>
+    ),
   };
   return icons[name] || null;
 };
@@ -67,6 +73,7 @@ const Icon = ({ name, size = 18 }) => {
 /* ── Nav items — fixed routes matching App.js ──────────────────────── */
 const NAV = [
   { path: '/',            icon: 'map',      label: 'Plan Route',   desc: 'Find eco journeys'   },
+  { path: '/leaderboard', icon: 'award',    label: 'Leaderboard',  desc: 'Compete with others' },
   { path: '/history',     icon: 'history',  label: 'History',      desc: 'Your past trips'     },
   { path: '/saved',       icon: 'bookmark', label: 'Saved Places', desc: 'Your favourite spots' },
   { path: '/preferences', icon: 'sliders',  label: 'Preferences',  desc: 'Customise your ride' },
@@ -147,7 +154,9 @@ const Layout = ({ children, user, onLogout, theme, onThemeChange }) => {
   const pageTitle = useCallback(() => {
     const map = {
       '/':            'Plan Route',
+      '/leaderboard': 'Leaderboard',
       '/history':     'History',
+      '/saved':       'Saved Places',
       '/preferences': 'Preferences',
       '/settings':    'Settings',
     };

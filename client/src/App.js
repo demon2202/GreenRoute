@@ -9,6 +9,7 @@ import TripHistory from './pages/TripHistory';
 import Preferences from './pages/Preferences';
 import Settings from './pages/Settings';
 import SavedPlaces from './pages/SavedPlaces';
+import Leaderboard from './pages/Leaderboard';
 import './index.css';
 
 axios.defaults.baseURL    = 'https://greenroute-backend-syxi.onrender.com';
@@ -94,6 +95,7 @@ function App() {
                 >
                   <Routes>
                     <Route path="/"            element={<RoutePlanner user={user} />} />
+                    <Route path="/leaderboard" element={<Leaderboard  user={user} />} />
                     <Route path="/history"     element={<TripHistory  user={user} />} />
                     <Route path="/preferences" element={<Preferences  user={user} />} />
                     <Route path="/saved"       element={<SavedPlaces  user={user} />} />

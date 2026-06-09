@@ -110,6 +110,18 @@ function getBearing(a,b) {
   const dL=toR(b[0]-a[0]), la=toR(a[1]), lb=toR(b[1]);
   return (toD(Math.atan2(Math.sin(dL)*Math.cos(lb), Math.cos(la)*Math.sin(lb)-Math.sin(la)*Math.cos(lb)*Math.cos(dL)))+360)%360;
 }
+const getOrthoDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3; // meters
+  const phi1 = lat1 * Math.PI / 180;
+  const phi2 = lat2 * Math.PI / 180;
+  const dPhi = (lat2 - lat1) * Math.PI / 180;
+  const dLambda = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dPhi / 2) * Math.sin(dPhi / 2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(dLambda / 2) * Math.sin(dLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // meters
+};
 function formatDist(m) { return m<1000?`${Math.round(m)} m`:`${(m/1000).toFixed(1)} km`; }
 function formatDur(s)   { const m=Math.round(s/60); return m<60?`${m} min`:`${Math.floor(m/60)}h ${m%60}m`; }
 function formatTime(date) { return date.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
@@ -838,6 +850,21 @@ const RoutePlanner = ({ user }) => {
   const [sidebarWidth, setSidebarWidth] = useState(400);
   const isResizing = useRef(false);
 
+  /* ── GPS and Arrival Detection state ── */
+  const [useGPS, setUseGPS] = useState(false);
+  const [distToDest, setDistToDest] = useState(null);
+  const [showArrivalModal, setShowArrivalModal] = useState(false);
+  const [completedTrip, setCompletedTrip] = useState(null);
+  const watchIdRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, []);
+
   const startResizing = useCallback((e) => {
     isResizing.current = true;
     document.body.style.cursor = 'col-resize';
@@ -997,6 +1024,55 @@ const RoutePlanner = ({ user }) => {
       .setLngLat(coords).addTo(map.current);
   },[]);
 
+  const handleTripCompletion = useCallback(async (route) => {
+    if(!route||!origin||!destination) return;
+    setIsNavigating(false);
+    setActiveStep(null);
+    setPanel('routes');
+    cancelAnim();
+    if(window.speechSynthesis) window.speechSynthesis.cancel();
+
+    if(watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setDistToDest(null);
+
+    if (map.current) {
+      map.current.easeTo({pitch:0,bearing:0,zoom:12,duration:1200,easing:easeInOutCubic});
+      if(travMarker.current) {
+        travMarker.current.remove();
+        travMarker.current = null;
+      }
+    }
+
+    try {
+      await axios.post('/api/history',{
+        originName:origin.name, destinationName:destination.name,
+        originCoords:{lat:origin.coordinates[1],lng:origin.coordinates[0]},
+        destinationCoords:{lat:destination.coordinates[1],lng:destination.coordinates[0]},
+        mode:route.mode, distance:parseFloat(route.distance),
+        duration:parseInt(route.duration),
+        co2Saved:parseFloat(route.co2Saved), calories:route.calories||0,
+      });
+      setCompletedTrip({
+        mode: route.mode,
+        distance: parseFloat(route.distance),
+        duration: parseInt(route.duration),
+        co2Saved: parseFloat(route.co2Saved),
+        calories: route.calories || 0,
+        originName: origin.name,
+        destinationName: destination.name
+      });
+      setShowArrivalModal(true);
+      fetchCarbon();
+      fetchHistory();
+    } catch (err) {
+      console.error(err);
+      alert('Trip completed, but failed to save score.');
+    }
+  }, [origin,destination,fetchCarbon,fetchHistory]);
+
   const startRouteAnimation = useCallback((coords,modeIcon,color,loop=true,navMode=false) => {
     cancelAnim();
     if(!coords?.length) return;
@@ -1043,14 +1119,18 @@ const RoutePlanner = ({ user }) => {
 
       if(raw<1){
         animFrame.current=requestAnimationFrame(tick);
-      } else if(loop){
-        animStart.current=null;
-        animFrame.current=requestAnimationFrame(tick);
+      } else {
+        if(navMode) {
+          handleTripCompletion(selectedRoute);
+        } else if(loop){
+          animStart.current=null;
+          animFrame.current=requestAnimationFrame(tick);
+        }
       }
     };
 
     if(isPlaying) animFrame.current=requestAnimationFrame(tick);
-  },[spawnTraveller,animSpeed,isPlaying,voiceOn,selectedRoute]);
+  },[spawnTraveller,animSpeed,isPlaying,voiceOn,selectedRoute,handleTripCompletion]);
 
   /* ── Voice ── */
   const speak = (text) => {
@@ -1328,17 +1408,79 @@ const RoutePlanner = ({ user }) => {
     setIsNavigating(true); setPanel('directions'); setActiveStep(0);
     lastSpokenStep.current=-1; navStartTime.current=Date.now();
     cancelAnim();
+    
     const meta=MODE_META[route.mode]||{};
     const coords=route?.geometry?.coordinates||[];
-    if(coords.length) startRouteAnimation(coords,meta.mapIcon,meta.color,false,true);
-    if(voiceOn) speak(`Starting navigation. ${route.duration} minutes to destination.`);
+    
+    if (useGPS) {
+      if (!navigator.geolocation) {
+        alert('Geolocation is not supported by your browser.');
+        setUseGPS(false);
+        if(coords.length) startRouteAnimation(coords,meta.mapIcon,meta.color,false,true);
+        return;
+      }
+      
+      spawnTraveller(coords[0] || origin.coordinates, meta.mapIcon, meta.color);
+      
+      const geoOptions = {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0
+      };
+      
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          const currentPos = [longitude, latitude];
+          
+          if (travMarker.current) {
+            travMarker.current.setLngLat(currentPos);
+          }
+          
+          if (map.current) {
+            map.current.easeTo({ center: currentPos, zoom: 17, pitch: 55, duration: 800 });
+          }
+          
+          const dist = getOrthoDistance(
+            latitude, longitude,
+            destination.coordinates[1], destination.coordinates[0]
+          );
+          setDistToDest(dist);
+          
+          if (dist <= 50) {
+            if (voiceOn) speak("Destination reached. Trip completed.");
+            handleTripCompletion(route);
+          }
+        },
+        (err) => {
+          console.error(err);
+          alert('GPS tracking error: ' + err.message + '. Falling back to simulation mode.');
+          setUseGPS(false);
+          if(coords.length) startRouteAnimation(coords,meta.mapIcon,meta.color,false,true);
+        },
+        geoOptions
+      );
+      
+      if(voiceOn) speak(`Starting live GPS navigation. ${route.duration} minutes to destination.`);
+    } else {
+      if(coords.length) startRouteAnimation(coords,meta.mapIcon,meta.color,false,true);
+      if(voiceOn) speak(`Starting navigation simulation. ${route.duration} minutes to destination.`);
+    }
+    
     map.current.easeTo({center:origin?.coordinates,bearing:0,pitch:55,zoom:17,duration:1600,easing:easeInOutCubic});
-  },[startRouteAnimation,origin,voiceOn]);
+  },[startRouteAnimation,origin,destination,voiceOn,useGPS,spawnTraveller,handleTripCompletion]);
 
   const stopNav = useCallback(()=>{
     setIsNavigating(false); setActiveStep(null); setPanel('routes');
     if(window.speechSynthesis) window.speechSynthesis.cancel();
     lastSpokenStep.current=-1; navStartTime.current=null; cancelAnim();
+    
+    if(watchIdRef.current !== null) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setDistToDest(null);
+
     map.current.easeTo({pitch:0,bearing:0,zoom:12,duration:1200,easing:easeInOutCubic});
     if(selectedRoute?.geometry?.coordinates){
       const meta=MODE_META[selectedRoute.mode]||{};
@@ -1354,21 +1496,37 @@ const RoutePlanner = ({ user }) => {
     }
   },[selectedRoute]);
 
-  /* ── Save trip ── */
-  const saveTrip = async () => {
-    if(!selectedRoute||!origin||!destination) return;
+  /* ── Bookmark destination ── */
+  const bookmarkDestination = () => {
+    if(!destination) return;
     try {
-      await axios.post('/api/history',{
-        originName:origin.name, destinationName:destination.name,
-        originCoords:{lat:origin.coordinates[1],lng:origin.coordinates[0]},
-        destinationCoords:{lat:destination.coordinates[1],lng:destination.coordinates[0]},
-        mode:selectedRoute.mode, distance:parseFloat(selectedRoute.distance),
-        duration:parseInt(selectedRoute.duration),
-        co2Saved:parseFloat(selectedRoute.co2Saved), calories:selectedRoute.calories||0,
-      });
-      setSaveMsg('saved'); fetchCarbon(); fetchHistory();
-      setTimeout(()=>setSaveMsg(''),3000);
-    } catch { setSaveMsg('error'); setTimeout(()=>setSaveMsg(''),3000); }
+      const places = JSON.parse(localStorage.getItem('gr_saved_places') || '[]');
+      const name = destination.name || 'Unnamed place';
+      
+      const exists = places.some(p => p.name === name);
+      if (exists) {
+        setSaveMsg('Already saved!');
+        setTimeout(() => setSaveMsg(''), 2500);
+        return;
+      }
+      
+      const newPlace = {
+        id: Math.random().toString(36).substring(2, 11),
+        name: name,
+        lng: destination.coordinates[0],
+        lat: destination.coordinates[1],
+        savedAt: new Date().toISOString()
+      };
+      
+      places.push(newPlace);
+      localStorage.setItem('gr_saved_places', JSON.stringify(places));
+      setSaveMsg('Saved to Places!');
+      setTimeout(() => setSaveMsg(''), 2500);
+    } catch (err) {
+      console.error(err);
+      setSaveMsg('Save failed');
+      setTimeout(() => setSaveMsg(''), 2500);
+    }
   };
 
   /* ── Share ── */
@@ -1901,9 +2059,9 @@ const fetchAqi = async (lat, lon) => {
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                             Navigate
                           </button>
-                          <button className={`rp-save ${saveMsg==='saved'?'ok':''}`}
-                            onClick={e=>{e.stopPropagation();saveTrip();}} title="Save trip">
-                            {saveMsg==='saved'
+                          <button className={`rp-save ${saveMsg.includes('Saved')?'ok':''}`}
+                            onClick={e=>{e.stopPropagation();bookmarkDestination();}} title="Save to Places">
+                            {saveMsg.includes('Saved')
                               ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
                               : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
                             }
@@ -1950,11 +2108,38 @@ const fetchAqi = async (lat, lon) => {
                         <div className="rp-dir-meta">{selectedRoute.duration} min · {selectedRoute.distance} km · {selectedRoute.co2Saved} kg saved</div>
                       </div>
                     </div>
-                    <div className="rp-dir-btns">
-                      {isNavigating
-                        ?<button className="rp-btn-stop" onClick={stopNav}>✕ Stop</button>
-                        :<button className="rp-btn-go" style={{'--cc':m.color}} onClick={()=>startNav(selectedRoute)}>▶ Start</button>
-                      }
+                    <div className="rp-dir-btns" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      <div style={{ display: 'flex', gap: 8, width: '100%' }}>
+                        {isNavigating
+                          ?<button className="rp-btn-stop" style={{ flex: 1 }} onClick={stopNav}>✕ Stop</button>
+                          :<button className="rp-btn-go" style={{ flex: 1, '--cc':m.color }} onClick={()=>startNav(selectedRoute)}>▶ Start Journey</button>
+                        }
+                      </div>
+                      
+                      {!isNavigating && (
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '6px 8px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-color)' }}>
+                          <input
+                            type="checkbox"
+                            checked={useGPS}
+                            onChange={(e) => setUseGPS(e.target.checked)}
+                            style={{ accentColor: 'var(--primary)', cursor: 'pointer' }}
+                          />
+                          <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                            🛰️ Live GPS Mode (Arrival verified)
+                          </span>
+                        </label>
+                      )}
+                      
+                      {isNavigating && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, color: useGPS ? '#3b82f6' : 'var(--primary)', padding: '2px 4px' }}>
+                          <span>{useGPS ? '🛰️ Live GPS Active' : '🏃 Simulating Journey...'}</span>
+                          {useGPS && distToDest !== null && (
+                            <span style={{ color: 'var(--text-muted)' }}>
+                              · {distToDest < 1000 ? `${Math.round(distToDest)}m` : `${(distToDest/1000).toFixed(1)}km`} left
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     {isNavigating&&(
                       <div className="rp-nav-prog" style={{marginTop:8}}>
@@ -2170,14 +2355,72 @@ const fetchAqi = async (lat, lon) => {
       {showReport&&<EcoReport history={history} goal={carbon.goal} onClose={()=>setShowReport(false)}/>}
       {showShortcuts&&<ShortcutsModal onClose={()=>setShowShortcuts(false)}/>}
 
+      {showArrivalModal && completedTrip && (
+        <div className="rp-overlay" style={{ zIndex: 9999 }}>
+          <div className="rp-modal" style={{ maxWidth: 440, padding: 24, textAlign: 'center' }}>
+            <div style={{ width: 68, height: 68, borderRadius: 20, background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem', color: '#10b981', boxShadow: '0 8px 24px rgba(16,185,129,0.2)' }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ margin: 'auto' }}>
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+            </div>
+            
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 900, color: 'var(--text-primary)', margin: '0 0 0.5rem', letterSpacing: '-0.02em' }}>
+              Destination Reached!
+            </h3>
+            <p style={{ margin: '0 0 1.5rem', color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.5 }}>
+              Congratulations! Your score has been registered on the leaderboard.
+            </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, background: 'var(--bg-primary)', padding: 14, borderRadius: 16, border: '1px solid var(--border-color)', marginBottom: '1.5rem' }}>
+              <div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary)' }}>{completedTrip.co2Saved.toFixed(2)}</div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, marginTop: 2 }}>kg saved</div>
+              </div>
+              <div style={{ borderLeft: '1px solid var(--border-color)', borderRight: '1px solid var(--border-color)' }}>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>{completedTrip.distance.toFixed(1)}</div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, marginTop: 2 }}>km traveled</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>{completedTrip.duration}</div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, marginTop: 2 }}>min</div>
+              </div>
+            </div>
+            
+            <div style={{ background: 'color-mix(in srgb, var(--primary) 12%, var(--bg-secondary))', border: '1px dashed var(--primary)', borderRadius: 12, padding: '0.75rem 1rem', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '1.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              🌱 {getCarbonEquivalent(completedTrip.co2Saved).text}
+            </div>
+            
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => { setShowArrivalModal(false); setCompletedTrip(null); }}
+                style={{ flex: 1, height: 46, borderRadius: 12, border: '1.5px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-secondary)', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Done
+              </button>
+              <button
+                onClick={() => {
+                  setShowArrivalModal(false);
+                  setCompletedTrip(null);
+                  window.location.href = '/leaderboard';
+                }}
+                style={{ flex: 2, height: 46, borderRadius: 12, border: 'none', background: 'linear-gradient(135deg,#10b981,#059669)', color: 'white', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(16,185,129,0.3)' }}
+              >
+                View Leaderboard →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Toasts */}
       {(saveMsg||shareMsg)&&(
         <div className="rp-toast">
-          {saveMsg==='saved'
-            ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg> Trip saved!</>
+          {saveMsg.includes('Saved') || saveMsg === 'Already saved!'
+            ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg> {saveMsg}</>
             : saveMsg==='error'
             ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Save failed</>
-            : shareMsg ? shareMsg : ''}
+            : saveMsg ? saveMsg : shareMsg ? shareMsg : ''}
         </div>
       )}
     </>
