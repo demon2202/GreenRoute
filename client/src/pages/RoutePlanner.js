@@ -182,8 +182,8 @@ const Co2Chart = ({ routes, selectedMode }) => {
   if (!routes?.length) return null;
   const maxCo2 = Math.max(...routes.map(r=>parseFloat(r.co2Saved)||0), 0.1);
   return (
-    <div style={{padding:'10px 12px',background:'#f8fafc',borderRadius:12,marginTop:8}}>
-      <div style={{fontSize:11,fontWeight:700,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>
+    <div style={{padding:'10px 12px',background:'var(--bg-primary, #f8fafc)',borderRadius:12,marginTop:8}}>
+      <div style={{fontSize:11,fontWeight:700,color:'var(--text-muted, #94a3b8)',textTransform:'uppercase',letterSpacing:'0.06em',marginBottom:8}}>
         CO₂ Saved Comparison
       </div>
       {routes.map((r,i) => {
@@ -195,10 +195,10 @@ const Co2Chart = ({ routes, selectedMode }) => {
           <div key={i} style={{marginBottom:6}}>
             <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:3}}>
               <div style={{width:10,height:10,borderRadius:3,background:m.color,flexShrink:0}}/>
-              <span style={{fontSize:11.5,fontWeight:600,color:isSel?m.color:'#64748b',flex:1}}>{m.label}</span>
+              <span style={{fontSize:11.5,fontWeight:600,color:isSel?m.color:'var(--text-secondary, #64748b)',flex:1}}>{m.label}</span>
               <span style={{fontSize:11.5,fontWeight:700,color:m.color}}>{val.toFixed(2)} kg</span>
             </div>
-            <div style={{height:6,background:'#e2e8f0',borderRadius:3,overflow:'hidden'}}>
+            <div style={{height:6,background:'var(--border-color, #e2e8f0)',borderRadius:3,overflow:'hidden'}}>
               <div style={{
                 height:'100%', width:`${pct}%`,
                 background:`linear-gradient(90deg,${m.color},${lightenColor(m.color)})`,
@@ -228,9 +228,9 @@ const ElevationProfile = ({ data, color='#10b981' }) => {
   const totalGain = data.reduce((acc,el,i)=>i>0&&el>data[i-1]?acc+(el-data[i-1]):acc,0);
   const totalLoss = data.reduce((acc,el,i)=>i>0&&el<data[i-1]?acc+(data[i-1]-el):acc,0);
   return (
-    <div style={{padding:'10px 12px',background:'#f8fafc',borderRadius:12,marginTop:8}}>
+    <div style={{padding:'10px 12px',background:'var(--bg-primary, #f8fafc)',borderRadius:12,marginTop:8}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
-        <span style={{fontSize:11,fontWeight:700,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.06em'}}>Elevation Profile</span>
+        <span style={{fontSize:11,fontWeight:700,color:'var(--text-muted, #94a3b8)',textTransform:'uppercase',letterSpacing:'0.06em'}}>Elevation Profile</span>
         <div style={{display:'flex',gap:10}}>
           <span style={{fontSize:11,color:'#10b981',fontWeight:600}}>↑ {Math.round(totalGain)}m</span>
           <span style={{fontSize:11,color:'#ef4444',fontWeight:600}}>↓ {Math.round(totalLoss)}m</span>
@@ -245,8 +245,8 @@ const ElevationProfile = ({ data, color='#10b981' }) => {
         </defs>
         <path d={area} fill="url(#elGrad)"/>
         <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <text x={pad} y={H-1} fontSize="8" fill="#94a3b8">{Math.round(minEl)}m</text>
-        <text x={pad} y={10} fontSize="8" fill="#94a3b8">{Math.round(maxEl)}m</text>
+        <text x={pad} y={H-1} fontSize="8" fill="var(--text-muted, #94a3b8)">{Math.round(minEl)}m</text>
+        <text x={pad} y={10} fontSize="8" fill="var(--text-muted, #94a3b8)">{Math.round(maxEl)}m</text>
       </svg>
     </div>
   );
@@ -256,35 +256,35 @@ const ElevationProfile = ({ data, color='#10b981' }) => {
 const AQIBanner = ({ aqi }) => {
   if (!aqi) return null;
   const levels = [
-    { max:50,  color:'#10b981', bg:'#ecfdf5', label:'Good',            msg:'Great air quality for outdoor activity!' },
-    { max:100, color:'#84cc16', bg:'#f7fee7', label:'Moderate',         msg:'Acceptable air quality.' },
-    { max:150, color:'#f59e0b', bg:'#fffbeb', label:'Unhealthy (Sens)', msg:'Sensitive groups should limit outdoor exertion.' },
-    { max:200, color:'#ef4444', bg:'#fff5f5', label:'Unhealthy',        msg:'Everyone may experience health effects. Consider transit.' },
-    { max:300, color:'#8b5cf6', bg:'#f5f3ff', label:'Very Unhealthy',   msg:'Avoid outdoor activity. Take transit or drive.' },
-    { max:999, color:'#7f1d1d', bg:'#fef2f2', label:'Hazardous',        msg:'Stay indoors! Extremely dangerous air quality.' },
+    { max:50,  color:'#10b981', label:'Good',            msg:'Great air quality for outdoor activity!' },
+    { max:100, color:'#84cc16', label:'Moderate',         msg:'Acceptable air quality.' },
+    { max:150, color:'#f59e0b', label:'Unhealthy (Sens)', msg:'Sensitive groups should limit outdoor exertion.' },
+    { max:200, color:'#ef4444', label:'Unhealthy',        msg:'Everyone may experience health effects. Consider transit.' },
+    { max:300, color:'#8b5cf6', label:'Very Unhealthy',   msg:'Avoid outdoor activity. Take transit or drive.' },
+    { max:999, color:'#7f1d1d', label:'Hazardous',        msg:'Stay indoors! Extremely dangerous air quality.' },
   ];
   const level = levels.find(l=>aqi<=l.max)||levels[levels.length-1];
   return (
     <div style={{
       margin:'0 12px 10px',
-      background:level.bg,
-      border:`1px solid ${level.color}30`,
+      background:`color-mix(in srgb, ${level.color} 8%, var(--bg-secondary, #fff))`,
+      border:`1.5px solid color-mix(in srgb, ${level.color} 25%, transparent)`,
       borderRadius:14, padding:'10px 14px',
       display:'flex', alignItems:'flex-start', gap:10,
     }}>
-      <div style={{ width:32, height:32, borderRadius:9, background:level.color, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+      <div style={{ width:32, height:32, borderRadius:9, background:level.color, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:'#fff' }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{margin:'auto'}}>
           <path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/>
           <path d="M12 8v4"/>
-          <circle cx="12" cy="16" r="1" fill="white"/>
+          <circle cx="12" cy="16" r="1" fill="currentColor"/>
         </svg>
       </div>
       <div style={{flex:1}}>
         <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:2}}>
           <span style={{fontSize:13,fontWeight:700,color:level.color}}>{level.label}</span>
-          <span style={{fontSize:11,background:`${level.color}20`,color:level.color,padding:'1px 7px',borderRadius:20,fontWeight:700}}>AQI {aqi}</span>
+          <span style={{fontSize:11,background:`color-mix(in srgb, ${level.color} 18%, transparent)`,color:level.color,padding:'1px 7px',borderRadius:20,fontWeight:700}}>AQI {aqi}</span>
         </div>
-        <div style={{fontSize:12,color:'#475569'}}>{level.msg}</div>
+        <div style={{fontSize:12,color:'var(--text-secondary, #475569)'}}>{level.msg}</div>
       </div>
     </div>
   );
@@ -616,8 +616,8 @@ const ShortcutsModal = ({ onClose }) => (
 /* Playback controls */
 const PlaybackControls = ({ isPlaying, progress, onPlayPause, onSeek, onSpeedChange, speed }) => (
   <div style={{
-    margin:'8px 12px',background:'#f8fafc',
-    border:'1px solid #e2e8f0',borderRadius:14,
+    margin:'8px 12px',background:'var(--bg-primary, #f8fafc)',
+    border:'1px solid var(--border-color, #e2e8f0)',borderRadius:14,
     padding:'10px 14px',flexShrink:0,
   }}>
     <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
@@ -638,17 +638,17 @@ const PlaybackControls = ({ isPlaying, progress, onPlayPause, onSeek, onSpeedCha
         onChange={e=>onSeek(e.target.value/100)}
         style={{flex:1,accentColor:'#10b981',cursor:'pointer'}}
       />
-      <span style={{fontSize:11,color:'#64748b',fontWeight:600,minWidth:32,textAlign:'right'}}>
+      <span style={{fontSize:11,color:'var(--text-secondary, #64748b)',fontWeight:600,minWidth:32,textAlign:'right'}}>
         {Math.round(progress*100)}%
       </span>
     </div>
     <div style={{display:'flex',alignItems:'center',gap:6}}>
-      <span style={{fontSize:11,color:'#94a3b8'}}>Speed</span>
+      <span style={{fontSize:11,color:'var(--text-muted, #94a3b8)'}}>Speed</span>
       {[0.5,1,2,4].map(s=>(
         <button key={s} onClick={()=>onSpeedChange(s)} style={{
           padding:'2px 8px',borderRadius:20,border:'none',
-          background:speed===s?'#10b981':'#e2e8f0',
-          color:speed===s?'#fff':'#64748b',
+          background:speed===s?'#10b981':'var(--border-color, #e2e8f0)',
+          color:speed===s?'#fff':'var(--text-secondary, #64748b)',
           fontSize:11,fontWeight:700,cursor:'pointer',
         }}>{s}×</button>
       ))}
@@ -677,7 +677,7 @@ const SavedPlaces = ({ onSelectOrigin, onSelectDest }) => {
   return (
     <div style={{ padding: '8px 14px 0', flexShrink: 0 }}>
       <div style={{
-        fontSize: 10.5, fontWeight: 700, color: '#94a3b8',
+        fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted, #94a3b8)',
         textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6,
       }}>
         Saved Places
@@ -686,14 +686,14 @@ const SavedPlaces = ({ onSelectOrigin, onSelectDest }) => {
         {places.map((p, i) => (
           <div key={i} style={{
             display: 'flex', alignItems: 'center', gap: 0,
-            background: '#f0fdf4', border: '1px solid #bbf7d0',
+            background: 'var(--bg-tag, #f0fdf4)', border: '1px solid var(--border-color, #bbf7d0)',
             borderRadius: 20, overflow: 'hidden',
           }}>
             <button
               onClick={() => onSelectOrigin(p)}
               style={{
                 padding: '5px 10px', border: 'none', background: 'transparent',
-                color: '#065f46', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                color: 'var(--text-secondary, #065f46)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
               }}
               title={`Set "${p.name}" as origin`}
             >
@@ -703,8 +703,8 @@ const SavedPlaces = ({ onSelectOrigin, onSelectDest }) => {
               onClick={() => onSelectDest(p)}
               style={{
                 padding: '5px 7px', border: 'none', background: 'transparent',
-                color: '#065f46', fontSize: 11, cursor: 'pointer',
-                borderLeft: '1px solid #bbf7d0',
+                color: 'var(--text-secondary, #065f46)', fontSize: 11, cursor: 'pointer',
+                borderLeft: '1px solid var(--border-color, #bbf7d0)',
               }}
               title={`Set "${p.name}" as destination`}
             >
@@ -714,7 +714,7 @@ const SavedPlaces = ({ onSelectOrigin, onSelectDest }) => {
               onClick={() => remove(i)}
               style={{
                 padding: '5px 7px', border: 'none', background: 'transparent',
-                color: '#94a3b8', fontSize: 10, cursor: 'pointer',
+                color: 'var(--text-muted, #94a3b8)', fontSize: 10, cursor: 'pointer',
               }}
             >
               ✕
@@ -734,26 +734,26 @@ const RecentRoutes = ({ onSelect }) => {
   if (!recent.length) return null;
   return (
     <div style={{padding:'8px 14px 0',flexShrink:0}}>
-      <div style={{fontSize:10.5,fontWeight:700,color:'#94a3b8',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>
+      <div style={{fontSize:10.5,fontWeight:700,color:'var(--text-muted, #94a3b8)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>
         Recent
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:4}}>
         {recent.slice(0,3).map((r,i)=>(
           <button key={i} onClick={()=>onSelect(r)} style={{
             display:'flex',alignItems:'center',gap:8,padding:'8px 10px',
-            background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:11,
+            background:'var(--bg-primary, #f8fafc)',border:'1px solid var(--border-color, #e2e8f0)',borderRadius:11,
             cursor:'pointer',fontFamily:'inherit',textAlign:'left',
             transition:'all 0.15s',
           }}
           onMouseEnter={e=>e.currentTarget.style.borderColor='#10b981'}
-          onMouseLeave={e=>e.currentTarget.style.borderColor='#e2e8f0'}
+          onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border-color, #e2e8f0)'}
           >
             <span style={{fontSize:14}}>{MODE_META[r.mode]?.icon||'🗺️'}</span>
             <div style={{flex:1,minWidth:0}}>
-              <div style={{fontSize:12.5,fontWeight:600,color:'#0f172a',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+              <div style={{fontSize:12.5,fontWeight:600,color:'var(--text-primary, #0f172a)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                 {r.originName?.split(',')[0]} → {r.destName?.split(',')[0]}
               </div>
-              <div style={{fontSize:11,color:'#94a3b8',marginTop:1}}>{r.mode} · {r.date}</div>
+              <div style={{fontSize:11,color:'var(--text-muted, #94a3b8)',marginTop:1}}>{r.mode} · {r.date}</div>
             </div>
             <span style={{fontSize:11,color:'#10b981',fontWeight:700,flexShrink:0}}>↗</span>
           </button>
@@ -766,17 +766,17 @@ const RecentRoutes = ({ onSelect }) => {
 /* Departure Time Picker */
 const DepartureTime = ({ value, onChange }) => (
   <div style={{padding:'8px 14px 0',flexShrink:0}}>
-    <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:12}}>
+    <div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'var(--bg-primary, #f8fafc)',border:'1px solid var(--border-color, #e2e8f0)',borderRadius:12}}>
       <span style={{fontSize:13}}>🕐</span>
-      <span style={{fontSize:12,fontWeight:600,color:'#475569',whiteSpace:'nowrap'}}>Leave at</span>
+      <span style={{fontSize:12,fontWeight:600,color:'var(--text-secondary, #475569)',whiteSpace:'nowrap'}}>Leave at</span>
       <input
         type="time"
         value={value}
         onChange={e=>onChange(e.target.value)}
-        style={{flex:1,border:'none',background:'transparent',fontSize:13,fontWeight:700,color:'#0f172a',outline:'none',cursor:'pointer'}}
+        style={{flex:1,border:'none',background:'transparent',fontSize:13,fontWeight:700,color:'var(--text-primary, #0f172a)',outline:'none',cursor:'pointer'}}
       />
       {value && (
-        <button onClick={()=>onChange('')} style={{border:'none',background:'none',color:'#94a3b8',cursor:'pointer',fontSize:12}}>✕</button>
+        <button onClick={()=>onChange('')} style={{border:'none',background:'none',color:'var(--text-muted, #94a3b8)',cursor:'pointer',fontSize:12}}>✕</button>
       )}
     </div>
   </div>

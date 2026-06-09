@@ -284,7 +284,7 @@ const S = {
   page: {
     position: 'fixed',
     inset: 0,
-    background: '#ffffff',
+    background: 'var(--bg-primary, #ffffff)',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -305,7 +305,7 @@ const S = {
   msgText: {
     fontSize: '1rem',
     fontWeight: 600,
-    color: '#6b7280',
+    color: 'var(--text-secondary, #6b7280)',
     letterSpacing: '0.01em',
     fontFamily: "'Be Vietnam Pro', -apple-system, sans-serif",
   },
