@@ -39,9 +39,9 @@ const SectionCard = ({ iconKey, title, subtitle, children, accent = false }) => 
   <div style={{
     background: accent
       ? 'linear-gradient(135deg,#064e3b 0%,#065f46 100%)'
-      : 'var(--bg-primary, #fff)',
+      : 'var(--bg-secondary, #fff)',
     borderRadius: 20,
-    border: accent ? 'none' : '1.5px solid #f1f5f9',
+    border: accent ? 'none' : '1.5px solid var(--border-color, #f1f5f9)',
     padding: '1.5rem',
     boxShadow: accent
       ? '0 8px 32px rgba(6,78,59,0.35)'
@@ -56,10 +56,10 @@ const SectionCard = ({ iconKey, title, subtitle, children, accent = false }) => 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: subtitle ? '0.4rem' : '1.25rem' }}>
         <div style={{
           width: 38, height: 38, borderRadius: 11,
-          background: accent ? 'rgba(255,255,255,0.15)' : '#f0fdf4',
+          background: accent ? 'rgba(255,255,255,0.15)' : 'rgba(16, 185, 129, 0.12)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: accent ? 'white' : '#10b981', flexShrink: 0,
-          border: accent ? '1px solid rgba(255,255,255,0.2)' : '1px solid #bbf7d0',
+          color: accent ? 'white' : 'var(--primary, #10b981)', flexShrink: 0,
+          border: accent ? '1px solid rgba(255,255,255,0.2)' : '1px solid var(--border-color, #bbf7d0)',
         }}>
           {Icons[iconKey]?.()}
         </div>
@@ -68,7 +68,7 @@ const SectionCard = ({ iconKey, title, subtitle, children, accent = false }) => 
         </h3>
       </div>
       {subtitle && (
-        <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.88rem', color: accent ? 'rgba(167,243,208,0.8)' : '#64748b', lineHeight: 1.5 }}>
+        <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.88rem', color: accent ? 'rgba(167,243,208,0.8)' : 'var(--text-secondary, #64748b)', lineHeight: 1.5 }}>
           {subtitle}
         </p>
       )}
@@ -80,9 +80,9 @@ const SectionCard = ({ iconKey, title, subtitle, children, accent = false }) => 
 const Toast = ({ message, type }) => {
   if (!message) return null;
   const cfg = {
-    success: { bg: '#ecfdf5', color: '#065f46', border: '#6ee7b7' },
+    success: { bg: 'var(--bg-tag, #ecfdf5)', color: 'var(--text-secondary, #065f46)', border: 'var(--border-color, #6ee7b7)' },
     error:   { bg: '#fef2f2', color: '#991b1b', border: '#fca5a5' },
-    info:    { bg: '#eff6ff', color: '#1e40af', border: '#93c5fd' },
+    info:    { bg: 'var(--bg-primary, #eff6ff)', color: 'var(--text-secondary, #1e40af)', border: 'var(--border-color, #93c5fd)' },
   };
   const s = cfg[type] || cfg.info;
   return (
@@ -104,7 +104,7 @@ const Toast = ({ message, type }) => {
 const Toggle = ({ checked, onChange, id }) => (
   <button role="switch" aria-checked={checked} id={id} onClick={onChange} style={{
     width: 50, height: 27, borderRadius: 14,
-    background: checked ? '#10b981' : '#e2e8f0',
+    background: checked ? 'var(--primary, #10b981)' : 'var(--border-color, #e2e8f0)',
     border: 'none', cursor: 'pointer', position: 'relative',
     transition: 'background 0.25s ease', flexShrink: 0, outline: 'none',
     boxShadow: checked ? '0 2px 8px rgba(16,185,129,0.3)' : 'none',
@@ -128,7 +128,7 @@ const Avatar = ({ user }) => {
     <div style={{ position: 'relative', flexShrink: 0 }}>
       {user.image ? (
         <img src={user.image} alt={`${user.displayName}'s avatar`}
-          style={{ width: 80, height: 80, borderRadius: '50%', border: '3px solid #10b981', objectFit: 'cover', display: 'block' }} />
+          style={{ width: 80, height: 80, borderRadius: '50%', border: '3px solid var(--primary, #10b981)', objectFit: 'cover', display: 'block' }} />
       ) : (
         <div aria-label="Profile initials" style={{
           width: 80, height: 80, borderRadius: '50%',
@@ -144,7 +144,7 @@ const Avatar = ({ user }) => {
       <div style={{
         position: 'absolute', bottom: 3, right: 3,
         width: 14, height: 14, borderRadius: '50%',
-        background: '#10b981', border: '2px solid white',
+        background: '#10b981', border: '2px solid var(--bg-secondary, white)',
         boxShadow: '0 0 0 1px rgba(16,185,129,0.2)',
       }} />
     </div>
@@ -159,21 +159,22 @@ const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
     animation: 'stFadeIn 0.15s ease',
   }}>
     <div style={{
-      background: '#fff', borderRadius: 24, padding: '2rem',
+      background: 'var(--bg-secondary, #fff)', borderRadius: 24, padding: '2rem',
       maxWidth: 380, width: '100%',
+      border: '1px solid var(--border-color, #e2e8f0)',
       boxShadow: '0 24px 60px rgba(0,0,0,0.2)',
       animation: 'stScaleIn 0.2s cubic-bezier(0.34,1.56,0.64,1)',
     }}>
       <div style={{ width: 52, height: 52, borderRadius: 14, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', color: '#ef4444' }}>
         <Icons.trash />
       </div>
-      <p style={{ margin: '0 0 1.5rem', fontSize: '0.95rem', fontWeight: 600, lineHeight: 1.5, textAlign: 'center', color: '#0f172a' }}>
+      <p style={{ margin: '0 0 1.5rem', fontSize: '0.95rem', fontWeight: 600, lineHeight: 1.5, textAlign: 'center', color: 'var(--text-primary, #0f172a)' }}>
         {message}
       </p>
       <div style={{ display: 'flex', gap: '0.75rem' }}>
         <button onClick={onCancel} style={{
-          flex: 1, padding: '0.75rem', borderRadius: 12, border: '1.5px solid #e2e8f0',
-          background: '#f8fafc', color: '#475569', fontWeight: 700,
+          flex: 1, padding: '0.75rem', borderRadius: 12, border: '1.5px solid var(--border-color, #e2e8f0)',
+          background: 'var(--bg-primary, #f8fafc)', color: 'var(--text-secondary, #475569)', fontWeight: 700,
           cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.9rem',
         }}>Cancel</button>
         <button onClick={onConfirm} style={{
@@ -281,7 +282,7 @@ const Settings = ({ user, theme, onThemeChange }) => {
 
   /* ── Render ── */
   return (
-    <div style={{ maxWidth: 1400, margin: '0 auto', paddingBottom: '3rem', paddingLeft: '2rem', paddingRight: '2rem' }}>
+    <div style={{ width: '100%', maxWidth: 1400, margin: '0 auto', paddingBottom: '3rem', paddingLeft: '2rem', paddingRight: '2rem' }}>
       {confirmClear && (
         <ConfirmDialog
           message="Delete all trip history? This cannot be undone."
@@ -295,7 +296,7 @@ const Settings = ({ user, theme, onThemeChange }) => {
         <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-primary, #0f172a)' }}>
           Settings
         </h2>
-        <p style={{ margin: 0, color: '#64748b', fontSize: '0.92rem' }}>
+        <p style={{ margin: 0, color: 'var(--text-secondary, #64748b)', fontSize: '0.92rem' }}>
           Manage your account, appearance and notifications
         </p>
       </div>
@@ -314,16 +315,16 @@ const Settings = ({ user, theme, onThemeChange }) => {
               <p style={{ margin: '0 0 0.15rem', fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary, #0f172a)' }}>
                 {user.displayName}
               </p>
-              <p style={{ margin: '0 0 0.65rem', fontSize: '0.85rem', color: '#64748b' }}>
+              <p style={{ margin: '0 0 0.65rem', fontSize: '0.85rem', color: 'var(--text-secondary, #64748b)' }}>
                 {user.email}
               </p>
               <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
-                background: '#f0fdf4', border: '1.5px solid #10b981',
-                color: '#065f46', fontSize: '0.75rem', fontWeight: 700,
+                background: 'rgba(16, 185, 129, 0.15)', border: '1.5px solid var(--primary, #10b981)',
+                color: 'var(--primary, #065f46)', fontSize: '0.75rem', fontWeight: 700,
                 padding: '0.25rem 0.7rem', borderRadius: 999,
               }}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="#10b981"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="var(--primary, #10b981)"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                 Eco Champion
               </span>
             </div>
@@ -350,15 +351,15 @@ const Settings = ({ user, theme, onThemeChange }) => {
                   style={{
                     width: '100%', boxSizing: 'border-box',
                     padding: '0.65rem 0.9rem', borderRadius: 10,
-                    border: `1.5px solid ${profileErrors[field] ? '#ef4444' : '#e2e8f0'}`,
+                    border: `1.5px solid ${profileErrors[field] ? '#ef4444' : 'var(--border-color, #e2e8f0)'}`,
                     fontSize: '0.9rem', fontFamily: 'inherit',
-                    background: profileErrors[field] ? '#fef2f2' : 'var(--bg-secondary, #f8fafc)',
+                    background: profileErrors[field] ? '#fef2f2' : 'var(--bg-primary, #f8fafc)',
                     color: 'var(--text-primary, #0f172a)',
                     outline: 'none',
                     transition: 'border-color 0.15s',
                   }}
-                  onFocus={e => (e.target.style.borderColor = '#10b981')}
-                  onBlur={e  => (e.target.style.borderColor = profileErrors[field] ? '#ef4444' : '#e2e8f0')}
+                  onFocus={e => (e.target.style.borderColor = 'var(--primary, #10b981)')}
+                  onBlur={e  => (e.target.style.borderColor = profileErrors[field] ? '#ef4444' : 'var(--border-color, #e2e8f0)')}
                 />
                 {profileErrors[field] && (
                   <p id={`${id}-error`} role="alert" style={{ margin: '0.3rem 0 0', fontSize: '0.78rem', color: '#ef4444', fontWeight: 600 }}>
@@ -399,29 +400,29 @@ const Settings = ({ user, theme, onThemeChange }) => {
                   aria-pressed={active}
                   style={{
                     padding: '1.1rem 0.75rem', borderRadius: 14, cursor: saving ? 'not-allowed' : 'pointer',
-                    border: `2px solid ${active ? '#10b981' : '#e2e8f0'}`,
-                    background: active ? '#f0fdf4' : 'var(--bg-secondary, #f8fafc)',
+                    border: `2px solid ${active ? 'var(--primary, #10b981)' : 'var(--border-color, #e2e8f0)'}`,
+                    background: active ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-secondary, #f8fafc)',
                     transition: 'all 0.2s ease', textAlign: 'center', position: 'relative',
                     outline: 'none', fontFamily: 'inherit',
                   }}
-                  onMouseOver={e => { if (!active && !saving) { e.currentTarget.style.borderColor = '#10b981'; e.currentTarget.style.transform = 'translateY(-2px)'; } }}
-                  onMouseOut={e  => { if (!active) { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none'; } }}
+                  onMouseOver={e => { if (!active && !saving) { e.currentTarget.style.borderColor = 'var(--primary, #10b981)'; e.currentTarget.style.transform = 'translateY(-2px)'; } }}
+                  onMouseOut={e  => { if (!active) { e.currentTarget.style.borderColor = 'var(--border-color, #e2e8f0)'; e.currentTarget.style.transform = 'none'; } }}
                 >
                   {/* Mini preview strip */}
-                  <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', height: 28, marginBottom: '0.6rem', border: '1px solid rgba(0,0,0,0.08)' }}>
+                  <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', height: 28, marginBottom: '0.6rem', border: '1px solid var(--border-color, rgba(0,0,0,0.08))' }}>
                     {opt.preview.map((c, i) => (
                       <div key={i} style={{ flex: i === 2 ? 0.6 : 1, background: c }} />
                     ))}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', marginBottom: '0.2rem' }}>
-                    <span style={{ color: active ? '#10b981' : '#475569' }}>
+                    <span style={{ color: active ? 'var(--primary, #10b981)' : 'var(--text-secondary, #475569)' }}>
                       {Icons[opt.iconKey]?.()}
                     </span>
-                    <span style={{ fontWeight: 800, fontSize: '0.88rem', color: active ? '#065f46' : 'var(--text-primary, #0f172a)' }}>
+                    <span style={{ fontWeight: 800, fontSize: '0.88rem', color: active ? 'var(--primary, #065f46)' : 'var(--text-primary, #0f172a)' }}>
                       {opt.label}
                     </span>
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.73rem', color: '#94a3b8', fontWeight: 500 }}>
+                  <p style={{ margin: 0, fontSize: '0.73rem', color: 'var(--text-muted, #94a3b8)', fontWeight: 500 }}>
                     {opt.description}
                   </p>
                   {active && (
@@ -452,16 +453,16 @@ const Settings = ({ user, theme, onThemeChange }) => {
                   style={{
                     display: 'flex', alignItems: 'center', gap: '1rem',
                     padding: '1rem 1.1rem', borderRadius: 14, cursor: 'pointer',
-                    border: `1.5px solid ${on ? '#10b981' : '#f1f5f9'}`,
-                    background: on ? '#f0fdf4' : 'var(--bg-secondary, #f8fafc)',
+                    border: `1.5px solid ${on ? 'var(--primary, #10b981)' : 'var(--border-color, #f1f5f9)'}`,
+                    background: on ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-secondary, #f8fafc)',
                     transition: 'all 0.2s ease',
                   }}
                 >
                   <div style={{
                     width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                    background: on ? '#10b981' : '#e2e8f0',
+                    background: on ? 'var(--primary, #10b981)' : 'var(--border-color, #e2e8f0)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: on ? 'white' : '#94a3b8',
+                    color: on ? 'white' : 'var(--text-muted, #94a3b8)',
                     transition: 'all 0.2s',
                   }}>
                     {Icons[iconKey]?.()}
@@ -470,7 +471,7 @@ const Settings = ({ user, theme, onThemeChange }) => {
                     <p style={{ margin: '0 0 0.15rem', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary, #0f172a)' }}>
                       {label}
                     </p>
-                    <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b' }}>
+                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary, #64748b)' }}>
                       {description}
                     </p>
                   </div>

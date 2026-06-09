@@ -3,10 +3,10 @@ import axios from 'axios';
 
 /* ─── Constants ─────────────────────────────────────────────────────────────── */
 const MODE_META = {
-  walking: { color: '#10b981', bg: '#ecfdf5', label: 'Walking',  gradient: 'linear-gradient(135deg,#10b981,#34d399)' },
-  cycling: { color: '#3b82f6', bg: '#eff6ff', label: 'Cycling',  gradient: 'linear-gradient(135deg,#3b82f6,#60a5fa)' },
-  driving: { color: '#f59e0b', bg: '#fffbeb', label: 'Driving',  gradient: 'linear-gradient(135deg,#f59e0b,#fbbf24)' },
-  transit: { color: '#8b5cf6', bg: '#f5f3ff', label: 'Transit',  gradient: 'linear-gradient(135deg,#8b5cf6,#a78bfa)' },
+  walking: { color: '#10b981', bg: '#ecfdf5', label: 'Walking',  gradient: 'linear-gradient(135deg,#10b981,#34d399)', icon: '🚶' },
+  cycling: { color: '#3b82f6', bg: '#eff6ff', label: 'Cycling',  gradient: 'linear-gradient(135deg,#3b82f6,#60a5fa)', icon: '🚲' },
+  driving: { color: '#f59e0b', bg: '#fffbeb', label: 'Driving',  gradient: 'linear-gradient(135deg,#f59e0b,#fbbf24)', icon: '🚗' },
+  transit: { color: '#8b5cf6', bg: '#f5f3ff', label: 'Transit',  gradient: 'linear-gradient(135deg,#8b5cf6,#a78bfa)', icon: '🚌' },
 };
 
 const getMeta = (mode = '') => MODE_META[mode.toLowerCase()] || MODE_META.transit;
@@ -86,7 +86,7 @@ const StatCard = ({ icon, value, label, sub, color, bg }) => {
   const shown = isInt ? Math.round(display) : display.toFixed(1);
 
   return (
-    <div style={{ ...S.statCard, background: bg, border: `1.5px solid ${color}22` }}>
+    <div style={{ ...S.statCard, background: `color-mix(in srgb, ${color} 8%, var(--bg-secondary))`, border: `1.5px solid ${color}22` }}>
       <div style={{ ...S.statIconBg, background: `${color}18` }}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           {icon === 'co2'  && <><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></>}
@@ -99,7 +99,7 @@ const StatCard = ({ icon, value, label, sub, color, bg }) => {
         <div style={{ fontSize: '1.65rem', fontWeight: 800, color, letterSpacing: '-0.03em', lineHeight: 1 }}>
           {shown}{sub}
         </div>
-        <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600, marginTop: 4 }}>{label}</div>
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #64748b)', fontWeight: 600, marginTop: 4 }}>{label}</div>
       </div>
     </div>
   );
@@ -112,8 +112,8 @@ const Pill = ({ label, icon, active, color, onClick }) => (
     padding: '0.45rem 1rem', borderRadius: 999, border: 'none', cursor: 'pointer',
     fontWeight: 700, fontSize: '0.82rem', fontFamily: 'inherit',
     transition: 'all 0.2s ease',
-    background: active ? color : '#f1f5f9',
-    color: active ? '#fff' : '#64748b',
+    background: active ? color : 'var(--bg-primary, #f1f5f9)',
+    color: active ? '#fff' : 'var(--text-secondary, #64748b)',
     boxShadow: active ? `0 4px 12px ${color}40` : 'none',
     transform: active ? 'translateY(-1px)' : 'none',
   }}>
@@ -144,8 +144,8 @@ const ModeDonut = ({ modeCount, total }) => {
             style={{ transform:'rotate(-90deg)', transformOrigin:'35px 35px', transition:'stroke-dasharray 0.8s ease' }}
           />
         ))}
-        <circle cx={35} cy={35} r={18} fill="white"/>
-        <text x={35} y={39} textAnchor="middle" fontSize={13} fontWeight={800} fill="#0f172a">{total}</text>
+        <circle cx={35} cy={35} r={18} fill="var(--bg-secondary)"/>
+        <text x={35} y={39} textAnchor="middle" fontSize={13} fontWeight={800} fill="var(--text-primary)">{total}</text>
       </svg>
       <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
         {slices.map(sl => {
@@ -153,7 +153,7 @@ const ModeDonut = ({ modeCount, total }) => {
           return (
             <div key={sl.mode} style={{ display:'flex', alignItems:'center', gap:8 }}>
               <div style={{ width:10, height:10, borderRadius:'50%', background:meta.color, flexShrink:0 }}/>
-              <span style={{ fontSize:'0.78rem', fontWeight:600, color:'#475569' }}>{meta.label}</span>
+              <span style={{ fontSize:'0.78rem', fontWeight:600, color:'var(--text-secondary, #475569)' }}>{meta.label}</span>
               <span style={{ fontSize:'0.78rem', fontWeight:800, color:meta.color, marginLeft:'auto', paddingLeft:8 }}>
                 {Math.round(sl.pct * 100)}%
               </span>
@@ -185,17 +185,17 @@ const TripCard = ({ trip, onCopy, copiedId }) => {
             fontSize:'0.78rem', fontWeight:800, color:'white', flexShrink:0,
             boxShadow:`0 2px 8px ${meta.color}30`, letterSpacing:'-0.01em',
           }}>
-            {meta.label.slice(0,2)}
+            <span style={{ fontSize: '1.4rem' }}>{meta.icon}</span>
           </div>
           <div style={{ minWidth:0, flex:1 }}>
-            <div style={{ fontSize:'0.9rem', fontWeight:800, color:'#0f172a', lineHeight:1.3,
+            <div style={{ fontSize:'0.9rem', fontWeight:800, color:'var(--text-primary, #0f172a)', lineHeight:1.3,
               overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
               {trip.originName?.split(',')[0]}
             </div>
-            <div style={{ fontSize:'0.75rem', color:'#94a3b8', fontWeight:600, margin:'3px 0' }}>
+            <div style={{ fontSize:'0.75rem', color:'var(--text-muted, #94a3b8)', fontWeight:600, margin:'3px 0' }}>
               TO
             </div>
-            <div style={{ fontSize:'0.9rem', fontWeight:800, color:'#0f172a', lineHeight:1.3,
+            <div style={{ fontSize:'0.9rem', fontWeight:800, color:'var(--text-primary, #0f172a)', lineHeight:1.3,
               overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
               {trip.destinationName?.split(',')[0]}
             </div>
@@ -219,7 +219,7 @@ const TripCard = ({ trip, onCopy, copiedId }) => {
       </div>
 
       {/* Divider */}
-      <div style={{ height:1, background:'#f1f5f9', margin:'1rem 0' }}/>
+      <div style={{ height:1, background:'var(--border-color, #f1f5f9)', margin:'1rem 0' }}/>
 
       {/* Metrics row */}
       <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(72px,1fr))', gap:'0.5rem' }}>
@@ -229,21 +229,21 @@ const TripCard = ({ trip, onCopy, copiedId }) => {
           { label: 'CO₂ Saved', val: `${fmt.co2(trip.co2Saved)}kg`,    color: '#10b981'   },
           ...(trip.calories > 0 ? [{ label: 'Calories', val: trip.calories, color: null }] : []),
         ].map((m, i) => (
-          <div key={i} style={{ background:'#f8fafc', borderRadius:12, padding:'0.65rem 0.5rem', textAlign:'center' }}>
-            <div style={{ fontSize:'0.85rem', fontWeight:800, color: m.color || '#0f172a', lineHeight:1 }}>{m.val}</div>
-            <div style={{ fontSize:'0.68rem', color:'#94a3b8', fontWeight:600, marginTop:3 }}>{m.label}</div>
+          <div key={i} style={{ background:'var(--bg-primary, #f8fafc)', borderRadius:12, padding:'0.65rem 0.5rem', textAlign:'center' }}>
+            <div style={{ fontSize:'0.85rem', fontWeight:800, color: m.color || 'var(--text-primary, #0f172a)', lineHeight:1 }}>{m.val}</div>
+            <div style={{ fontSize:'0.68rem', color:'var(--text-muted, #94a3b8)', fontWeight:600, marginTop:3 }}>{m.label}</div>
           </div>
         ))}
       </div>
 
       {/* Eco equiv + date */}
       <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:'0.85rem', gap:'0.5rem', flexWrap:'wrap' }}>
-        <span style={{ fontSize:'0.76rem', color:'#065f46', fontWeight:600,
-          background:'#ecfdf5', padding:'0.3rem 0.75rem', borderRadius:999,
-          border:'1px solid #a7f3d0' }}>
+        <span style={{ fontSize:'0.76rem', color:'var(--text-secondary, #065f46)', fontWeight:600,
+          background:'var(--bg-tag, #ecfdf5)', padding:'0.3rem 0.75rem', borderRadius:999,
+          border:'1px solid var(--border-color, #a7f3d0)' }}>
           {ecoEquiv(trip.co2Saved)}
         </span>
-        <span style={{ fontSize:'0.72rem', color:'#94a3b8', fontWeight:500 }}>
+        <span style={{ fontSize:'0.72rem', color:'var(--text-muted, #94a3b8)', fontWeight:500 }}>
           {fmt.date(trip.date)}
         </span>
       </div>
@@ -251,15 +251,16 @@ const TripCard = ({ trip, onCopy, copiedId }) => {
       {/* Actions */}
       <div style={{ display:'flex', gap:'0.5rem', marginTop:'0.85rem' }}>
         <button onClick={() => onCopy(trip)} style={{
-          ...S.actionBtn, flex:1, background:'#f8fafc', color:'#475569',
-          ...(copiedId === (trip._id || trip.date) ? { background:'#ecfdf5', color:'#10b981' } : {})
+          ...S.actionBtn, flex:1, background:'var(--bg-primary, #f8fafc)', color:'var(--text-secondary, #475569)',
+          border:'1px solid var(--border-color, #e2e8f0)',
+          ...(copiedId === (trip._id || trip.date) ? { background:'rgba(16, 185, 129, 0.15)', color:'#10b981', borderColor:'#10b981' } : {})
         }}>
           {copiedId === (trip._id || trip.date) ? 'Copied!' : 'Copy'}
         </button>
         <button onClick={() => {
           const p = new URLSearchParams({ from: trip.originName, to: trip.destinationName, mode: trip.mode });
           window.location.href = `/?${p}`;
-        }} style={{ ...S.actionBtn, flex:1, background: meta.bg, color: meta.color }}>
+        }} style={{ ...S.actionBtn, flex:1, background: `color-mix(in srgb, ${meta.color} 12%, var(--bg-primary))`, color: meta.color, border: `1.5px solid color-mix(in srgb, ${meta.color} 30%, transparent)` }}>
           Repeat
         </button>
       </div>
@@ -387,14 +388,14 @@ const TripHistory = ({ user }) => {
               <path d="M9 6V4h6v2"/>
             </svg>
           </div>
-            <h3 style={{ margin:'0 0 0.5rem', fontSize:'1.15rem', fontWeight:800, textAlign:'center' }}>
+            <h3 style={{ margin:'0 0 0.5rem', fontSize:'1.15rem', fontWeight:800, textAlign:'center', color: 'var(--text-primary)' }}>
               Clear all history?
             </h3>
-            <p style={{ margin:'0 0 1.5rem', color:'#64748b', fontSize:'0.88rem', textAlign:'center', lineHeight:1.5 }}>
+            <p style={{ margin:'0 0 1.5rem', color:'var(--text-secondary, #64748b)', fontSize:'0.88rem', textAlign:'center', lineHeight:1.5 }}>
               This will permanently delete all {trips.length} trips. This cannot be undone.
             </p>
             <div style={{ display:'flex', gap:'0.75rem' }}>
-              <button onClick={() => setShowConfirm(false)} style={{ ...S.actionBtn, flex:1, padding:'0.75rem', background:'#f1f5f9', color:'#475569', borderRadius:12, border:'none', fontFamily:'inherit', fontWeight:700, cursor:'pointer' }}>
+              <button onClick={() => setShowConfirm(false)} style={{ ...S.actionBtn, flex:1, padding:'0.75rem', background:'var(--bg-primary, #f1f5f9)', color:'var(--text-secondary, #475569)', border:'1px solid var(--border-color, #e2e8f0)', borderRadius:12, fontFamily:'inherit', fontWeight:700, cursor:'pointer' }}>
                 Cancel
               </button>
               <button onClick={handleClear} disabled={clearing} style={{ ...S.actionBtn, flex:1, padding:'0.75rem', background:'linear-gradient(135deg,#ef4444,#dc2626)', color:'white', borderRadius:12, border:'none', fontFamily:'inherit', fontWeight:700, cursor:'pointer' }}>
@@ -408,10 +409,10 @@ const TripHistory = ({ user }) => {
       {/* ── Header ── */}
       <div style={S.header}>
         <div>
-          <h2 style={{ margin:'0 0 0.25rem', fontSize:'1.75rem', fontWeight:800, letterSpacing:'-0.03em' }}>
+          <h2 style={{ margin:'0 0 0.25rem', fontSize:'1.75rem', fontWeight:800, letterSpacing:'-0.03em', color: 'var(--text-primary)' }}>
             Trip History
           </h2>
-          <p style={{ margin:0, color:'#64748b', fontSize:'0.92rem' }}>
+          <p style={{ margin:0, color:'var(--text-secondary, #64748b)', fontSize:'0.92rem' }}>
             {trips.length > 0 ? `${trips.length} eco-friendly trips recorded` : 'Your green journey starts here'}
           </p>
         </div>
@@ -468,7 +469,7 @@ const TripHistory = ({ user }) => {
 
           {/* Mode breakdown */}
           <div style={S.card}>
-            <div style={{ fontSize:'0.72rem', fontWeight:700, color:'#94a3b8', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Mode Breakdown</div>
+            <div style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--text-muted, #94a3b8)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Mode Breakdown</div>
             <ModeDonut modeCount={stats.modeCount} total={stats.totalTrips} />
           </div>
         </div>
@@ -532,10 +533,10 @@ const TripHistory = ({ user }) => {
               }
             </svg>
           </div>
-          <h3 style={{ margin:'0 0 0.5rem', fontSize:'1.25rem', fontWeight:800 }}>
+          <h3 style={{ margin:'0 0 0.5rem', fontSize:'1.25rem', fontWeight:800, color: 'var(--text-primary)' }}>
             {trips.length === 0 ? 'No trips yet' : 'No trips match your filters'}
           </h3>
-          <p style={{ margin:'0 0 1.5rem', color:'#64748b', maxWidth:340, lineHeight:1.6 }}>
+          <p style={{ margin:'0 0 1.5rem', color:'var(--text-secondary, #64748b)', maxWidth:340, lineHeight:1.6 }}>
             {trips.length === 0
               ? 'Plan your first eco-friendly route and start tracking your positive impact on the planet!'
               : 'Try changing the mode or time filters to find your trips.'}
@@ -554,8 +555,8 @@ const TripHistory = ({ user }) => {
         <>
           {/* Result count bar */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.75rem' }}>
-            <span style={{ fontSize:'0.8rem', fontWeight:600, color:'#64748b' }}>
-              Showing <strong style={{ color:'#0f172a' }}>{filtered.length}</strong> of {trips.length} trips
+            <span style={{ fontSize:'0.8rem', fontWeight:600, color:'var(--text-secondary, #64748b)' }}>
+              Showing <strong style={{ color:'var(--text-primary)' }}>{filtered.length}</strong> of {trips.length} trips
               {(modeFilter !== 'all' || timeFilter !== 'all') && (
                 <button onClick={() => { setModeFilter('all'); setTimeFilter('all'); }} style={{
                   marginLeft:8, background:'none', border:'none', color:'#10b981', fontWeight:700,
@@ -565,7 +566,7 @@ const TripHistory = ({ user }) => {
                 </button>
               )}
             </span>
-            <span style={{ fontSize:'0.8rem', color:'#64748b', fontWeight:500 }}>
+            <span style={{ fontSize:'0.8rem', color:'var(--text-secondary, #64748b)', fontWeight:500 }}>
               {filtStats.totalCO2.toFixed(1)} kg CO₂ · {filtStats.totalDistance.toFixed(0)} km
             </span>
           </div>
@@ -596,6 +597,7 @@ const TripHistory = ({ user }) => {
 /* ─── Styles ─────────────────────────────────────────────────────────────────── */
 const S = {
   page: {
+    width: '100%',
     maxWidth: 1400,
     margin: '0 auto',
     fontFamily: 'inherit',
@@ -614,9 +616,9 @@ const S = {
   headerBtn: {
     padding: '0.55rem 1.1rem',
     borderRadius: 12,
-    border: '1.5px solid #e2e8f0',
-    background: '#f8fafc',
-    color: '#374151',
+    border: '1.5px solid var(--border-color, #e2e8f0)',
+    background: 'var(--bg-primary, #f8fafc)',
+    color: 'var(--text-secondary, #374151)',
     fontWeight: 700,
     fontSize: '0.82rem',
     cursor: 'pointer',
@@ -624,10 +626,10 @@ const S = {
     transition: 'all 0.15s ease',
   },
   card: {
-    background: 'var(--bg-primary, #fff)',
+    background: 'var(--bg-secondary, #fff)',
     borderRadius: 20,
     padding: '1.25rem',
-    border: '1px solid #f1f5f9',
+    border: '1px solid var(--border-color, #f1f5f9)',
     boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
   },
   statCard: {
@@ -637,6 +639,8 @@ const S = {
     alignItems: 'center',
     gap: '0.9rem',
     boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+    background: 'var(--bg-secondary, #fff)',
+    border: '1.5px solid var(--border-color, #f1f5f9)',
   },
   statIconBg: {
     width: 48,
@@ -653,18 +657,18 @@ const S = {
     gap: '0.75rem',
     marginBottom: '1.25rem',
     flexWrap: 'wrap',
-    background: 'var(--bg-primary, #fff)',
+    background: 'var(--bg-secondary, #fff)',
     borderRadius: 16,
     padding: '0.75rem 1rem',
-    border: '1px solid #f1f5f9',
+    border: '1px solid var(--border-color, #f1f5f9)',
     boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
   },
   select: {
     padding: '0.45rem 0.75rem',
     borderRadius: 10,
-    border: '1.5px solid #e2e8f0',
-    background: '#f8fafc',
-    color: '#374151',
+    border: '1.5px solid var(--border-color, #e2e8f0)',
+    background: 'var(--bg-primary, #f8fafc)',
+    color: 'var(--text-secondary, #374151)',
     fontWeight: 600,
     fontSize: '0.8rem',
     cursor: 'pointer',
@@ -673,15 +677,15 @@ const S = {
   },
   grid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
     gap: '0.85rem',
   },
   tripCard: {
     position: 'relative',
-    background: 'var(--bg-primary, #fff)',
+    background: 'var(--bg-secondary, #fff)',
     borderRadius: 18,
     padding: '1.1rem 1.1rem 1.1rem 1.4rem',
-    border: '1px solid #f1f5f9',
+    border: '1px solid var(--border-color, #f1f5f9)',
     boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
     transition: 'box-shadow 0.2s ease, transform 0.2s ease',
     overflow: 'hidden',
@@ -702,9 +706,9 @@ const S = {
     alignItems: 'center',
     textAlign: 'center',
     padding: '4rem 2rem',
-    background: 'var(--bg-primary, #fff)',
+    background: 'var(--bg-secondary, #fff)',
     borderRadius: 24,
-    border: '1px solid #f1f5f9',
+    border: '1px solid var(--border-color, #f1f5f9)',
     boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
   },
   overlay: {
@@ -719,7 +723,9 @@ const S = {
     padding: '1rem',
   },
   modal: {
-    background: '#fff',
+    background: 'var(--bg-secondary, #fff)',
+    border: '1px solid var(--border-color, #e2e8f0)',
+    color: 'var(--text-primary)',
     borderRadius: 24,
     padding: '2rem',
     maxWidth: 380,

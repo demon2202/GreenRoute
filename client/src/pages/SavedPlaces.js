@@ -88,9 +88,9 @@ const PlaceCard = ({ place, onRemove, onNavigate, removing }) => {
       onMouseLeave={() => setHover(false)}
       style={{
         position: 'relative',
-        background: 'var(--bg-primary, #fff)',
+        background: 'var(--bg-secondary, #fff)',
         borderRadius: 20,
-        border: `1.5px solid ${hover ? '#10b981' : '#f1f5f9'}`,
+        border: `1.5px solid ${hover ? 'var(--primary, #10b981)' : 'var(--border-color, #f1f5f9)'}`,
         padding: '1.25rem',
         boxShadow: hover
           ? '0 8px 32px rgba(16,185,129,0.12), 0 2px 8px rgba(0,0,0,0.06)'
@@ -119,7 +119,7 @@ const PlaceCard = ({ place, onRemove, onNavigate, removing }) => {
           }}>
             {place.name || place.place_name || 'Unnamed place'}
           </div>
-          <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 500, marginTop: 3 }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)', fontWeight: 500, marginTop: 3 }}>
             {fmtCoords(place.lng || place.center?.[0], place.lat || place.center?.[1])}
           </div>
         </div>
@@ -130,7 +130,7 @@ const PlaceCard = ({ place, onRemove, onNavigate, removing }) => {
           title="Remove"
           style={{
             width: 28, height: 28, borderRadius: 8, border: 'none',
-            background: hover ? '#fef2f2' : 'transparent',
+            background: hover ? 'rgba(239, 68, 68, 0.15)' : 'transparent',
             color: '#ef4444', cursor: 'pointer', flexShrink: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             transition: 'all 0.15s',
@@ -141,7 +141,7 @@ const PlaceCard = ({ place, onRemove, onNavigate, removing }) => {
       </div>
 
       {/* Date */}
-      <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 500 }}>
+      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)', fontWeight: 500 }}>
         {fmtDate(place.savedAt)}
       </div>
 
@@ -153,8 +153,8 @@ const PlaceCard = ({ place, onRemove, onNavigate, removing }) => {
           borderRadius: 12, border: 'none',
           background: hover
             ? 'linear-gradient(135deg,#10b981,#059669)'
-            : '#f0fdf4',
-          color: hover ? 'white' : '#10b981',
+            : 'var(--bg-tag, #f0fdf4)',
+          color: hover ? 'white' : 'var(--primary, #10b981)',
           fontWeight: 700, fontSize: '0.82rem', cursor: 'pointer',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           gap: '0.4rem', transition: 'all 0.2s ease',
@@ -174,23 +174,23 @@ const EmptyState = () => (
   <div style={{
     display: 'flex', flexDirection: 'column', alignItems: 'center',
     textAlign: 'center', padding: '5rem 2rem',
-    background: 'var(--bg-primary, #fff)',
-    borderRadius: 24, border: '1px solid #f1f5f9',
+    background: 'var(--bg-secondary, #fff)',
+    borderRadius: 24, border: '1px solid var(--border-color, #f1f5f9)',
     boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
   }}>
     <div style={{
       width: 80, height: 80, borderRadius: 22,
-      background: 'linear-gradient(135deg,#f0fdf4,#dcfce7)',
-      border: '1.5px solid #bbf7d0',
+      background: 'rgba(16, 185, 129, 0.12)',
+      border: '1.5px solid var(--border-color, #bbf7d0)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       marginBottom: '1.5rem', color: '#10b981',
     }}>
       <MapIcon w={40} />
     </div>
-    <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.3rem', fontWeight: 800, color: '#0f172a' }}>
+    <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.3rem', fontWeight: 800, color: 'var(--text-primary, #0f172a)' }}>
       No saved places yet
     </h3>
-    <p style={{ margin: '0 0 1.75rem', color: '#64748b', maxWidth: 320, lineHeight: 1.6, fontSize: '0.9rem' }}>
+    <p style={{ margin: '0 0 1.75rem', color: 'var(--text-secondary, #64748b)', maxWidth: 320, lineHeight: 1.6, fontSize: '0.9rem' }}>
       While planning routes, tap the bookmark icon on any location to save it here for quick access.
     </p>
     <a href="/" style={{
@@ -242,7 +242,7 @@ const SavedPlaces = () => {
     : places;
 
   return (
-    <div style={{ maxWidth: 1400, margin: '0 auto', fontFamily: 'inherit', paddingBottom: '3rem', paddingLeft: '2rem', paddingRight: '2rem' }}>
+    <div style={{ width: '100%', maxWidth: 1400, margin: '0 auto', fontFamily: 'inherit', paddingBottom: '3rem', paddingLeft: '2rem', paddingRight: '2rem' }}>
       {/* Toast */}
       {toast && (
         <div style={{
@@ -268,7 +268,7 @@ const SavedPlaces = () => {
           <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-primary, #0f172a)' }}>
             Saved Places
           </h2>
-          <p style={{ margin: 0, color: '#64748b', fontSize: '0.92rem' }}>
+          <p style={{ margin: 0, color: 'var(--text-secondary, #64748b)', fontSize: '0.92rem' }}>
             {places.length > 0 ? `${places.length} saved location${places.length !== 1 ? 's' : ''}` : 'Your favourite spots at a glance'}
           </p>
         </div>
@@ -278,11 +278,11 @@ const SavedPlaces = () => {
       {places.length > 0 && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: '0.75rem',
-          background: 'var(--bg-primary, #fff)', border: '1.5px solid #e2e8f0',
+          background: 'var(--bg-secondary, #fff)', border: '1.5px solid var(--border-color, #e2e8f0)',
           borderRadius: 14, padding: '0.6rem 1rem', marginBottom: '1.25rem',
           boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
         }}>
-          <span style={{ color: '#94a3b8', flexShrink: 0 }}><SearchIcon /></span>
+          <span style={{ color: 'var(--text-muted, #94a3b8)', flexShrink: 0 }}><SearchIcon /></span>
           <input
             type="text"
             placeholder="Search saved places…"
@@ -298,7 +298,7 @@ const SavedPlaces = () => {
           {query && (
             <button
               onClick={() => setQuery('')}
-              style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0, display: 'flex', alignItems: 'center' }}
+              style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted, #94a3b8)', padding: 0, display: 'flex', alignItems: 'center' }}
             >
               <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -310,8 +310,8 @@ const SavedPlaces = () => {
 
       {/* Count bar */}
       {places.length > 0 && query && (
-        <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.75rem', fontWeight: 600 }}>
-          Showing <strong style={{ color: '#0f172a' }}>{filtered.length}</strong> of {places.length} places
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #64748b)', marginBottom: '0.75rem', fontWeight: 600 }}>
+          Showing <strong style={{ color: 'var(--text-primary)' }}>{filtered.length}</strong> of {places.length} places
         </div>
       )}
 
@@ -321,8 +321,8 @@ const SavedPlaces = () => {
       ) : filtered.length === 0 ? (
         <div style={{
           textAlign: 'center', padding: '3rem 2rem',
-          background: 'var(--bg-primary, #fff)', borderRadius: 20,
-          border: '1px solid #f1f5f9', color: '#64748b',
+          background: 'var(--bg-secondary, #fff)', borderRadius: 20,
+          border: '1px solid var(--border-color, #f1f5f9)', color: 'var(--text-secondary, #64748b)',
         }}>
           <p style={{ margin: '0 0 0.5rem', fontWeight: 700, fontSize: '1rem' }}>No places match "{query}"</p>
           <button onClick={() => setQuery('')} style={{ border: 'none', background: 'none', color: '#10b981', fontWeight: 700, cursor: 'pointer', fontSize: '0.88rem', fontFamily: 'inherit' }}>
@@ -332,7 +332,7 @@ const SavedPlaces = () => {
       ) : (
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
           gap: '1rem',
         }}>
           {filtered.map(place => (
