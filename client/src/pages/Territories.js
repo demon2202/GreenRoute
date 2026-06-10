@@ -249,7 +249,51 @@ const Territories = ({ user }) => {
 
         map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-        // Locate user location initially (Centers dynamically)
+        // Locate user location initially (Centers dynamically with IP fallback)
+        const fallbackToIPLocation = async () => {
+            try {
+                const { data } = await axios.get('https://ipapi.co/json/');
+                if (data && data.latitude && data.longitude) {
+                    const { latitude, longitude, city } = data;
+                    console.log(`IP Geolocation resolved to: ${city} (${latitude}, ${longitude})`);
+                    if (map.current) {
+                        map.current.flyTo({
+                            center: [longitude, latitude],
+                            zoom: 13,
+                            speed: 1.2
+                        });
+                    }
+                    setCurrentCoords({ lat: latitude, lng: longitude });
+                    const cell = getCellFromCoords(latitude, longitude, 10);
+                    setCurrentCell(cell);
+                } else {
+                    console.log('IP Geolocation response invalid. Staying on India overview.');
+                }
+            } catch (ipErr) {
+                console.warn('IP Geolocation fallback failed:', ipErr);
+                console.log('Staying on India overview.');
+            }
+        };
+
+        const fallbackToLastCoords = () => {
+            if (user?.lastCoords?.lat && user?.lastCoords?.lng) {
+                const { lat, lng } = user.lastCoords;
+                if (map.current) {
+                    map.current.flyTo({
+                        center: [lng, lat],
+                        zoom: 14.5,
+                        speed: 1.2
+                    });
+                }
+                setCurrentCoords({ lat, lng });
+                const cell = getCellFromCoords(lat, lng, 10);
+                setCurrentCell(cell);
+            } else {
+                console.log('No last coordinates found. Attempting IP Geolocation fallback...');
+                fallbackToIPLocation();
+            }
+        };
+
         const handleInitialPosition = () => {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
@@ -270,28 +314,14 @@ const Territories = ({ user }) => {
                         console.warn('GPS denied or unavailable. Trying last known location...', err);
                         fallbackToLastCoords();
                     },
-                    { timeout: 15000 } // standard accuracy, 15s timeout
+                    {
+                        enableHighAccuracy: false,
+                        timeout: 8000,
+                        maximumAge: 60000
+                    }
                 );
             } else {
                 fallbackToLastCoords();
-            }
-        };
-
-        const fallbackToLastCoords = () => {
-            if (user?.lastCoords?.lat && user?.lastCoords?.lng) {
-                const { lat, lng } = user.lastCoords;
-                if (map.current) {
-                    map.current.flyTo({
-                        center: [lng, lat],
-                        zoom: 14.5,
-                        speed: 1.2
-                    });
-                }
-                setCurrentCoords({ lat, lng });
-                const cell = getCellFromCoords(lat, lng, 10);
-                setCurrentCell(cell);
-            } else {
-                console.log('No last coordinates found. Staying on India overview.');
             }
         };
 
@@ -574,6 +604,11 @@ const Territories = ({ user }) => {
                         setCapturingCell(null);
                         setCaptureProgress(0);
                     }
+                },
+                {
+                    enableHighAccuracy: false,
+                    timeout: 15000,
+                    maximumAge: 10000
                 }
             );
         }
