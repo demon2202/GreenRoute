@@ -90,11 +90,24 @@ const UserSchema = new mongoose.Schema({
         totalDistance: { type: Number, default: 0 },
         totalDuration: { type: Number, default: 0 }
     },
+    territoryStats: {
+        cellsCount: { type: Number, default: 0 },
+        successfulCaptures: { type: Number, default: 0 },
+        successfulDefenses: { type: Number, default: 0 },
+        empireScore: { type: Number, default: 0 }
+    },
+    lastCoords: {
+        lat: { type: Number },
+        lng: { type: Number }
+    },
     createdAt: {
         type: Date,
         default: Date.now
     }
 });
+
+// Index for dynamic ranking queries
+UserSchema.index({ 'territoryStats.empireScore': -1 });
 
 // Hash password before saving
 UserSchema.pre('save', async function(next) {

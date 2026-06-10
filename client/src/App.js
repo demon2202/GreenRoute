@@ -10,9 +10,12 @@ import Preferences from './pages/Preferences';
 import Settings from './pages/Settings';
 import SavedPlaces from './pages/SavedPlaces';
 import Leaderboard from './pages/Leaderboard';
+import Territories from './pages/Territories';
 import './index.css';
 
-axios.defaults.baseURL    = 'https://greenroute-backend-syxi.onrender.com';
+axios.defaults.baseURL = process.env.NODE_ENV === 'development'
+  ? 'http://localhost:5000'
+  : 'https://greenroute-backend-syxi.onrender.com';
 axios.defaults.withCredentials = true;
 // Generous timeout so the cold-start doesn't fail mid-request
 axios.defaults.timeout    = 60000;
@@ -96,6 +99,7 @@ function App() {
                   <Routes>
                     <Route path="/"            element={<RoutePlanner user={user} />} />
                     <Route path="/leaderboard" element={<Leaderboard  user={user} />} />
+                    <Route path="/territory"   element={<Territories  user={user} />} />
                     <Route path="/history"     element={<TripHistory  user={user} />} />
                     <Route path="/preferences" element={<Preferences  user={user} />} />
                     <Route path="/saved"       element={<SavedPlaces  user={user} />} />

@@ -47,7 +47,10 @@ const Login = ({ onLogin }) => {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = 'https://greenroute-backend-syxi.onrender.com/api/auth/google';
+    const backendUrl = process.env.NODE_ENV === 'development'
+      ? 'http://localhost:5000'
+      : 'https://greenroute-backend-syxi.onrender.com';
+    window.location.href = `${backendUrl}/api/auth/google`;
   };
 
   const switchMode = () => {

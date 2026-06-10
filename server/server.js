@@ -17,6 +17,7 @@ require('./config/passport');
 
 const authRoutes = require('./routes/auth');
 const apiRoutes = require('./routes/api');
+const territoryRoutes = require('./routes/territory');
 
 const app = express();
 
@@ -159,6 +160,7 @@ app.use(passport.session());
 
 app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
+app.use('/api/territory', territoryRoutes);
 
 app.get('/health', (req, res) => {
   // Public endpoint — allow any origin so the frontend wake-up ping always works
@@ -215,7 +217,8 @@ const PORT = process.env.PORT || 5000;
 
 const server = http.createServer(app);
 
-setupSocket(server);
+const io = setupSocket(server);
+app.set('io', io);
 
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
