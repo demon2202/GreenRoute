@@ -252,7 +252,8 @@ const Territories = ({ user }) => {
         // Locate user location initially (Centers dynamically with IP fallback)
         const fallbackToIPLocation = async () => {
             try {
-                const { data } = await axios.get('https://ipapi.co/json/');
+                const response = await fetch('https://ipapi.co/json/');
+                const data = await response.json();
                 if (data && data.latitude && data.longitude) {
                     const { latitude, longitude, city } = data;
                     console.log(`IP Geolocation resolved to: ${city} (${latitude}, ${longitude})`);
