@@ -556,9 +556,23 @@ const Territories = ({ user }) => {
                 },
                 (err) => {
                     console.warn('GPS watch position warning:', err);
-                    if (err.code !== err.TIMEOUT) {
+                    if (err.code !== 3) {
                         setErrorMsg('GPS Connection Lost or Access Denied.');
                         setIsTracking(false);
+                        if (watchIdRef.current !== null) {
+                            navigator.geolocation.clearWatch(watchIdRef.current);
+                            watchIdRef.current = null;
+                        }
+                        if (userMarkerRef.current) {
+                            userMarkerRef.current.remove();
+                            userMarkerRef.current = null;
+                        }
+                        if (progressTimerRef.current) {
+                            clearInterval(progressTimerRef.current);
+                            progressTimerRef.current = null;
+                        }
+                        setCapturingCell(null);
+                        setCaptureProgress(0);
                     }
                 }
             );
