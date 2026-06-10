@@ -373,9 +373,12 @@ const Territories = ({ user }) => {
 
             try {
                 const { data } = await axios.get(`/api/territory/inspect/${clickedCellId}`);
-                setInspectedCell(data);
+                if (data && data.cell) {
+                    setInspectedCell(data);
+                } else {
+                    setInspectedCell(null);
+                }
             } catch (err) {
-                // If cell is neutral, close inspection card
                 setInspectedCell(null);
             }
         };
@@ -552,11 +555,12 @@ const Territories = ({ user }) => {
                     }
                 },
                 (err) => {
-                    console.error(err);
-                    setErrorMsg('GPS Connection Lost or Access Denied.');
-                    setIsTracking(false);
-                },
-                { timeout: 15000 }
+                    console.warn('GPS watch position warning:', err);
+                    if (err.code !== err.TIMEOUT) {
+                        setErrorMsg('GPS Connection Lost or Access Denied.');
+                        setIsTracking(false);
+                    }
+                }
             );
         }
     };

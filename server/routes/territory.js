@@ -462,13 +462,14 @@ router.get('/inspect/:cellId', ensureAuth, async (req, res) => {
         const { cellId } = req.params;
         const cell = await GridCell.findOne({ cellId }).lean();
         if (!cell) {
-            return res.status(404).json({ error: 'Cell not found.' });
+            // Return 200 OK with nulls to avoid console error logs
+            return res.json({ cell: null, owner: null });
         }
 
         // Get owner details
         const owner = await User.findById(cell.owner, 'displayName image territoryStats').lean();
         if (!owner) {
-            return res.status(404).json({ error: 'Owner not found.' });
+            return res.json({ cell: null, owner: null });
         }
 
         // Compute dynamic ranking: get all users who own at least 1 cell, sort by empireScore descending
