@@ -58,7 +58,8 @@ router.post('/register', async (req, res) => {
                 email: user.email,
                 image: user.image,
                 theme: user.theme,
-                preferences: user.preferences
+                preferences: user.preferences,
+                territoryStats: user.territoryStats
             });
         });
 
@@ -96,7 +97,8 @@ router.post('/login', (req, res, next) => {
                 email: user.email,
                 image: user.image,
                 theme: user.theme,
-                preferences: user.preferences
+                preferences: user.preferences,
+                territoryStats: user.territoryStats
             });
         });
 
@@ -156,7 +158,8 @@ router.get('/current_user', (req, res) => {
         email: req.user.email,
         image: req.user.image,
         theme: req.user.theme,
-        preferences: req.user.preferences
+        preferences: req.user.preferences,
+        territoryStats: req.user.territoryStats
     });
 });
 

@@ -62,6 +62,20 @@ const checkLoop = (path) => {
     return null;
 };
 
+// Ray-casting Point-in-Polygon check
+const isPointInPolygon = (point, polygon) => {
+    const x = point[0], y = point[1];
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i][0], yi = polygon[i][1];
+        const xj = polygon[j][0], yj = polygon[j][1];
+        const intersect = ((yi > y) !== (yj > y))
+            && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+};
+
 const Territories = ({ user, theme }) => {
     const mapContainer = useRef(null);
     const map = useRef(null);
@@ -87,6 +101,24 @@ const Territories = ({ user, theme }) => {
 
     const [errorMsg, setErrorMsg] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
+
+    // Dynamic user territoryStats tracking
+    const [userStats, setUserStats] = useState(user?.territoryStats || { areaOwned: 0, empireScore: 0 });
+
+    const fetchUserStats = useCallback(async () => {
+        try {
+            const { data } = await axios.get('/api/auth/current_user');
+            if (data && data.territoryStats) {
+                setUserStats(data.territoryStats);
+            }
+        } catch (err) {
+            console.error('Error fetching user stats:', err);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchUserStats();
+    }, [fetchUserStats]);
 
     const userRef = useRef(user);
     useEffect(() => { userRef.current = user; }, [user]);
@@ -258,6 +290,7 @@ const Territories = ({ user, theme }) => {
             if (data.wasCaptured) {
                 setSuccessMsg(`Successfully captured new territory!`);
                 setActivePath([]);
+                fetchUserStats();
             } else {
                 setSuccessMsg(data.message);
             }
@@ -270,7 +303,7 @@ const Territories = ({ user, theme }) => {
             setErrorMsg(msg);
             setTimeout(() => setErrorMsg(''), 4000);
         }
-    }, [fetchVisibleCells, fetchActivities]);
+    }, [fetchVisibleCells, fetchActivities, fetchUserStats]);
 
     // Handle Attack Laps updates
     const submitLapCompletion = useCallback(async (territory, lapCount, visited, isSim = false) => {
@@ -289,6 +322,7 @@ const Territories = ({ user, theme }) => {
                 setAttackVisitedCheckpoints([]);
                 setAttackLapsCompleted(0);
                 setActivePath([]);
+                fetchUserStats();
             } else {
                 setSuccessMsg(`Lap completed! Laps: ${lapCount} / ${territory.defenseLevel}`);
                 setAttackLapsCompleted(lapCount);
@@ -304,7 +338,7 @@ const Territories = ({ user, theme }) => {
             setErrorMsg(msg);
             setTimeout(() => setErrorMsg(''), 4000);
         }
-    }, [attackCheckpoints.length, fetchVisibleCells, fetchActivities]);
+    }, [attackCheckpoints.length, fetchVisibleCells, fetchActivities, fetchUserStats]);
 
     // Attack tracker state updater
     const handleAttackMovement = useCallback((coord, isSim = false) => {
@@ -736,10 +770,14 @@ const Territories = ({ user, theme }) => {
     return (
         <div className="territory-page">
             <div className="territory-sidebar">
-                <div className="sidebar-header-row">
-                    <div className="sidebar-header">
+                <div className="territory-header-row">
+                    <div className="territory-header">
+                        <div className="header-badge">
+                            <span className="badge-pulse"></span>
+                            GPS CONQUEST ACTIVE
+                        </div>
                         <h2>Territory Map</h2>
-                        <p>Complete closed loops on roads to capture zones</p>
+                        <p className="subtitle">Carve out your empire by walking closed loops along roads and trails.</p>
                     </div>
                 </div>
 
@@ -835,7 +873,7 @@ const Territories = ({ user, theme }) => {
                 {currentAttackCell && (
                     <div className="capture-progress-widget" style={{ borderColor: '#ef4444', background: 'rgba(239, 68, 68, 0.03)' }}>
                         <div className="loader-label">
-                            <span style={{ color: '#ef4444', fontWeight: 900 }}>⚔️ Attacking Territory!</span>
+                            <span style={{ color: '#ef4444', fontWeight: 900 }}>Attacking Territory!</span>
                             <strong style={{ color: '#ef4444' }}>
                                 {attackLapsCompleted} / {currentAttackCell.defenseLevel} Laps
                             </strong>
@@ -873,10 +911,10 @@ const Territories = ({ user, theme }) => {
                 )}
 
                 {/* Empty State Banner */}
-                {(!user.territoryStats || user.territoryStats.areaOwned === 0) && (
+                {(!userStats || userStats.areaOwned === 0) && (
                     <div className="empty" style={{ marginBottom: '1.25rem', borderColor: '#10b981', borderStyle: 'solid', background: 'rgba(16, 185, 129, 0.04)' }}>
                         <p style={{ margin: 0, fontWeight: 700, color: '#059669' }}>
-                            🌍 No territory captured yet!
+                            No territory captured yet!
                         </p>
                         <p style={{ margin: '6px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                             Walk around roads in a closed loop to capture your first territory block!
@@ -888,13 +926,13 @@ const Territories = ({ user, theme }) => {
                 <div className="info-widgets">
                     <div className="widget">
                         <span className="value">
-                            {(user.territoryStats?.areaOwned || 0).toFixed(3)}
+                            {(userStats.areaOwned || 0).toFixed(3)}
                         </span>
                         <span className="label">Area (km²)</span>
                     </div>
                     <div className="widget">
                         <span className="value">
-                            {user.territoryStats?.empireScore || 0}
+                            {userStats.empireScore || 0}
                         </span>
                         <span className="label">Empire Score</span>
                     </div>
@@ -906,7 +944,7 @@ const Territories = ({ user, theme }) => {
                         onClick={toggleTracking}
                         className={`btn ${isTracking ? 'btn-danger' : 'btn-primary'} btn-full`}
                     >
-                        {isTracking ? '⏹️ Stop GPS Tracking' : '🛰️ Start GPS Tracking'}
+                        {isTracking ? 'Stop GPS Tracking' : 'Start GPS Tracking'}
                     </button>
 
 
@@ -917,7 +955,7 @@ const Territories = ({ user, theme }) => {
                             className="btn btn-outline btn-full"
                             style={{ border: '1.5px dashed var(--border-color)', color: 'var(--text-secondary)', background: 'transparent' }}
                         >
-                            🧹 Clear Active Path ({activePath.length} points)
+                            Clear Active Path ({activePath.length} points)
                         </button>
                     )}
                 </div>
