@@ -65,5 +65,6 @@ const GridCellSchema = new mongoose.Schema({
 
 // Create 2dsphere index for location bounds querying
 GridCellSchema.index({ location: '2dsphere' });
+GridCellSchema.index({ capturedAt: 1 });
 
 module.exports = mongoose.model('GridCell', GridCellSchema);

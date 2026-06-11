@@ -42,6 +42,43 @@ function getOrthoDistance(lat1, lon1, lat2, lon2) {
     return R * c;
 }
 
+// Anti-cheat validation: checks location formatting, teleportation speed, and walking speed limit
+function validateAndLogMovement(user, newLat, newLng) {
+    const latNum = parseFloat(newLat);
+    const lngNum = parseFloat(newLng);
+
+    if (isNaN(latNum) || isNaN(lngNum) || latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
+        throw new Error('Location data appears invalid.');
+    }
+
+    const now = new Date();
+    const history = user.movementHistory || [];
+
+    if (history.length > 0) {
+        const lastPoint = history[history.length - 1];
+        const distance = getOrthoDistance(lastPoint.lat, lastPoint.lng, latNum, lngNum); // meters
+        const timeDiff = (now.getTime() - new Date(lastPoint.timestamp).getTime()) / 1000; // seconds
+
+        if (timeDiff > 0) {
+            const speedKmh = (distance / timeDiff) * 3.6;
+
+            // GPS jump / teleporting check
+            if (speedKmh > 120 && distance > 50) {
+                throw new Error(`GPS jump detected. Speed too high (${speedKmh.toFixed(1)} km/h). Teleporting is not allowed.`);
+            }
+
+            // Walking/cycling/running speed verification
+            if (speedKmh > 45 && distance > 30) {
+                throw new Error(`Movement speed is too fast (${speedKmh.toFixed(1)} km/h). Claims are only allowed while walking, running, or cycling.`);
+            }
+        }
+    }
+
+    // Push new point and cap history at last 20 coordinates
+    history.push({ lat: latNum, lng: lngNum, timestamp: now });
+    user.movementHistory = history.slice(-20);
+}
+
 // GET /api/territory/cells - Retrieve visible cells in viewport
 router.get('/cells', ensureAuth, async (req, res) => {
     try {
@@ -135,10 +172,18 @@ router.post('/claim/start', ensureAuth, async (req, res) => {
             { upsert: true, new: true }
         );
 
-        // Update user's last coordinates
-        await User.findByIdAndUpdate(req.user.id, {
-            lastCoords: { lat: latNum, lng: lngNum }
-        });
+        // Validate and log movement for user (anti-cheat verification)
+        const userObj = await User.findById(req.user.id);
+        if (!userObj) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        try {
+            validateAndLogMovement(userObj, latNum, lngNum);
+        } catch (validationErr) {
+            return res.status(400).json({ error: validationErr.message });
+        }
+        userObj.lastCoords = { lat: latNum, lng: lngNum };
+        await userObj.save();
 
         res.json({
             message: 'Capture started',
@@ -214,6 +259,14 @@ router.post('/claim', ensureAuth, async (req, res) => {
             return res.status(404).json({ error: 'User not found' });
         }
 
+        try {
+            validateAndLogMovement(user, latNum, lngNum);
+        } catch (validationErr) {
+            await session.abortTransaction();
+            session.endSession();
+            return res.status(400).json({ error: validationErr.message });
+        }
+
         let cell = await GridCell.findOne({ cellId }).session(session);
         let wasCaptured = false;
         let isRevisit = false;
@@ -275,7 +328,7 @@ router.post('/claim', ensureAuth, async (req, res) => {
                 }
                 user.territoryStats.successfulCaptures += 1;
                 const userCellsCount = await GridCell.countDocuments({ owner: user._id }).session(session);
-                user.territoryStats.cellsCount = userCellsCount + 1; // including the new takeover
+                user.territoryStats.cellsCount = userCellsCount; // fixed: count already includes the saved cell
                 user.territoryStats.empireScore = (user.territoryStats.cellsCount * 15) + (user.territoryStats.successfulCaptures * 5) + (user.territoryStats.successfulDefenses * 3);
                 user.lastCoords = { lat: latNum, lng: lngNum };
                 await user.save({ session });
@@ -376,7 +429,7 @@ router.post('/claim', ensureAuth, async (req, res) => {
             }
             user.territoryStats.successfulCaptures += 1;
             const userCellsCount = await GridCell.countDocuments({ owner: user._id }).session(session);
-            user.territoryStats.cellsCount = userCellsCount + 1; // including the new cell
+            user.territoryStats.cellsCount = userCellsCount; // fixed: count already includes the saved cell
             user.territoryStats.empireScore = (user.territoryStats.cellsCount * 15) + (user.territoryStats.successfulCaptures * 5) + (user.territoryStats.successfulDefenses * 3);
             user.lastCoords = { lat: latNum, lng: lngNum };
             await user.save({ session });

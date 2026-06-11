@@ -50,7 +50,7 @@ const getOwnerColor = (ownerId, isMe) => {
     return `hsl(${hue}, 85%, 52%)`;
 };
 
-const Territories = ({ user }) => {
+const Territories = ({ user, theme }) => {
     const mapContainer = useRef(null);
     const map = useRef(null);
     const socket = useRef(null);
@@ -78,11 +78,19 @@ const Territories = ({ user }) => {
     const [errorMsg, setErrorMsg] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
 
-    // Refs for holding latest states in event handlers
-    const cellsRef = useRef([]);
+    // Refs for holding latest states to prevent map recreation and race conditions
+    const userRef = useRef(user);
     useEffect(() => {
-        cellsRef.current = cells;
-    }, [cells]);
+        userRef.current = user;
+    }, [user]);
+
+    const themeRef = useRef(theme);
+    useEffect(() => {
+        themeRef.current = theme;
+    }, [theme]);
+
+    const cellsRef = useRef([]);
+    const currentCellRef = useRef(null);
 
     // Fetch cells inside active viewport bounds
     const fetchVisibleCells = useCallback(async () => {
@@ -112,11 +120,145 @@ const Territories = ({ user }) => {
         }
     }, []);
 
-    // Combined bounds update trigger
+    const debounceTimerRef = useRef(null);
+
+    // Combined bounds update trigger (debounced 300ms)
     const handleBoundsChange = useCallback(() => {
-        fetchVisibleCells();
-        fetchActivities();
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+        }
+        debounceTimerRef.current = setTimeout(() => {
+            fetchVisibleCells();
+            fetchActivities();
+        }, 300);
     }, [fetchVisibleCells, fetchActivities]);
+
+    const handleBoundsChangeRef = useRef(handleBoundsChange);
+    useEffect(() => {
+        handleBoundsChangeRef.current = handleBoundsChange;
+    }, [handleBoundsChange]);
+
+    // Redraw functions
+    const redrawCells = useCallback(() => {
+        if (!map.current || !map.current.isStyleLoaded()) return;
+
+        const cellSource = map.current.getSource('grid-cells');
+        const borderSource = map.current.getSource('empire-borders');
+        if (!cellSource || !borderSource) return;
+
+        // 1. Setup individual grid fills
+        const cellFeatures = cellsRef.current.map(cell => {
+            const coords = getBoundaryCoords(cell.cellId);
+            const isMe = cell.owner === userRef.current?._id || cell.ownerName === userRef.current?.displayName;
+            const color = getOwnerColor(cell.owner, isMe);
+
+            return {
+                type: 'Feature',
+                properties: {
+                    cellId: cell.cellId,
+                    color: color
+                },
+                geometry: {
+                    type: 'Polygon',
+                    coordinates: [coords]
+                }
+            };
+        });
+
+        cellSource.setData({
+            type: 'FeatureCollection',
+            features: cellFeatures
+        });
+
+        // 2. Group cells by owner, merge contiguous boundaries
+        const cellsByOwner = {};
+        cellsRef.current.forEach(cell => {
+            const ownerId = cell.owner.toString();
+            if (!cellsByOwner[ownerId]) {
+                cellsByOwner[ownerId] = {
+                    ownerName: cell.ownerName,
+                    cellIds: []
+                };
+            }
+            cellsByOwner[ownerId].cellIds.push(cell.cellId);
+        });
+
+        const borderFeatures = [];
+        Object.keys(cellsByOwner).forEach(ownerId => {
+            const { ownerName, cellIds } = cellsByOwner[ownerId];
+            const isMe = ownerId === userRef.current?._id?.toString();
+            const color = getOwnerColor(ownerId, isMe);
+
+            try {
+                const multiPolygons = h3.cellsToMultiPolygon(cellIds);
+                const geoJsonCoords = multiPolygons.map(polygon => 
+                    polygon.map(ring => 
+                        ring.map(coord => [coord[1], coord[0]])
+                    )
+                );
+
+                borderFeatures.push({
+                    type: 'Feature',
+                    properties: {
+                        ownerId,
+                        ownerName,
+                        color: color
+                    },
+                    geometry: {
+                        type: 'MultiPolygon',
+                        coordinates: geoJsonCoords
+                    }
+                });
+            } catch (err) {
+                console.error(`Failed to merge borders for ${ownerName}`, err);
+            }
+        });
+
+        borderSource.setData({
+            type: 'FeatureCollection',
+            features: borderFeatures
+        });
+    }, []);
+
+    const redrawCurrentCell = useCallback(() => {
+        if (!map.current || !map.current.isStyleLoaded() || !currentCellRef.current) return;
+
+        const source = map.current.getSource('current-cell');
+        if (!source) return;
+
+        const coords = getBoundaryCoords(currentCellRef.current);
+        source.setData({
+            type: 'FeatureCollection',
+            features: [
+                {
+                    type: 'Feature',
+                    properties: {},
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: [coords]
+                    }
+                }
+            ]
+        });
+    }, []);
+
+    useEffect(() => {
+        cellsRef.current = cells;
+        redrawCells();
+    }, [cells, redrawCells]);
+
+    useEffect(() => {
+        currentCellRef.current = currentCell;
+        redrawCurrentCell();
+    }, [currentCell, redrawCurrentCell]);
+
+    const triggerRedrawRef = useRef(() => {});
+    useEffect(() => {
+        triggerRedrawRef.current = () => {
+            redrawCells();
+            redrawCurrentCell();
+        };
+    }, [redrawCells, redrawCurrentCell]);
 
     // Finalize claim on target cell
     const submitClaim = useCallback(async (lat, lng, cellId) => {
@@ -201,20 +343,45 @@ const Territories = ({ user }) => {
         fetchVisibleCells();
     }, [fetchVisibleCells]);
 
+    // Viewport-aware remote activity updater
     const handleRemoteActivity = useCallback((newActivity) => {
-        // Prepend live capture to active feed
+        if (!map.current) return;
+        const bounds = map.current.getBounds();
+        const coords = newActivity.location?.coordinates;
+        if (!coords || coords.length < 2) return;
+        
+        const isInside = bounds.contains([coords[0], coords[1]]); // checks [lng, lat]
+
         setActivities(prev => {
             if (prev.some(act => act._id === newActivity._id)) return prev;
-            return [newActivity, ...prev].slice(0, 25);
+
+            // Check if current list is displaying fallback (no local activities within bounds)
+            const hasLocalActivities = prev.some(act => {
+                const actCoords = act.location?.coordinates;
+                return actCoords && actCoords.length >= 2 && bounds.contains([actCoords[0], actCoords[1]]);
+            });
+
+            if (isInside) {
+                if (!hasLocalActivities) {
+                    return [newActivity];
+                } else {
+                    return [newActivity, ...prev].slice(0, 25);
+                }
+            } else {
+                if (!hasLocalActivities) {
+                    return [newActivity, ...prev].slice(0, 25);
+                }
+                return prev;
+            }
         });
     }, []);
 
     const handleStolenAlert = useCallback((data) => {
-        if (data.targetUserId === user._id) {
+        if (data.targetUserId === userRef.current?._id) {
             setErrorMsg(data.message);
             setTimeout(() => setErrorMsg(''), 5000);
         }
-    }, [user]);
+    }, []);
 
     useEffect(() => {
         const socketUrl = axios.defaults.baseURL || 'http://localhost:5000';
@@ -230,10 +397,73 @@ const Territories = ({ user }) => {
         };
     }, [handleRemoteClaim, handleRemoteActivity, handleStolenAlert]);
 
-    // Map initialization (Runs EXACTLY ONCE)
+    // Helper to update or place user avatar marker on map
+    const updateOrCreateUserMarker = useCallback((lat, lng) => {
+        if (!map.current) return;
+        
+        if (userMarkerRef.current) {
+            userMarkerRef.current.setLngLat([lng, lat]);
+        } else {
+            const el = document.createElement('div');
+            el.className = 'gps-marker-element user-avatar-marker';
+            
+            if (userRef.current?.image) {
+                const img = document.createElement('img');
+                img.src = userRef.current.image;
+                img.alt = userRef.current.displayName || 'User';
+                img.className = 'marker-avatar-img';
+                el.appendChild(img);
+            } else {
+                const inner = document.createElement('div');
+                inner.className = 'marker-blue-inner';
+                el.appendChild(inner);
+            }
+            
+            userMarkerRef.current = new mapboxgl.Marker(el)
+                .setLngLat([lng, lat])
+                .addTo(map.current);
+        }
+    }, []);
+
+    const updateOrCreateUserMarkerRef = useRef(updateOrCreateUserMarker);
     useEffect(() => {
-        const theme = document.body.classList.contains('dark') ? 'dark' : 'light';
+        updateOrCreateUserMarkerRef.current = updateOrCreateUserMarker;
+    }, [updateOrCreateUserMarker]);
+
+    const onMapClick = async (e) => {
+        const { lng, lat } = e.lngLat;
+        const clickedCellId = getCellFromCoords(lat, lng, 10);
+
+        try {
+            const { data } = await axios.get(`/api/territory/inspect/${clickedCellId}`);
+            if (data && data.cell) {
+                setInspectedCell(data);
+            } else {
+                setInspectedCell(null);
+            }
+        } catch (err) {
+            setInspectedCell(null);
+        }
+    };
+
+    const onMapClickRef = useRef(onMapClick);
+    useEffect(() => {
+        onMapClickRef.current = onMapClick;
+    }, [onMapClick]);
+
+    // Listen to theme prop changes to dynamically toggle Mapbox style
+    useEffect(() => {
+        if (!map.current) return;
         const mapStyle = theme === 'dark'
+            ? 'mapbox://styles/mapbox/navigation-night-v1'
+            : 'mapbox://styles/mapbox/streets-v12';
+        map.current.setStyle(mapStyle);
+    }, [theme]);
+
+    // Map initialization (Runs EXACTLY ONCE on Mount)
+    useEffect(() => {
+        const themeVal = themeRef.current || 'light';
+        const mapStyle = themeVal === 'dark'
             ? 'mapbox://styles/mapbox/navigation-night-v1'
             : 'mapbox://styles/mapbox/streets-v12';
 
@@ -241,7 +471,7 @@ const Territories = ({ user }) => {
             container: mapContainer.current,
             style: mapStyle,
             center: [78.9629, 20.5937], // Start general India overview
-            zoom: 4,
+            zoom: 4.2, // India overview zoom level 4.2
             pitch: 0,
             bearing: 0,
             attributionControl: false
@@ -249,7 +479,6 @@ const Territories = ({ user }) => {
 
         map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-        // Locate user location initially (Centers dynamically with IP fallback)
         const fallbackToIPLocation = async () => {
             try {
                 const response = await fetch('https://ipapi.co/json/');
@@ -260,13 +489,16 @@ const Territories = ({ user }) => {
                     if (map.current) {
                         map.current.flyTo({
                             center: [longitude, latitude],
-                            zoom: 13,
+                            zoom: 17.5,
                             speed: 1.2
                         });
                     }
                     setCurrentCoords({ lat: latitude, lng: longitude });
                     const cell = getCellFromCoords(latitude, longitude, 10);
                     setCurrentCell(cell);
+                    if (updateOrCreateUserMarkerRef.current) {
+                        updateOrCreateUserMarkerRef.current(latitude, longitude);
+                    }
                 } else {
                     console.log('IP Geolocation response invalid. Staying on India overview.');
                 }
@@ -277,260 +509,165 @@ const Territories = ({ user }) => {
         };
 
         const fallbackToLastCoords = () => {
-            if (user?.lastCoords?.lat && user?.lastCoords?.lng) {
-                const { lat, lng } = user.lastCoords;
+            if (userRef.current?.lastCoords?.lat && userRef.current?.lastCoords?.lng) {
+                const { lat, lng } = userRef.current.lastCoords;
                 if (map.current) {
                     map.current.flyTo({
                         center: [lng, lat],
-                        zoom: 14.5,
+                        zoom: 17.5,
                         speed: 1.2
                     });
                 }
                 setCurrentCoords({ lat, lng });
                 const cell = getCellFromCoords(lat, lng, 10);
                 setCurrentCell(cell);
+                if (updateOrCreateUserMarkerRef.current) {
+                    updateOrCreateUserMarkerRef.current(lat, lng);
+                }
             } else {
-                console.log('No last coordinates found. Attempting IP Geolocation fallback...');
+                console.log('No last coordinates found. Fallback to IP Geolocation...');
                 fallbackToIPLocation();
             }
         };
 
         const handleInitialPosition = () => {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        const { latitude, longitude } = pos.coords;
-                        if (map.current) {
-                            map.current.flyTo({
-                                center: [longitude, latitude],
-                                zoom: 15,
-                                speed: 1.2
-                            });
-                        }
-                        setCurrentCoords({ lat: latitude, lng: longitude });
-                        const cell = getCellFromCoords(latitude, longitude, 10);
-                        setCurrentCell(cell);
-                    },
-                    (err) => {
-                        console.warn('GPS denied or unavailable. Trying last known location...', err);
-                        fallbackToLastCoords();
-                    },
-                    {
-                        enableHighAccuracy: false,
-                        timeout: 8000,
-                        maximumAge: 60000
-                    }
-                );
-            } else {
+            if (!navigator.geolocation) {
                 fallbackToLastCoords();
+                return;
             }
+
+            console.log('Attempting GPS lookup...');
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    console.log('GPS lookup succeeded:', latitude, longitude);
+                    if (map.current) {
+                        map.current.flyTo({
+                            center: [longitude, latitude],
+                            zoom: 17.5,
+                            speed: 1.2
+                        });
+                    }
+                    setCurrentCoords({ lat: latitude, lng: longitude });
+                    const cell = getCellFromCoords(latitude, longitude, 10);
+                    setCurrentCell(cell);
+                    if (updateOrCreateUserMarkerRef.current) {
+                        updateOrCreateUserMarkerRef.current(latitude, longitude);
+                    }
+                },
+                (err1) => {
+                    console.warn('GPS permission denied or unavailable. Fallback to saved lastCoords...', err1);
+                    fallbackToLastCoords();
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 8000,
+                    maximumAge: 10000
+                }
+            );
         };
 
         map.current.on('load', () => {
-            // Setup positioning
             handleInitialPosition();
-
-            // Trigger initial visible boundaries fetch
-            handleBoundsChange();
-
-            // Set up bounds update triggers
-            map.current.on('moveend', handleBoundsChange);
-
-            // 1. Individual H3 Hexagon Grid cell fills source
-            map.current.addSource('grid-cells', {
-                type: 'geojson',
-                data: { type: 'FeatureCollection', features: [] }
-            });
-
-            map.current.addLayer({
-                id: 'grid-cells-fill',
-                type: 'fill',
-                source: 'grid-cells',
-                paint: {
-                    'fill-color': ['get', 'color'],
-                    'fill-opacity': 0.15 // translucent grid cells
-                }
-            });
-
-            // 2. Merged connected empire borders (outlines and solid fills)
-            map.current.addSource('empire-borders', {
-                type: 'geojson',
-                data: { type: 'FeatureCollection', features: [] }
-            });
-
-            map.current.addLayer({
-                id: 'empire-fills',
-                type: 'fill',
-                source: 'empire-borders',
-                paint: {
-                    'fill-color': ['get', 'color'],
-                    'fill-opacity': 0.32
-                }
-            });
-
-            map.current.addLayer({
-                id: 'empire-borders-outline',
-                type: 'line',
-                source: 'empire-borders',
-                paint: {
-                    'line-color': ['get', 'color'],
-                    'line-width': 4.5,
-                    'line-opacity': 0.85
-                }
-            });
-
-            // 3. Highlighted current cell outline
-            map.current.addSource('current-cell', {
-                type: 'geojson',
-                data: { type: 'FeatureCollection', features: [] }
-            });
-
-            map.current.addLayer({
-                id: 'current-cell-outline',
-                type: 'line',
-                source: 'current-cell',
-                paint: {
-                    'line-color': '#0ea5e9',
-                    'line-width': 3.5,
-                    'line-dasharray': [2, 2]
-                }
-            });
+            if (handleBoundsChangeRef.current) {
+                handleBoundsChangeRef.current();
+            }
         });
 
-        // Click handler to inspect claimed cells and open Rival Profiles
-        const onMapClick = async (e) => {
-            const { lng, lat } = e.lngLat;
-            const clickedCellId = getCellFromCoords(lat, lng, 10);
-
-            try {
-                const { data } = await axios.get(`/api/territory/inspect/${clickedCellId}`);
-                if (data && data.cell) {
-                    setInspectedCell(data);
-                } else {
-                    setInspectedCell(null);
-                }
-            } catch (err) {
-                setInspectedCell(null);
+        map.current.on('moveend', () => {
+            if (handleBoundsChangeRef.current) {
+                handleBoundsChangeRef.current();
             }
-        };
+        });
 
-        map.current.on('click', onMapClick);
+        map.current.on('click', (e) => {
+            if (onMapClickRef.current) {
+                onMapClickRef.current(e);
+            }
+        });
+
+        // Layer and sources initialization (fired on initial style load & subsequent style switches)
+        map.current.on('style.load', () => {
+            if (!map.current) return;
+            // 1. Grid Cells Fill
+            if (!map.current.getSource('grid-cells')) {
+                map.current.addSource('grid-cells', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] }
+                });
+
+                map.current.addLayer({
+                    id: 'grid-cells-fill',
+                    type: 'fill',
+                    source: 'grid-cells',
+                    paint: {
+                        'fill-color': ['get', 'color'],
+                        'fill-opacity': 0.15
+                    }
+                });
+            }
+
+            // 2. Empire Borders
+            if (!map.current.getSource('empire-borders')) {
+                map.current.addSource('empire-borders', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] }
+                });
+
+                map.current.addLayer({
+                    id: 'empire-fills',
+                    type: 'fill',
+                    source: 'empire-borders',
+                    paint: {
+                        'fill-color': ['get', 'color'],
+                        'fill-opacity': 0.32
+                    }
+                });
+
+                map.current.addLayer({
+                    id: 'empire-borders-outline',
+                    type: 'line',
+                    source: 'empire-borders',
+                    paint: {
+                        'line-color': ['get', 'color'],
+                        'line-width': 4.5,
+                        'line-opacity': 0.85
+                    }
+                });
+            }
+
+            // 3. Current Cell Outline
+            if (!map.current.getSource('current-cell')) {
+                map.current.addSource('current-cell', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] }
+                });
+
+                map.current.addLayer({
+                    id: 'current-cell-outline',
+                    type: 'line',
+                    source: 'current-cell',
+                    paint: {
+                        'line-color': '#0ea5e9',
+                        'line-width': 3.5,
+                        'line-dasharray': [2, 2]
+                    }
+                });
+            }
+
+            // Restore elements on the map
+            if (triggerRedrawRef.current) {
+                triggerRedrawRef.current();
+            }
+        });
 
         return () => {
             if (map.current) {
-                map.current.off('moveend', handleBoundsChange);
-                map.current.off('click', onMapClick);
                 map.current.remove();
+                map.current = null;
             }
         };
-    }, [user, handleBoundsChange]);
-
-    // Redraw and outline boundaries when cells update
-    useEffect(() => {
-        if (!map.current || !map.current.isStyleLoaded()) return;
-
-        const cellSource = map.current.getSource('grid-cells');
-        const borderSource = map.current.getSource('empire-borders');
-        if (!cellSource || !borderSource) return;
-
-        // 1. Setup individual grid fills
-        const cellFeatures = cells.map(cell => {
-            const coords = getBoundaryCoords(cell.cellId);
-            const isMe = cell.owner === user._id || cell.ownerName === user.displayName;
-            const color = getOwnerColor(cell.owner, isMe);
-
-            return {
-                type: 'Feature',
-                properties: {
-                    cellId: cell.cellId,
-                    color: color
-                },
-                geometry: {
-                    type: 'Polygon',
-                    coordinates: [coords]
-                }
-            };
-        });
-
-        cellSource.setData({
-            type: 'FeatureCollection',
-            features: cellFeatures
-        });
-
-        // 2. Group cells by owner, merge contiguous boundaries via h3.cellsToMultiPolygon
-        const cellsByOwner = {};
-        cells.forEach(cell => {
-            const ownerId = cell.owner.toString();
-            if (!cellsByOwner[ownerId]) {
-                cellsByOwner[ownerId] = {
-                    ownerName: cell.ownerName,
-                    cellIds: []
-                };
-            }
-            cellsByOwner[ownerId].cellIds.push(cell.cellId);
-        });
-
-        const borderFeatures = [];
-        Object.keys(cellsByOwner).forEach(ownerId => {
-            const { ownerName, cellIds } = cellsByOwner[ownerId];
-            const isMe = ownerId === user._id.toString();
-            const color = getOwnerColor(ownerId, isMe);
-
-            try {
-                // Merge contiguous H3 cell IDs into coordinate MultiPolygon loops
-                const multiPolygons = h3.cellsToMultiPolygon(cellIds);
-                // Convert [lat, lng] loops to [lng, lat] coordinate loops for GeoJSON spec
-                const geoJsonCoords = multiPolygons.map(polygon => 
-                    polygon.map(ring => 
-                        ring.map(coord => [coord[1], coord[0]])
-                    )
-                );
-
-                borderFeatures.push({
-                    type: 'Feature',
-                    properties: {
-                        ownerId,
-                        ownerName,
-                        color: color
-                    },
-                    geometry: {
-                        type: 'MultiPolygon',
-                        coordinates: geoJsonCoords
-                    }
-                });
-            } catch (err) {
-                console.error(`Failed to merge borders for ${ownerName}`, err);
-            }
-        });
-
-        borderSource.setData({
-            type: 'FeatureCollection',
-            features: borderFeatures
-        });
-    }, [cells, user]);
-
-    // Redraw highlighted current cell outline
-    useEffect(() => {
-        if (!map.current || !map.current.isStyleLoaded() || !currentCell) return;
-
-        const source = map.current.getSource('current-cell');
-        if (!source) return;
-
-        const coords = getBoundaryCoords(currentCell);
-        source.setData({
-            type: 'FeatureCollection',
-            features: [
-                {
-                    type: 'Feature',
-                    properties: {},
-                    geometry: {
-                        type: 'Polygon',
-                        coordinates: [coords]
-                    }
-                }
-            ]
-        });
-    }, [currentCell]);
+    }, []);
 
     // Geolocation Active GPS Tracking
     const toggleTracking = () => {
@@ -566,18 +703,12 @@ const Territories = ({ user }) => {
                     setCurrentCell(cellId);
                     setInspectedCell(null);
 
-                    if (userMarkerRef.current) {
-                        userMarkerRef.current.setLngLat([longitude, latitude]);
-                    } else {
-                        const el = document.createElement('div');
-                        el.className = 'gps-marker-element';
-                        userMarkerRef.current = new mapboxgl.Marker(el)
-                            .setLngLat([longitude, latitude])
-                            .addTo(map.current);
+                    if (updateOrCreateUserMarkerRef.current) {
+                        updateOrCreateUserMarkerRef.current(latitude, longitude);
                     }
 
                     if (map.current) {
-                        map.current.easeTo({ center: [longitude, latitude], zoom: 15.5 });
+                        map.current.easeTo({ center: [longitude, latitude], zoom: 17.5 });
                     }
 
                     // Start cell claim transitions
@@ -607,7 +738,7 @@ const Territories = ({ user }) => {
                     }
                 },
                 {
-                    enableHighAccuracy: false,
+                    enableHighAccuracy: true,
                     timeout: 15000,
                     maximumAge: 10000
                 }
@@ -721,17 +852,29 @@ const Territories = ({ user }) => {
                     </div>
                 )}
 
+                {/* Unranked Fallback Alert */}
+                {(!user.territoryStats || user.territoryStats.cellsCount === 0) && (
+                    <div className="empty" style={{ marginBottom: '1.25rem', borderColor: '#10b981', borderStyle: 'solid', background: 'rgba(16, 185, 129, 0.04)' }}>
+                        <p style={{ margin: 0, fontWeight: 700, color: '#059669' }}>
+                            🌍 No territory captured yet!
+                        </p>
+                        <p style={{ margin: '6px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                            Enter an unclaimed cell on the map and toggle GPS tracking to start conquering cells.
+                        </p>
+                    </div>
+                )}
+
                 {/* Stats Widgets */}
                 <div className="info-widgets">
                     <div className="widget">
                         <span className="value">
-                            {cells.filter(c => c.owner === user._id || c.ownerName === user.displayName).length}
+                            {user.territoryStats?.cellsCount || 0}
                         </span>
                         <span className="label">Owned Cells</span>
                     </div>
                     <div className="widget">
                         <span className="value">
-                            {(cells.filter(c => c.owner === user._id || c.ownerName === user.displayName).length * 0.015).toFixed(3)}
+                            {((user.territoryStats?.cellsCount || 0) * 0.015).toFixed(3)}
                         </span>
                         <span className="label">Area (km²)</span>
                     </div>

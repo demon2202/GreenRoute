@@ -100,6 +100,14 @@ const UserSchema = new mongoose.Schema({
         lat: { type: Number },
         lng: { type: Number }
     },
+    movementHistory: {
+        type: [{
+            lat: { type: Number, required: true },
+            lng: { type: Number, required: true },
+            timestamp: { type: Date, default: Date.now }
+        }],
+        default: []
+    },
     createdAt: {
         type: Date,
         default: Date.now
@@ -108,6 +116,7 @@ const UserSchema = new mongoose.Schema({
 
 // Index for dynamic ranking queries
 UserSchema.index({ 'territoryStats.empireScore': -1 });
+UserSchema.index({ 'territoryStats.cellsCount': -1 });
 
 // Hash password before saving
 UserSchema.pre('save', async function(next) {

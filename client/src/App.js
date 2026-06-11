@@ -99,7 +99,7 @@ function App() {
                   <Routes>
                     <Route path="/"            element={<RoutePlanner user={user} />} />
                     <Route path="/leaderboard" element={<Leaderboard  user={user} />} />
-                    <Route path="/territory"   element={<Territories  user={user} />} />
+                    <Route path="/territory"   element={<Territories  user={user} theme={theme} />} />
                     <Route path="/history"     element={<TripHistory  user={user} />} />
                     <Route path="/preferences" element={<Preferences  user={user} />} />
                     <Route path="/saved"       element={<SavedPlaces  user={user} />} />
