@@ -91,9 +91,10 @@ const UserSchema = new mongoose.Schema({
         totalDuration: { type: Number, default: 0 }
     },
     territoryStats: {
-        cellsCount: { type: Number, default: 0 },
+        areaOwned: { type: Number, default: 0 },
         successfulCaptures: { type: Number, default: 0 },
         successfulDefenses: { type: Number, default: 0 },
+        longestStreak: { type: Number, default: 0 },
         empireScore: { type: Number, default: 0 }
     },
     lastCoords: {
@@ -116,7 +117,7 @@ const UserSchema = new mongoose.Schema({
 
 // Index for dynamic ranking queries
 UserSchema.index({ 'territoryStats.empireScore': -1 });
-UserSchema.index({ 'territoryStats.cellsCount': -1 });
+UserSchema.index({ 'territoryStats.areaOwned': -1 });
 
 // Hash password before saving
 UserSchema.pre('save', async function(next) {

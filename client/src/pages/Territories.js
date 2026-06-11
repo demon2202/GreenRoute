@@ -1,39 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
 import mapboxgl from 'mapbox-gl';
-import * as h3 from 'h3-js';
 import { io } from 'socket.io-client';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import './Territories.css';
 
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_API_KEY;
 
-const getBoundaryCoords = (cellId) => {
-    try {
-        const boundary = h3.cellToBoundary(cellId);
-        const lngLats = boundary.map(coord => [coord[1], coord[0]]);
-        if (lngLats.length > 0) {
-            lngLats.push(lngLats[0]); // Close polygon loop
-        }
-        return lngLats;
-    } catch (err) {
-        console.error('Error calculating boundary:', err);
-        return [];
-    }
-};
-
-const getCellFromCoords = (lat, lng, resolution = 10) => {
-    try {
-        return h3.latLngToCell(lat, lng, resolution);
-    } catch (err) {
-        console.error('Error getting cell ID:', err);
-        return null;
-    }
-};
-
-// Deterministic HSL color based on owner ID string (preserves brand green for player)
-const getOwnerColor = (ownerId, isMe) => {
-    if (isMe) return '#10b981'; // Vibrant emerald green for current user
+// Dynamic HSL color matching user schema (generates unique color for every user)
+const getOwnerColor = (ownerId) => {
     if (!ownerId) return '#64748b'; // Slate gray fallback
 
     const idStr = ownerId.toString();
@@ -42,12 +17,49 @@ const getOwnerColor = (ownerId, isMe) => {
         hash = idStr.charCodeAt(i) + ((hash << 5) - hash);
     }
     
-    // Select hue dynamically, skipping green range (90-170) to ensure high contrast
     let hue = Math.abs(hash) % 360;
-    if (hue >= 90 && hue <= 170) {
-        hue = (hue + 90) % 360;
-    }
     return `hsl(${hue}, 85%, 52%)`;
+};
+
+// Calculate distance between two coordinates in meters (Haversine)
+const getDistance = (coord1, coord2) => {
+    const [lon1, lat1] = coord1;
+    const [lon2, lat2] = coord2;
+    const R = 6371e3; // meters
+    const phi1 = lat1 * Math.PI / 180;
+    const phi2 = lat2 * Math.PI / 180;
+    const dPhi = (lat2 - lat1) * Math.PI / 180;
+    const dLambda = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dPhi / 2) * Math.sin(dPhi / 2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(dLambda / 2) * Math.sin(dLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+};
+
+// Detect closed loops within walked path
+const checkLoop = (path) => {
+    if (path.length < 4) return null;
+    const lastPoint = path[path.length - 1];
+    
+    // Look for a close point in the history (skipping the last 3 points)
+    for (let i = 0; i < path.length - 3; i++) {
+        const prevPoint = path[i];
+        const dist = getDistance(lastPoint, prevPoint);
+        if (dist < 20) { // Within 20 meters
+            let pathDist = 0;
+            for (let j = i; j < path.length - 1; j++) {
+                pathDist += getDistance(path[j], path[j+1]);
+            }
+            if (pathDist > 30) { // Walked distance validation
+                return {
+                    loopStartIndex: i,
+                    loopCoords: path.slice(i)
+                };
+            }
+        }
+    }
+    return null;
 };
 
 const Territories = ({ user, theme }) => {
@@ -56,58 +68,48 @@ const Territories = ({ user, theme }) => {
     const socket = useRef(null);
     const watchIdRef = useRef(null);
     const userMarkerRef = useRef(null);
-    const progressTimerRef = useRef(null);
 
-    // States
+    // Grid and capture states
     const [cells, setCells] = useState([]);
     const [activities, setActivities] = useState([]);
-    
-    // Tracking states
     const [isTracking, setIsTracking] = useState(false);
     const [currentCoords, setCurrentCoords] = useState(null);
-    const [currentCell, setCurrentCell] = useState(null);
-    
-    // Capture state machine states
-    const [capturingCell, setCapturingCell] = useState(null);
-    const [captureProgress, setCaptureProgress] = useState(0);
-    const [captureTimeRemaining, setCaptureTimeRemaining] = useState(0);
-    
-    // Inspect cell and owner rival profile
     const [inspectedCell, setInspectedCell] = useState(null);
+    
+    // Path capturing states
+    const [activePath, setActivePath] = useState([]);
+    
+    // Attack conquest state machine
+    const [currentAttackCell, setCurrentAttackCell] = useState(null);
+    const [attackLapsCompleted, setAttackLapsCompleted] = useState(0);
+    const [attackCheckpoints, setAttackCheckpoints] = useState([]);
+    const [attackVisitedCheckpoints, setAttackVisitedCheckpoints] = useState([]);
 
     const [errorMsg, setErrorMsg] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
 
-    // Refs for holding latest states to prevent map recreation and race conditions
     const userRef = useRef(user);
-    useEffect(() => {
-        userRef.current = user;
-    }, [user]);
+    useEffect(() => { userRef.current = user; }, [user]);
 
     const themeRef = useRef(theme);
-    useEffect(() => {
-        themeRef.current = theme;
-    }, [theme]);
+    useEffect(() => { themeRef.current = theme; }, [theme]);
 
     const cellsRef = useRef([]);
-    const currentCellRef = useRef(null);
+    useEffect(() => { cellsRef.current = cells; }, [cells]);
 
-    // Fetch cells inside active viewport bounds
+    // Fetch territories inside active viewport bounds
     const fetchVisibleCells = useCallback(async () => {
         if (!map.current) return;
         try {
             const bounds = map.current.getBounds();
             const boundsStr = `${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()}`;
-            
-            // Fetch cells & viewport leaderboard
-            const { data } = await axios.get(`/api/territory/cells?bounds=${boundsStr}`);
+            const { data } = await axios.get(`/api/territory/territories?bounds=${boundsStr}`);
             setCells(data.cells || []);
         } catch (err) {
-            console.error('Error loading cells:', err);
+            console.error('Error loading territories:', err);
         }
     }, []);
 
-    // Fetch activities inside active viewport bounds
     const fetchActivities = useCallback(async () => {
         if (!map.current) return;
         try {
@@ -121,24 +123,67 @@ const Territories = ({ user, theme }) => {
     }, []);
 
     const debounceTimerRef = useRef(null);
-
-    // Combined bounds update trigger (debounced 300ms)
     const handleBoundsChange = useCallback(() => {
-        if (debounceTimerRef.current) {
-            clearTimeout(debounceTimerRef.current);
-        }
+        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
         debounceTimerRef.current = setTimeout(() => {
             fetchVisibleCells();
             fetchActivities();
         }, 300);
     }, [fetchVisibleCells, fetchActivities]);
 
-    const handleBoundsChangeRef = useRef(handleBoundsChange);
+    // Update active walked path drawing on the map
     useEffect(() => {
-        handleBoundsChangeRef.current = handleBoundsChange;
-    }, [handleBoundsChange]);
+        if (!map.current || !map.current.isStyleLoaded()) return;
+        const source = map.current.getSource('active-path');
+        if (!source) return;
 
-    // Redraw functions
+        if (activePath.length < 2) {
+            source.setData({ type: 'FeatureCollection', features: [] });
+            return;
+        }
+
+        source.setData({
+            type: 'FeatureCollection',
+            features: [{
+                type: 'Feature',
+                properties: {},
+                geometry: {
+                    type: 'LineString',
+                    coordinates: activePath
+                }
+            }]
+        });
+    }, [activePath]);
+
+    // Update checkpoint visualization on the map during attacks
+    useEffect(() => {
+        if (!map.current || !map.current.isStyleLoaded()) return;
+        const source = map.current.getSource('attack-checkpoints');
+        if (!source) return;
+
+        if (!currentAttackCell || attackCheckpoints.length === 0) {
+            source.setData({ type: 'FeatureCollection', features: [] });
+            return;
+        }
+
+        const features = attackCheckpoints.map((pt, index) => ({
+            type: 'Feature',
+            properties: {
+                visited: !!attackVisitedCheckpoints[index]
+            },
+            geometry: {
+                type: 'Point',
+                coordinates: pt
+            }
+        }));
+
+        source.setData({
+            type: 'FeatureCollection',
+            features
+        });
+    }, [currentAttackCell, attackCheckpoints, attackVisitedCheckpoints]);
+
+    // Draw active territories
     const redrawCells = useCallback(() => {
         if (!map.current || !map.current.isStyleLoaded()) return;
 
@@ -146,16 +191,15 @@ const Territories = ({ user, theme }) => {
         const borderSource = map.current.getSource('empire-borders');
         if (!cellSource || !borderSource) return;
 
-        // 1. Setup individual grid fills
         const cellFeatures = cellsRef.current.map(cell => {
-            const coords = getBoundaryCoords(cell.cellId);
-            const isMe = cell.owner === userRef.current?._id || cell.ownerName === userRef.current?.displayName;
-            const color = getOwnerColor(cell.owner, isMe);
+            const coords = cell.boundary;
+            const isMe = cell.owner?._id === userRef.current?._id || cell.owner === userRef.current?._id;
+            const color = getOwnerColor(cell.owner?._id || cell.owner, isMe);
 
             return {
                 type: 'Feature',
                 properties: {
-                    cellId: cell.cellId,
+                    cellId: cell._id || cell.cellId,
                     color: color
                 },
                 geometry: {
@@ -170,48 +214,24 @@ const Territories = ({ user, theme }) => {
             features: cellFeatures
         });
 
-        // 2. Group cells by owner, merge contiguous boundaries
-        const cellsByOwner = {};
-        cellsRef.current.forEach(cell => {
-            const ownerId = cell.owner.toString();
-            if (!cellsByOwner[ownerId]) {
-                cellsByOwner[ownerId] = {
-                    ownerName: cell.ownerName,
-                    cellIds: []
-                };
-            }
-            cellsByOwner[ownerId].cellIds.push(cell.cellId);
-        });
+        // Map individual borders
+        const borderFeatures = cellsRef.current.map(cell => {
+            const coords = cell.boundary;
+            const isMe = cell.owner?._id === userRef.current?._id || cell.owner === userRef.current?._id;
+            const color = getOwnerColor(cell.owner?._id || cell.owner, isMe);
 
-        const borderFeatures = [];
-        Object.keys(cellsByOwner).forEach(ownerId => {
-            const { ownerName, cellIds } = cellsByOwner[ownerId];
-            const isMe = ownerId === userRef.current?._id?.toString();
-            const color = getOwnerColor(ownerId, isMe);
-
-            try {
-                const multiPolygons = h3.cellsToMultiPolygon(cellIds);
-                const geoJsonCoords = multiPolygons.map(polygon => 
-                    polygon.map(ring => 
-                        ring.map(coord => [coord[1], coord[0]])
-                    )
-                );
-
-                borderFeatures.push({
-                    type: 'Feature',
-                    properties: {
-                        ownerId,
-                        ownerName,
-                        color: color
-                    },
-                    geometry: {
-                        type: 'MultiPolygon',
-                        coordinates: geoJsonCoords
-                    }
-                });
-            } catch (err) {
-                console.error(`Failed to merge borders for ${ownerName}`, err);
-            }
+            return {
+                type: 'Feature',
+                properties: {
+                    ownerId: cell.owner?._id || cell.owner,
+                    ownerName: cell.ownerName || 'Empire Owner',
+                    color: color
+                },
+                geometry: {
+                    type: 'Polygon',
+                    coordinates: [coords]
+                }
+            };
         });
 
         borderSource.setData({
@@ -220,57 +240,24 @@ const Territories = ({ user, theme }) => {
         });
     }, []);
 
-    const redrawCurrentCell = useCallback(() => {
-        if (!map.current || !map.current.isStyleLoaded() || !currentCellRef.current) return;
-
-        const source = map.current.getSource('current-cell');
-        if (!source) return;
-
-        const coords = getBoundaryCoords(currentCellRef.current);
-        source.setData({
-            type: 'FeatureCollection',
-            features: [
-                {
-                    type: 'Feature',
-                    properties: {},
-                    geometry: {
-                        type: 'Polygon',
-                        coordinates: [coords]
-                    }
-                }
-            ]
-        });
-    }, []);
-
     useEffect(() => {
         cellsRef.current = cells;
         redrawCells();
     }, [cells, redrawCells]);
 
-    useEffect(() => {
-        currentCellRef.current = currentCell;
-        redrawCurrentCell();
-    }, [currentCell, redrawCurrentCell]);
-
-    const triggerRedrawRef = useRef(() => {});
-    useEffect(() => {
-        triggerRedrawRef.current = () => {
-            redrawCells();
-            redrawCurrentCell();
-        };
-    }, [redrawCells, redrawCurrentCell]);
-
-    // Finalize claim on target cell
-    const submitClaim = useCallback(async (lat, lng, cellId) => {
+    // Submit territory capture request
+    const submitClaim = useCallback(async (lat, lng, boundary, isSim = false) => {
         try {
             const { data } = await axios.post('/api/territory/claim', {
                 lat,
                 lng,
-                isSimulated: false
+                boundary,
+                isSimulated: isSim
             });
 
             if (data.wasCaptured) {
-                setSuccessMsg(`Successfully captured cell ${cellId.substring(0, 8)}!`);
+                setSuccessMsg(`Successfully captured new territory!`);
+                setActivePath([]);
             } else {
                 setSuccessMsg(data.message);
             }
@@ -278,101 +265,178 @@ const Territories = ({ user, theme }) => {
             fetchVisibleCells();
             fetchActivities();
         } catch (err) {
-            console.error('Error claiming cell:', err);
+            console.error('Error claiming territory:', err);
             const msg = err.response?.data?.error || 'Failed to claim territory.';
             setErrorMsg(msg);
             setTimeout(() => setErrorMsg(''), 4000);
-        } finally {
-            setCapturingCell(null);
-            setCaptureProgress(0);
-            setCaptureTimeRemaining(0);
         }
     }, [fetchVisibleCells, fetchActivities]);
 
-    // Handle capture timer ticking
-    const startCaptureTimer = useCallback((lat, lng, cellId, durationMs) => {
-        if (progressTimerRef.current) clearInterval(progressTimerRef.current);
-
-        if (durationMs === 0) {
-            submitClaim(lat, lng, cellId);
-            return;
-        }
-
-        setCapturingCell(cellId);
-        setCaptureProgress(0);
-        setCaptureTimeRemaining(durationMs / 1000);
-
-        const startTime = Date.now();
-        progressTimerRef.current = setInterval(() => {
-            const elapsed = Date.now() - startTime;
-            const progress = Math.min((elapsed / durationMs) * 100, 100);
-            const remaining = Math.max((durationMs - elapsed) / 1000, 0);
-
-            setCaptureProgress(progress);
-            setCaptureTimeRemaining(remaining);
-
-            if (progress >= 100) {
-                clearInterval(progressTimerRef.current);
-                progressTimerRef.current = null;
-                submitClaim(lat, lng, cellId);
-            }
-        }, 100);
-    }, [submitClaim]);
-
-    // Initialize capture attempt backend log
-    const handleCellTransition = useCallback(async (lat, lng, cellId) => {
-        if (progressTimerRef.current) {
-            clearInterval(progressTimerRef.current);
-            progressTimerRef.current = null;
-        }
-
+    // Handle Attack Laps updates
+    const submitLapCompletion = useCallback(async (territory, lapCount, visited, isSim = false) => {
         try {
-            const { data } = await axios.post('/api/territory/claim/start', { lat, lng });
-            startCaptureTimer(lat, lng, cellId, data.requiredDuration);
+            const { data } = await axios.post('/api/territory/attack/lap', {
+                territoryId: territory._id,
+                lapsCompleted: lapCount,
+                checkpointsVisited: visited,
+                isSimulated: isSim
+            });
+
+            if (data.wasCaptured) {
+                setSuccessMsg('🏆 Territory Conquered!');
+                setCurrentAttackCell(null);
+                setAttackCheckpoints([]);
+                setAttackVisitedCheckpoints([]);
+                setAttackLapsCompleted(0);
+                setActivePath([]);
+            } else {
+                setSuccessMsg(`Lap completed! Laps: ${lapCount} / ${territory.defenseLevel}`);
+                setAttackLapsCompleted(lapCount);
+                // Reset checkpoints visited state for the next lap
+                setAttackVisitedCheckpoints(Array(attackCheckpoints.length).fill(false));
+            }
+            setTimeout(() => setSuccessMsg(''), 4000);
+            fetchVisibleCells();
+            fetchActivities();
         } catch (err) {
-            console.error('Error starting capture:', err);
-            const msg = err.response?.data?.error || 'Failed to initialize capture timer.';
+            console.error('Error recording lap:', err);
+            const msg = err.response?.data?.error || 'Failed to record lap progress.';
             setErrorMsg(msg);
-            setTimeout(() => setErrorMsg(''), 3000);
-            setCapturingCell(null);
+            setTimeout(() => setErrorMsg(''), 4000);
         }
-    }, [startCaptureTimer]);
+    }, [attackCheckpoints.length, fetchVisibleCells, fetchActivities]);
 
-    // Listen to real-time events via WebSockets
-    const handleRemoteClaim = useCallback(() => {
-        fetchVisibleCells();
-    }, [fetchVisibleCells]);
+    // Attack tracker state updater
+    const handleAttackMovement = useCallback((coord, isSim = false) => {
+        if (!currentAttackCell) {
+            // Scan for nearby rival territories
+            const rivalTerritory = cells.find(t => {
+                const isMe = t.owner?._id === userRef.current?._id || t.owner === userRef.current?._id;
+                if (isMe) return false;
+                
+                // Check if attacker is near any boundary vertex
+                return t.boundary.some(vertex => getDistance(coord, vertex) < 25);
+            });
 
-    // Viewport-aware remote activity updater
+            if (rivalTerritory) {
+                setCurrentAttackCell(rivalTerritory);
+                const pts = rivalTerritory.boundary.slice(0, -1); // Exclude duplicate last coordinate
+                setAttackCheckpoints(pts);
+                setAttackVisitedCheckpoints(Array(pts.length).fill(false));
+                setAttackLapsCompleted(0);
+                setSuccessMsg(`⚠️ Border aligned! Attack started around the perimeter...`);
+                setTimeout(() => setSuccessMsg(''), 3000);
+            }
+        } else {
+            // Check if player wandered too far from boundary outline
+            const isNear = currentAttackCell.boundary.some(vertex => getDistance(coord, vertex) < 40);
+            if (!isNear) {
+                setCurrentAttackCell(null);
+                setAttackCheckpoints([]);
+                setAttackVisitedCheckpoints([]);
+                setAttackLapsCompleted(0);
+                setErrorMsg('Attack cancelled: wandered too far from boundary.');
+                setTimeout(() => setErrorMsg(''), 3000);
+                return;
+            }
+
+            // Mark nearby checkpoints as visited
+            setAttackVisitedCheckpoints(prev => {
+                const nextCheckpoints = [...prev];
+                let changed = false;
+                
+                attackCheckpoints.forEach((pt, idx) => {
+                    if (getDistance(coord, pt) < 20) {
+                        if (!nextCheckpoints[idx]) {
+                            nextCheckpoints[idx] = true;
+                            changed = true;
+                        }
+                    }
+                });
+
+                if (changed) {
+                    const visitedCount = nextCheckpoints.filter(v => v).length;
+                    const coverage = visitedCount / attackCheckpoints.length;
+                    
+                    // Verify loop completion when >= 95% perimeter is covered and returned to first visited checkpoint
+                    if (coverage >= 0.95) {
+                        const firstVisitedIdx = nextCheckpoints.findIndex(v => v);
+                        if (firstVisitedIdx !== -1 && getDistance(coord, attackCheckpoints[firstVisitedIdx]) < 20) {
+                            // Lap finished
+                            setTimeout(() => {
+                                submitLapCompletion(currentAttackCell, attackLapsCompleted + 1, nextCheckpoints, isSim);
+                            }, 50);
+                        }
+                    }
+                }
+
+                return nextCheckpoints;
+            });
+        }
+    }, [cells, currentAttackCell, attackCheckpoints, attackLapsCompleted, submitLapCompletion]);
+
+    // Unified client track updater
+    const handleLocationUpdate = useCallback(async (lat, lng, isSim = false) => {
+        const coord = [lng, lat];
+        
+        // Report location update to backend track log
+        try {
+            await axios.post('/api/territory/track', { lat, lng });
+        } catch (err) {
+            console.error('Error logging position tracker:', err);
+        }
+
+        // Handle active path append
+        setActivePath(prevPath => {
+            if (prevPath.length > 0) {
+                const lastPoint = prevPath[prevPath.length - 1];
+                if (getDistance(lastPoint, coord) < 2) {
+                    // Filter location jitter (less than 2m movement)
+                    return prevPath;
+                }
+            }
+
+            const nextPath = [...prevPath, coord];
+            
+            // If attacking, direct coordinate updates into battle validator
+            handleAttackMovement(coord, isSim);
+
+            // Check if user closed a new loop
+            const loopResult = checkLoop(nextPath);
+            if (loopResult && !currentAttackCell) {
+                const { loopCoords } = loopResult;
+                let lngSum = 0, latSum = 0;
+                loopCoords.forEach(c => { lngSum += c[0]; latSum += c[1]; });
+                const centroidLng = lngSum / loopCoords.length;
+                const centroidLat = latSum / loopCoords.length;
+
+                // Geometrically close loop boundaries
+                const closedLoop = [...loopCoords];
+                if (closedLoop.length > 0 && (closedLoop[0][0] !== closedLoop[closedLoop.length - 1][0] || closedLoop[0][1] !== closedLoop[closedLoop.length - 1][1])) {
+                    closedLoop.push([closedLoop[0][0], closedLoop[0][1]]);
+                }
+
+                // Fire claim request
+                submitClaim(centroidLat, centroidLng, closedLoop, isSim);
+                return [];
+            }
+
+            return nextPath;
+        });
+    }, [currentAttackCell, handleAttackMovement, submitClaim]);
+
+    // WebSocket listeners for remote updates
+    const handleRemoteClaim = useCallback(() => { fetchVisibleCells(); }, [fetchVisibleCells]);
     const handleRemoteActivity = useCallback((newActivity) => {
         if (!map.current) return;
         const bounds = map.current.getBounds();
         const coords = newActivity.location?.coordinates;
         if (!coords || coords.length < 2) return;
         
-        const isInside = bounds.contains([coords[0], coords[1]]); // checks [lng, lat]
-
+        const isInside = bounds.contains([coords[0], coords[1]]);
         setActivities(prev => {
             if (prev.some(act => act._id === newActivity._id)) return prev;
-
-            // Check if current list is displaying fallback (no local activities within bounds)
-            const hasLocalActivities = prev.some(act => {
-                const actCoords = act.location?.coordinates;
-                return actCoords && actCoords.length >= 2 && bounds.contains([actCoords[0], actCoords[1]]);
-            });
-
-            if (isInside) {
-                if (!hasLocalActivities) {
-                    return [newActivity];
-                } else {
-                    return [newActivity, ...prev].slice(0, 25);
-                }
-            } else {
-                if (!hasLocalActivities) {
-                    return [newActivity, ...prev].slice(0, 25);
-                }
-                return prev;
-            }
+            return isInside ? [newActivity, ...prev].slice(0, 25) : prev;
         });
     }, []);
 
@@ -393,11 +457,10 @@ const Territories = ({ user, theme }) => {
 
         return () => {
             if (socket.current) socket.current.disconnect();
-            if (progressTimerRef.current) clearInterval(progressTimerRef.current);
         };
     }, [handleRemoteClaim, handleRemoteActivity, handleStolenAlert]);
 
-    // Helper to update or place user avatar marker on map
+    // GPS Marker avatar update
     const updateOrCreateUserMarker = useCallback((lat, lng) => {
         if (!map.current) return;
         
@@ -425,37 +488,89 @@ const Territories = ({ user, theme }) => {
         }
     }, []);
 
-    const updateOrCreateUserMarkerRef = useRef(updateOrCreateUserMarker);
-    useEffect(() => {
-        updateOrCreateUserMarkerRef.current = updateOrCreateUserMarker;
-    }, [updateOrCreateUserMarker]);
-
+    // Handles cell inspection clicking
     const onMapClick = async (e) => {
         const { lng, lat } = e.lngLat;
-        const clickedCellId = getCellFromCoords(lat, lng, 10);
 
-        try {
-            const { data } = await axios.get(`/api/territory/inspect/${clickedCellId}`);
-            if (data && data.cell) {
-                setInspectedCell(data);
-            } else {
-                // Set to neutral cell details for UI feedback on clicking unclaimed cells
-                setInspectedCell({
-                    cell: { cellId: clickedCellId, strength: 0, defenseLevel: 0, unclaimed: true },
-                    owner: null
-                });
+
+
+        // Perform point-in-polygon inspections on map click
+        const clickedCell = cells.find(cell => {
+            if (cell.boundary) {
+                return isPointInPolygon([lng, lat], cell.boundary);
             }
-        } catch (err) {
-            setInspectedCell(null);
+            return false;
+        });
+
+        if (clickedCell) {
+            try {
+                const { data } = await axios.get(`/api/territory/territories/${clickedCell._id || clickedCell.cellId}/stats`);
+                if (data) {
+                    setInspectedCell(data);
+                    return;
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+        setInspectedCell(null);
+    };
+
+    // Toggle Map Geolocation tracking
+    const toggleTracking = () => {
+        if (isTracking) {
+            if (watchIdRef.current !== null) {
+                navigator.geolocation.clearWatch(watchIdRef.current);
+                watchIdRef.current = null;
+            }
+            setIsTracking(false);
+            setActivePath([]);
+            setCurrentAttackCell(null);
+            setAttackCheckpoints([]);
+            setAttackVisitedCheckpoints([]);
+        } else {
+            if (!navigator.geolocation) {
+                alert('Geolocation is not supported by your browser.');
+                return;
+            }
+            setIsTracking(true);
+
+            setActivePath([]);
+
+            watchIdRef.current = navigator.geolocation.watchPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    setCurrentCoords({ lat: latitude, lng: longitude });
+                    updateOrCreateUserMarker(latitude, longitude);
+                    handleLocationUpdate(latitude, longitude, false);
+
+                    if (map.current) {
+                        map.current.easeTo({ center: [longitude, latitude], zoom: 17.5 });
+                    }
+                },
+                (err) => {
+                    console.warn('GPS position error:', err);
+                    setErrorMsg('GPS Connection Lost or Access Denied.');
+                    setIsTracking(false);
+                },
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+            );
         }
     };
+
+
 
     const onMapClickRef = useRef(onMapClick);
     useEffect(() => {
         onMapClickRef.current = onMapClick;
     }, [onMapClick]);
 
-    // Listen to theme prop changes to dynamically toggle Mapbox style
+    const handleBoundsChangeRef = useRef(handleBoundsChange);
+    useEffect(() => {
+        handleBoundsChangeRef.current = handleBoundsChange;
+    }, [handleBoundsChange]);
+
+    // Style toggles
     useEffect(() => {
         if (!map.current) return;
         const mapStyle = theme === 'dark'
@@ -464,7 +579,7 @@ const Territories = ({ user, theme }) => {
         map.current.setStyle(mapStyle);
     }, [theme]);
 
-    // Map initialization (Runs EXACTLY ONCE on Mount)
+    // Mount load
     useEffect(() => {
         const themeVal = themeRef.current || 'light';
         const mapStyle = themeVal === 'dark'
@@ -474,8 +589,8 @@ const Territories = ({ user, theme }) => {
         map.current = new mapboxgl.Map({
             container: mapContainer.current,
             style: mapStyle,
-            center: [78.9629, 20.5937], // Start general India overview
-            zoom: 4.2, // India overview zoom level 4.2
+            center: [78.9629, 20.5937],
+            zoom: 4.2,
             pitch: 0,
             bearing: 0,
             attributionControl: false
@@ -483,96 +598,26 @@ const Territories = ({ user, theme }) => {
 
         map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
+        // Fallbacks
         const fallbackToIPLocation = async () => {
             try {
                 const response = await fetch('https://ipapi.co/json/');
                 const data = await response.json();
                 if (data && data.latitude && data.longitude) {
-                    const { latitude, longitude, city } = data;
-                    console.log(`IP Geolocation resolved to: ${city} (${latitude}, ${longitude})`);
+                    const { latitude, longitude } = data;
                     if (map.current) {
-                        map.current.flyTo({
-                            center: [longitude, latitude],
-                            zoom: 17.5,
-                            speed: 1.2
-                        });
+                        map.current.flyTo({ center: [longitude, latitude], zoom: 17.5, speed: 1.2 });
                     }
                     setCurrentCoords({ lat: latitude, lng: longitude });
-                    const cell = getCellFromCoords(latitude, longitude, 10);
-                    setCurrentCell(cell);
-                    if (updateOrCreateUserMarkerRef.current) {
-                        updateOrCreateUserMarkerRef.current(latitude, longitude);
-                    }
-                } else {
-                    console.log('IP Geolocation response invalid. Staying on India overview.');
+                    updateOrCreateUserMarker(latitude, longitude);
                 }
-            } catch (ipErr) {
-                console.warn('IP Geolocation fallback failed:', ipErr);
-                console.log('Staying on India overview.');
+            } catch (err) {
+                console.warn('Geolocation fallback issue:', err);
             }
-        };
-
-        const fallbackToLastCoords = () => {
-            if (userRef.current?.lastCoords?.lat && userRef.current?.lastCoords?.lng) {
-                const { lat, lng } = userRef.current.lastCoords;
-                if (map.current) {
-                    map.current.flyTo({
-                        center: [lng, lat],
-                        zoom: 17.5,
-                        speed: 1.2
-                    });
-                }
-                setCurrentCoords({ lat, lng });
-                const cell = getCellFromCoords(lat, lng, 10);
-                setCurrentCell(cell);
-                if (updateOrCreateUserMarkerRef.current) {
-                    updateOrCreateUserMarkerRef.current(lat, lng);
-                }
-            } else {
-                console.log('No last coordinates found. Fallback to IP Geolocation...');
-                fallbackToIPLocation();
-            }
-        };
-
-        const handleInitialPosition = () => {
-            if (!navigator.geolocation) {
-                fallbackToLastCoords();
-                return;
-            }
-
-            console.log('Attempting GPS lookup...');
-            navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                    const { latitude, longitude } = pos.coords;
-                    console.log('GPS lookup succeeded:', latitude, longitude);
-                    if (map.current) {
-                        map.current.flyTo({
-                            center: [longitude, latitude],
-                            zoom: 17.5,
-                            speed: 1.2
-                        });
-                    }
-                    setCurrentCoords({ lat: latitude, lng: longitude });
-                    const cell = getCellFromCoords(latitude, longitude, 10);
-                    setCurrentCell(cell);
-                    if (updateOrCreateUserMarkerRef.current) {
-                        updateOrCreateUserMarkerRef.current(latitude, longitude);
-                    }
-                },
-                (err1) => {
-                    console.warn('GPS permission denied or unavailable. Fallback to saved lastCoords...', err1);
-                    fallbackToLastCoords();
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 8000,
-                    maximumAge: 10000
-                }
-            );
         };
 
         map.current.on('load', () => {
-            handleInitialPosition();
+            fallbackToIPLocation();
             if (handleBoundsChangeRef.current) {
                 handleBoundsChangeRef.current();
             }
@@ -590,34 +635,32 @@ const Territories = ({ user, theme }) => {
             }
         });
 
-        // Layer and sources initialization (fired on initial style load & subsequent style switches)
         map.current.on('style.load', () => {
             if (!map.current) return;
-            // 1. Grid Cells Fill
+
+            // 1. Grid polygon fills
             if (!map.current.getSource('grid-cells')) {
                 map.current.addSource('grid-cells', {
                     type: 'geojson',
                     data: { type: 'FeatureCollection', features: [] }
                 });
-
                 map.current.addLayer({
                     id: 'grid-cells-fill',
                     type: 'fill',
                     source: 'grid-cells',
                     paint: {
                         'fill-color': ['get', 'color'],
-                        'fill-opacity': 0.15
+                        'fill-opacity': 0.18
                     }
                 });
             }
 
-            // 2. Empire Borders
+            // 2. Empire outlines
             if (!map.current.getSource('empire-borders')) {
                 map.current.addSource('empire-borders', {
                     type: 'geojson',
                     data: { type: 'FeatureCollection', features: [] }
                 });
-
                 map.current.addLayer({
                     id: 'empire-fills',
                     type: 'fill',
@@ -627,7 +670,6 @@ const Territories = ({ user, theme }) => {
                         'fill-opacity': 0.32
                     }
                 });
-
                 map.current.addLayer({
                     id: 'empire-borders-outline',
                     type: 'line',
@@ -640,29 +682,45 @@ const Territories = ({ user, theme }) => {
                 });
             }
 
-            // 3. Current Cell Outline
-            if (!map.current.getSource('current-cell')) {
-                map.current.addSource('current-cell', {
+            // 3. Active path line
+            if (!map.current.getSource('active-path')) {
+                map.current.addSource('active-path', {
                     type: 'geojson',
                     data: { type: 'FeatureCollection', features: [] }
                 });
-
                 map.current.addLayer({
-                    id: 'current-cell-outline',
+                    id: 'active-path-line',
                     type: 'line',
-                    source: 'current-cell',
+                    source: 'active-path',
                     paint: {
-                        'line-color': '#0ea5e9',
-                        'line-width': 3.5,
-                        'line-dasharray': [2, 2]
+                        'line-color': '#3b82f6',
+                        'line-width': 4.5,
+                        'line-opacity': 0.9,
+                        'line-dasharray': [2, 1.5]
                     }
                 });
             }
 
-            // Restore elements on the map
-            if (triggerRedrawRef.current) {
-                triggerRedrawRef.current();
+            // 4. Attack Checkpoints circles
+            if (!map.current.getSource('attack-checkpoints')) {
+                map.current.addSource('attack-checkpoints', {
+                    type: 'geojson',
+                    data: { type: 'FeatureCollection', features: [] }
+                });
+                map.current.addLayer({
+                    id: 'attack-checkpoints-circles',
+                    type: 'circle',
+                    source: 'attack-checkpoints',
+                    paint: {
+                        'circle-radius': 6.5,
+                        'circle-color': ['case', ['get', 'visited'], '#10b981', '#ef4444'], // green if visited, red if not
+                        'circle-stroke-width': 2,
+                        'circle-stroke-color': '#ffffff'
+                    }
+                });
             }
+
+            redrawCells();
         });
 
         return () => {
@@ -673,82 +731,7 @@ const Territories = ({ user, theme }) => {
         };
     }, []);
 
-    // Geolocation Active GPS Tracking
-    const toggleTracking = () => {
-        if (isTracking) {
-            if (watchIdRef.current !== null) {
-                navigator.geolocation.clearWatch(watchIdRef.current);
-                watchIdRef.current = null;
-            }
-            setIsTracking(false);
-            if (userMarkerRef.current) {
-                userMarkerRef.current.remove();
-                userMarkerRef.current = null;
-            }
-            if (progressTimerRef.current) {
-                clearInterval(progressTimerRef.current);
-                progressTimerRef.current = null;
-            }
-            setCapturingCell(null);
-            setCaptureProgress(0);
-        } else {
-            if (!navigator.geolocation) {
-                alert('Geolocation is not supported by your browser.');
-                return;
-            }
 
-            setIsTracking(true);
-            watchIdRef.current = navigator.geolocation.watchPosition(
-                (pos) => {
-                    const { latitude, longitude } = pos.coords;
-                    setCurrentCoords({ lat: latitude, lng: longitude });
-
-                    const cellId = getCellFromCoords(latitude, longitude, 10);
-                    setCurrentCell(cellId);
-                    setInspectedCell(null);
-
-                    if (updateOrCreateUserMarkerRef.current) {
-                        updateOrCreateUserMarkerRef.current(latitude, longitude);
-                    }
-
-                    if (map.current) {
-                        map.current.easeTo({ center: [longitude, latitude], zoom: 17.5 });
-                    }
-
-                    // Start cell claim transitions
-                    if (cellId !== capturingCell) {
-                        handleCellTransition(latitude, longitude, cellId);
-                    }
-                },
-                (err) => {
-                    console.warn('GPS watch position warning:', err);
-                    if (err.code !== 3) {
-                        setErrorMsg('GPS Connection Lost or Access Denied.');
-                        setIsTracking(false);
-                        if (watchIdRef.current !== null) {
-                            navigator.geolocation.clearWatch(watchIdRef.current);
-                            watchIdRef.current = null;
-                        }
-                        if (userMarkerRef.current) {
-                            userMarkerRef.current.remove();
-                            userMarkerRef.current = null;
-                        }
-                        if (progressTimerRef.current) {
-                            clearInterval(progressTimerRef.current);
-                            progressTimerRef.current = null;
-                        }
-                        setCapturingCell(null);
-                        setCaptureProgress(0);
-                    }
-                },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 15000,
-                    maximumAge: 10000
-                }
-            );
-        }
-    };
 
     return (
         <div className="territory-page">
@@ -756,14 +739,14 @@ const Territories = ({ user, theme }) => {
                 <div className="sidebar-header-row">
                     <div className="sidebar-header">
                         <h2>Territory Map</h2>
-                        <p>Claim real-world zones while walking</p>
+                        <p>Complete closed loops on roads to capture zones</p>
                     </div>
                 </div>
 
                 {errorMsg && <div className="alert-box error">{errorMsg}</div>}
                 {successMsg && <div className="alert-box success">{successMsg}</div>}
 
-                {/* Rival/Owner Territory Profile Card Details */}
+                {/* Inspect Card */}
                 {inspectedCell && (
                     <div className="inspect-cell-card">
                         <div className="card-header-row">
@@ -783,7 +766,7 @@ const Territories = ({ user, theme }) => {
                                 <div>
                                     <div className="profile-name">{inspectedCell.owner.displayName}</div>
                                     <div className="profile-rank">
-                                        DYNAMIC RANK: <strong>#{inspectedCell.owner.rank || 'N/A'}</strong>
+                                        RANK: <strong>#{inspectedCell.owner.rank || 'N/A'}</strong>
                                     </div>
                                 </div>
                             </div>
@@ -792,19 +775,19 @@ const Territories = ({ user, theme }) => {
                         <div className="inspect-details">
                             <div className="stat-grid-2">
                                 <div className="mini-stat">
-                                    <div className="num">{inspectedCell.owner.cellsCount}</div>
-                                    <div className="lbl">Cells Owned</div>
+                                    <div className="num">{(inspectedCell.cell?.area || 0).toFixed(4)}</div>
+                                    <div className="lbl">Area (km²)</div>
                                 </div>
                                 <div className="mini-stat">
-                                    <div className="num">{inspectedCell.owner.areaKm2}</div>
-                                    <div className="lbl">Area (km²)</div>
+                                    <div className="num">{(inspectedCell.cell?.perimeter || 0).toFixed(2)}</div>
+                                    <div className="lbl">Perimeter (km)</div>
                                 </div>
                             </div>
 
                             <div className="stat-grid-3">
                                 <div className="micro-stat">
                                     <div className="val">{inspectedCell.owner.empireScore}</div>
-                                    <div className="desc">Empire Score</div>
+                                    <div className="desc">Score</div>
                                 </div>
                                 <div className="micro-stat">
                                     <div className="val">{inspectedCell.owner.successfulCaptures}</div>
@@ -816,7 +799,7 @@ const Territories = ({ user, theme }) => {
                                 </div>
                             </div>
 
-                            <div className="cell-details-divider">CELL DETAILS</div>
+                            <div className="cell-details-divider">TERRITORY STATUS</div>
                             
                             <div className="row">
                                 <span>Defense Strength:</span>
@@ -831,70 +814,115 @@ const Territories = ({ user, theme }) => {
                                 <strong>Level {inspectedCell.cell.defenseLevel || 1}</strong>
                             </div>
                             <div className="row">
-                                <span>Battles Contested:</span>
+                                <span>Required Attack Laps:</span>
+                                <strong>{inspectedCell.cell.defenseLevel || 1} laps</strong>
+                            </div>
+                            <div className="row">
+                                <span>Battles Count:</span>
                                 <span>{inspectedCell.cell.battlesCount} times</span>
                             </div>
                             <div className="row">
-                                <span>Last Visited:</span>
-                                <span>{new Date(inspectedCell.cell.lastVisitedAt).toLocaleDateString()}</span>
+                                <span>Status:</span>
+                                <strong style={{ color: inspectedCell.cell.status === 'under_attack' ? '#ef4444' : '#10b981' }}>
+                                    {inspectedCell.cell.status?.toUpperCase() || 'ACTIVE'}
+                                </strong>
                             </div>
                         </div>
                     </div>
                 )}
 
-                {/* Capture Progress Tracker Alert */}
-                {capturingCell && (
-                    <div className="capture-progress-widget">
+                {/* Active Attack Widget */}
+                {currentAttackCell && (
+                    <div className="capture-progress-widget" style={{ borderColor: '#ef4444', background: 'rgba(239, 68, 68, 0.03)' }}>
                         <div className="loader-label">
-                            <span>Capturing Cell...</span>
-                            <strong>{captureTimeRemaining.toFixed(1)}s</strong>
+                            <span style={{ color: '#ef4444', fontWeight: 900 }}>⚔️ Attacking Territory!</span>
+                            <strong style={{ color: '#ef4444' }}>
+                                {attackLapsCompleted} / {currentAttackCell.defenseLevel} Laps
+                            </strong>
                         </div>
-                        <div className="loader-bar-track">
-                            <div className="loader-bar-fill" style={{ width: `${captureProgress}%` }} />
+                        
+                        {/* Perimeter checklist indicators */}
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                            Perimeter Covered: <strong>
+                                {Math.round((attackVisitedCheckpoints.filter(v => v).length / (attackCheckpoints.length || 1)) * 100)}%
+                            </strong>
                         </div>
-                        <span className="cell-id-sub mono">{capturingCell.substring(0, 12)}</span>
+
+                        <div className="loader-bar-track" style={{ borderColor: 'rgba(239, 68, 68, 0.15)' }}>
+                            <div 
+                                className="loader-bar-fill" 
+                                style={{ 
+                                    width: `${(attackVisitedCheckpoints.filter(v => v).length / (attackCheckpoints.length || 1)) * 100}%`,
+                                    background: 'linear-gradient(90deg, #ef4444, #f87171)'
+                                }} 
+                            />
+                        </div>
+                        <span className="cell-id-sub mono">Walk road outlines to complete laps.</span>
                     </div>
                 )}
 
-                {/* Unranked Fallback Alert */}
-                {(!user.territoryStats || user.territoryStats.cellsCount === 0) && (
+                {/* Active Walk Path Tracker */}
+                {activePath.length > 0 && !currentAttackCell && (
+                    <div className="capture-progress-widget">
+                        <div className="loader-label">
+                            <span>Tracing Closed Loop...</span>
+                            <strong>{activePath.length} pts</strong>
+                        </div>
+                        <span className="cell-id-sub mono">Returns to start to form loop.</span>
+                    </div>
+                )}
+
+                {/* Empty State Banner */}
+                {(!user.territoryStats || user.territoryStats.areaOwned === 0) && (
                     <div className="empty" style={{ marginBottom: '1.25rem', borderColor: '#10b981', borderStyle: 'solid', background: 'rgba(16, 185, 129, 0.04)' }}>
                         <p style={{ margin: 0, fontWeight: 700, color: '#059669' }}>
                             🌍 No territory captured yet!
                         </p>
                         <p style={{ margin: '6px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                            Enter an unclaimed cell on the map and toggle GPS tracking to start conquering cells.
+                            Walk around roads in a closed loop to capture your first territory block!
                         </p>
                     </div>
                 )}
 
-                {/* Stats Widgets */}
+                {/* Stats Summary Panel */}
                 <div className="info-widgets">
                     <div className="widget">
                         <span className="value">
-                            {user.territoryStats?.cellsCount || 0}
-                        </span>
-                        <span className="label">Owned Cells</span>
-                    </div>
-                    <div className="widget">
-                        <span className="value">
-                            {((user.territoryStats?.cellsCount || 0) * 0.015).toFixed(3)}
+                            {(user.territoryStats?.areaOwned || 0).toFixed(3)}
                         </span>
                         <span className="label">Area (km²)</span>
                     </div>
+                    <div className="widget">
+                        <span className="value">
+                            {user.territoryStats?.empireScore || 0}
+                        </span>
+                        <span className="label">Empire Score</span>
+                    </div>
                 </div>
 
-                {/* Controls */}
+                {/* Action Controls */}
                 <div className="controls-section">
                     <button
                         onClick={toggleTracking}
                         className={`btn ${isTracking ? 'btn-danger' : 'btn-primary'} btn-full`}
                     >
-                        {isTracking ? 'End' : 'Start'}
+                        {isTracking ? '⏹️ Stop GPS Tracking' : '🛰️ Start GPS Tracking'}
                     </button>
+
+
+
+                    {activePath.length > 0 && (
+                        <button
+                            onClick={() => setActivePath([])}
+                            className="btn btn-outline btn-full"
+                            style={{ border: '1.5px dashed var(--border-color)', color: 'var(--text-secondary)', background: 'transparent' }}
+                        >
+                            🧹 Clear Active Path ({activePath.length} points)
+                        </button>
+                    )}
                 </div>
 
-                {/* Viewport/Nearby Activity Feed */}
+                {/* viewport activity feed */}
                 <div className="activity-feed-section">
                     <h3>Nearby Capture Activity</h3>
                     <div className="activity-feed-list">
