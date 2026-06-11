@@ -439,7 +439,11 @@ const Territories = ({ user, theme }) => {
             if (data && data.cell) {
                 setInspectedCell(data);
             } else {
-                setInspectedCell(null);
+                // Set to neutral cell details for UI feedback on clicking unclaimed cells
+                setInspectedCell({
+                    cell: { cellId: clickedCellId, strength: 0, defenseLevel: 0, unclaimed: true },
+                    owner: null
+                });
             }
         } catch (err) {
             setInspectedCell(null);
