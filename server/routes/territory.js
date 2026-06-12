@@ -184,12 +184,11 @@ function validateAndLogMovement(user, newLat, newLng) {
 }
 
 // Update total areaOwned in user document
-async function recalculateUserStats(userId, session) {
-    const user = await User.findById(userId).session(session);
+async function recalculateUserStats(user, session) {
     if (!user) return;
     
     // Sum area of all active owned territories
-    const territories = await Territory.find({ owner: userId }).session(session);
+    const territories = await Territory.find({ owner: user._id }).session(session);
     const totalArea = territories.reduce((sum, t) => sum + (t.area || 0), 0);
     
     if (!user.territoryStats) {
@@ -464,10 +463,9 @@ router.post('/claim', ensureAuth, async (req, res) => {
         }
         user.territoryStats.successfulCaptures += 1;
         user.lastCoords = { lat: parseFloat(lat), lng: parseFloat(lng) };
-        await user.save({ session });
 
         // Recalculate user areaOwned & score
-        await recalculateUserStats(user._id, session);
+        await recalculateUserStats(user, session);
 
         // Create activity record
         const activityMsg = territoriesToDelete.length > 0 
@@ -626,15 +624,13 @@ router.post('/attack/lap', ensureAuth, async (req, res) => {
                 newOwner.territoryStats = { areaOwned: 0, successfulCaptures: 0, successfulDefenses: 0, longestStreak: 0, empireScore: 0 };
             }
             newOwner.territoryStats.successfulCaptures += 1;
-            await newOwner.save({ session });
-            await recalculateUserStats(newOwner._id, session);
+            await recalculateUserStats(newOwner, session);
 
             if (oldOwnerObj) {
                 if (!oldOwnerObj.territoryStats) {
                     oldOwnerObj.territoryStats = { areaOwned: 0, successfulCaptures: 0, successfulDefenses: 0, longestStreak: 0, empireScore: 0 };
                 }
-                await oldOwnerObj.save({ session });
-                await recalculateUserStats(oldOwnerObj._id, session);
+                await recalculateUserStats(oldOwnerObj, session);
             }
 
             // Delete all TerritoryAttack documents for this territory

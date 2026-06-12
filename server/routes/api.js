@@ -89,6 +89,7 @@ function buildSteps(leg, mode) {
       type,
       modifier,
       name,
+      location: maneuver.location || null,
     };
   });
 }
@@ -294,6 +295,7 @@ router.get('/history', ensureAuth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found.' });
+
     const sorted = [...(user.tripHistory || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
     res.json(sorted);
   } catch (err) {

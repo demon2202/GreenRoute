@@ -671,7 +671,13 @@ const PlaybackControls = ({ isPlaying, progress, onPlayPause, onSeek, onSpeedCha
 /* Saved Places Quick Chips */
 const SavedPlaces = ({ onSelectOrigin, onSelectDest }) => {
   const [places, setPlaces] = useState(() => {
-    try { return JSON.parse(localStorage.getItem(SAVED_PLACES_KEY) || '[]'); }
+    try {
+      const data = localStorage.getItem(SAVED_PLACES_KEY);
+      if (!data) {
+        return [];
+      }
+      return JSON.parse(data);
+    }
     catch { return []; }
   });
 
@@ -844,18 +850,30 @@ const RoutePlanner = ({ user }) => {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [departureTime, setDepartureTime] = useState('');
   const [nightMode,     setNightMode]     = useState(false);
-  const [shareMsg,      setShareMsg]      = useState('');
+  const [mapSelectDestMode, setMapSelectDestMode] = useState(false);
 
   /* ── Sidebar resizer state ── */
   const [sidebarWidth, setSidebarWidth] = useState(400);
   const isResizing = useRef(false);
 
   /* ── GPS and Arrival Detection state ── */
-  const [useGPS, setUseGPS] = useState(false);
+  const [useGPS, setUseGPS] = useState(true);
   const [distToDest, setDistToDest] = useState(null);
   const [showArrivalModal, setShowArrivalModal] = useState(false);
   const [completedTrip, setCompletedTrip] = useState(null);
   const watchIdRef = useRef(null);
+
+  const activeStepRef = useRef(activeStep);
+  useEffect(() => { activeStepRef.current = activeStep; }, [activeStep]);
+  const selectedRouteRef = useRef(selectedRoute);
+  useEffect(() => { selectedRouteRef.current = selectedRoute; }, [selectedRoute]);
+  const voiceOnRef = useRef(voiceOn);
+  useEffect(() => { voiceOnRef.current = voiceOn; }, [voiceOn]);
+  const destinationRef = useRef(destination);
+  useEffect(() => { destinationRef.current = destination; }, [destination]);
+  const departureTimeRef = useRef(departureTime);
+  useEffect(() => { departureTimeRef.current = departureTime; }, [departureTime]);
+  const lastRecalculateTime = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -864,6 +882,14 @@ const RoutePlanner = ({ user }) => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (map.current) {
+      setTimeout(() => {
+        try { map.current.resize(); } catch {}
+      }, 150);
+    }
+  }, [isNavigating]);
 
   const fetchCarbon = async()=>{
     try{
@@ -957,9 +983,121 @@ const RoutePlanner = ({ user }) => {
     map.current.addControl(new mapboxgl.GeolocateControl({positionOptions:{enableHighAccuracy:true},trackUserLocation:false}),'top-right');
     map.current.addControl(new mapboxgl.ScaleControl({maxWidth:100,unit:'metric'}),'bottom-left');
 
+    const geocodeAddress = async (query) => {
+      try {
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxgl.accessToken}&limit=1`;
+        const res = await axios.get(url);
+        const feature = res.data.features?.[0];
+        if (feature) {
+          return {
+            name: feature.place_name,
+            coordinates: feature.center
+          };
+        }
+      } catch (err) {
+        console.error("Geocoding failed for:", query, err);
+      }
+      return null;
+    };
+
+    const handleQueryParams = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const toParam = params.get('to');
+      const fromParam = params.get('from');
+      const modeParam = params.get('mode');
+
+      if (!toParam && !fromParam) return;
+
+      let resolvedOrigin = null;
+      let resolvedDest = null;
+
+      if (fromParam) {
+        resolvedOrigin = await geocodeAddress(fromParam);
+        if (resolvedOrigin) {
+          setOrigin(resolvedOrigin);
+          placePin('origin', resolvedOrigin.coordinates);
+          const el = document.querySelector('#geocoder-origin input');
+          if (el) el.value = resolvedOrigin.name;
+        }
+      }
+
+      if (toParam) {
+        resolvedDest = await geocodeAddress(toParam);
+        if (resolvedDest) {
+          setDestination(resolvedDest);
+          placePin('dest', resolvedDest.coordinates);
+          const el = document.querySelector('#geocoder-dest input');
+          if (el) el.value = resolvedDest.name;
+        }
+      }
+
+      if (map.current) {
+        if (resolvedOrigin && resolvedDest) {
+          const bounds = new mapboxgl.LngLatBounds();
+          bounds.extend(resolvedOrigin.coordinates);
+          bounds.extend(resolvedDest.coordinates);
+          map.current.fitBounds(bounds, { padding: 80, duration: 1200 });
+        } else if (resolvedDest) {
+          map.current.easeTo({ center: resolvedDest.coordinates, zoom: 13, duration: 900 });
+        } else if (resolvedOrigin) {
+          map.current.easeTo({ center: resolvedOrigin.coordinates, zoom: 13, duration: 900 });
+        }
+      }
+
+      if (resolvedOrigin && resolvedDest) {
+        setLoading(true); setRoutes([]); setSelectedRoute(null);
+        cancelAnim();
+        if(travMarker.current){travMarker.current.remove();travMarker.current=null;}
+
+        const MSGS=['Finding routes…','Calculating CO₂…','Comparing modes…','Optimising…'];
+        let pct=0;
+        const tick=setInterval(()=>{
+          pct=Math.min(pct+Math.random()*12,88);
+          setLoadingPct(pct);
+          setLoadingStep(Math.floor(pct/25)%MSGS.length);
+        },300);
+
+        try {
+          const reqModes = modeParam ? [modeParam.toLowerCase()] : modes;
+          const res = await axios.post('/api/route', {
+            origin: { coordinates: resolvedOrigin.coordinates, name: resolvedOrigin.name },
+            destination: { coordinates: resolvedDest.coordinates, name: resolvedDest.name },
+            transportModes: reqModes,
+            departureTime: departureTime || undefined,
+          });
+          clearInterval(tick); setLoadingPct(100);
+
+          const recentEntry={
+            originName:resolvedOrigin.name, destName:resolvedDest.name,
+            originCoords:resolvedOrigin.coordinates, destCoords:resolvedDest.coordinates,
+            mode:reqModes[0], date:new Date().toLocaleDateString(),
+          };
+          const prev=JSON.parse(localStorage.getItem(RECENT_ROUTES_KEY)||'[]');
+          localStorage.setItem(RECENT_ROUTES_KEY,JSON.stringify([recentEntry,...prev.slice(0,4)]));
+
+          setTimeout(()=>{
+            setLoading(false); setLoadingPct(0);
+            const data=res.data||[];
+            if(data.length){
+              setRoutes(data); setPanel('routes');
+              const first=data[0];
+              setSelectedRoute(first);
+              displayAllRoutes(data,first);
+              fetchWeather(resolvedDest.coordinates[1],resolvedDest.coordinates[0]);
+              fetchAqi(resolvedDest.coordinates[1],resolvedDest.coordinates[0]);
+            } else { alert('No routes found. Try different locations.'); }
+          },500);
+        } catch (err) {
+          clearInterval(tick); setLoading(false); setLoadingPct(0);
+          console.error("Failed to fetch route for query params:", err);
+        }
+      }
+    };
+
     map.current.on('load', () => {
       initGeocoders();
       map.current.resize();
+      handleQueryParams();
     });
 
     fetchWeather(28.6139, 77.2090);
@@ -979,8 +1117,35 @@ const RoutePlanner = ({ user }) => {
       proximity:{longitude:77.2090,latitude:28.6139},
       language:'en',
       types:'place,address,poi,district,locality,neighborhood',
+      minLength: 0
     };
-    const oGeo=new MapboxGeocoder({...opts,placeholder:'Search start location'});
+
+    const localGeocoderCurrentLocation = (query) => {
+      const match = 'use current location'.includes(query.toLowerCase()) || 'current location'.includes(query.toLowerCase());
+      if (query === '' || match) {
+        return [
+          {
+            id: 'current-location',
+            place_name: '📍 Use current location',
+            center: [0, 0],
+            geometry: {
+              type: 'Point',
+              coordinates: [0, 0]
+            },
+            properties: {
+              isCurrentLocation: true
+            }
+          }
+        ];
+      }
+      return [];
+    };
+
+    const oGeo=new MapboxGeocoder({
+      ...opts,
+      placeholder:'Search start location',
+      localGeocoder: localGeocoderCurrentLocation
+    });
     const dGeo=new MapboxGeocoder({...opts,placeholder:'Search destination'});
     originGeoRef.current=oGeo; destGeoRef.current=dGeo;
     const oEl=document.getElementById('geocoder-origin');
@@ -989,12 +1154,58 @@ const RoutePlanner = ({ user }) => {
     if(dEl) dEl.appendChild(dGeo.onAdd(map.current));
 
     oGeo.on('result',e=>{
-      const c=e.result.center;
-      setOrigin({coordinates:c,name:e.result.place_name});
-      placePin('origin',c);
-      map.current.easeTo({center:c,zoom:13,duration:900});
+      if (e.result.id === 'current-location') {
+        setTimeout(() => {
+          const input = document.querySelector('#geocoder-origin input');
+          if (input) {
+            input.value = 'Current Location';
+            input.blur();
+          }
+        }, 50);
+
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords;
+            const coords = [longitude, latitude];
+            
+            setOrigin({ coordinates: coords, name: 'Current Location' });
+            placePin('origin', coords);
+            
+            map.current.easeTo({ center: coords, zoom: 15, duration: 1200 });
+            setMapSelectDestMode(true);
+            
+            setSaveMsg('Current location set! Click on map to set destination.');
+            setTimeout(() => setSaveMsg(''), 3500);
+          },
+          (err) => {
+            console.error(err);
+            setSaveMsg('Failed to get location');
+            setTimeout(() => setSaveMsg(''), 2500);
+            
+            setTimeout(() => {
+              const input = document.querySelector('#geocoder-origin input');
+              if (input) input.value = '';
+            }, 50);
+            setOrigin(null);
+            if (originMarker.current) {
+              originMarker.current.remove();
+              originMarker.current = null;
+            }
+          },
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      } else {
+        const c=e.result.center;
+        setOrigin({coordinates:c,name:e.result.place_name});
+        placePin('origin',c);
+        map.current.easeTo({center:c,zoom:13,duration:900});
+      }
     });
-    oGeo.on('clear',()=>{ setOrigin(null); if(originMarker.current){originMarker.current.remove();originMarker.current=null;} });
+    oGeo.on('clear',()=>{ 
+      setOrigin(null); 
+      setMapSelectDestMode(false);
+      if(originMarker.current){originMarker.current.remove();originMarker.current=null;} 
+    });
 
     dGeo.on('result',e=>{
       const c=e.result.center;
@@ -1015,6 +1226,56 @@ const RoutePlanner = ({ user }) => {
     ref.current=new mapboxgl.Marker({element:el,anchor:'bottom',offset:[0,0]})
       .setLngLat(coords).addTo(map.current);
   },[]);
+
+  const reverseGeocode = async (lng, lat) => {
+    try {
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}&limit=1`;
+      const res = await axios.get(url);
+      const feature = res.data.features?.[0];
+      if (feature) {
+        return feature.place_name;
+      }
+    } catch (err) {
+      console.error("Reverse geocoding failed:", err);
+    }
+    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  };
+
+  useEffect(() => {
+    if (!map.current) return;
+    
+    const handleMapClick = async (e) => {
+      if (!mapSelectDestMode) return;
+      
+      const { lng, lat } = e.lngLat;
+      
+      setSaveMsg('Resolving destination...');
+      setTimeout(() => setSaveMsg(''), 1000);
+      
+      const addressName = await reverseGeocode(lng, lat);
+      
+      setDestination({
+        coordinates: [lng, lat],
+        name: addressName
+      });
+      placePin('dest', [lng, lat]);
+      
+      setTimeout(() => {
+        const dInput = document.querySelector('#geocoder-dest input');
+        if (dInput) {
+          dInput.value = addressName;
+        }
+      }, 50);
+      
+      setSaveMsg('Destination set!');
+      setTimeout(() => setSaveMsg(''), 2500);
+    };
+    
+    map.current.on('click', handleMapClick);
+    return () => {
+      if (map.current) map.current.off('click', handleMapClick);
+    };
+  }, [mapSelectDestMode, placePin]);
 
   /* ── Traveller ── */
   const cancelAnim = () => {
@@ -1186,12 +1447,34 @@ const RoutePlanner = ({ user }) => {
   /* ── Route layers ── */
   const clearRouteLayer = () => {
     if(!map.current) return;
-    ['rp-halo','rp-casing','rp-fill','rp-dash',
-     'rp-alt-0','rp-alt-1','rp-alt-2','rp-alt-casing-0','rp-alt-casing-1','rp-alt-casing-2'
-    ].forEach(id=>{ if(map.current.getLayer(id)) map.current.removeLayer(id); });
-    ['rp-route','rp-alt-src-0','rp-alt-src-1','rp-alt-src-2'].forEach(id=>{
-      if(map.current.getSource(id)) map.current.removeSource(id);
-    });
+    
+    // Remove all layers starting with rp-
+    try {
+      const style = map.current.getStyle();
+      if (style && style.layers) {
+        style.layers.forEach(layer => {
+          if (layer.id.startsWith('rp-')) {
+            map.current.removeLayer(layer.id);
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("Error clearing layers:", e);
+    }
+
+    // Remove all sources starting with rp-
+    try {
+      const style = map.current.getStyle();
+      if (style && style.sources) {
+        Object.keys(style.sources).forEach(sourceId => {
+          if (sourceId.startsWith('rp-')) {
+            map.current.removeSource(sourceId);
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("Error clearing sources:", e);
+    }
   };
 
   /* Draw ALL routes simultaneously — like Google Maps */
@@ -1368,6 +1651,7 @@ const RoutePlanner = ({ user }) => {
     if(!origin||!destination) return;
     if(!modes.length) { alert('Select at least one transport mode.'); return; }
     setShowModal(false); setLoading(true); setRoutes([]); setSelectedRoute(null);
+    setMapSelectDestMode(false);
     cancelAnim();
     if(travMarker.current){travMarker.current.remove();travMarker.current=null;}
 
@@ -1416,8 +1700,57 @@ const RoutePlanner = ({ user }) => {
     }
   };
 
+  const recalculateRoute = async (lng, lat) => {
+    const now = Date.now();
+    if (now - lastRecalculateTime.current < 15000) {
+      return; // 15s cooldown
+    }
+    lastRecalculateTime.current = now;
+    
+    if (voiceOnRef.current) {
+      speak("You are off route. Recalculating route.");
+    }
+    
+    const newOrigin = {
+      coordinates: [lng, lat],
+      name: "Current Location"
+    };
+    setOrigin(newOrigin);
+    placePin('origin', [lng, lat]);
+    
+    const oI = document.querySelector('#geocoder-origin input');
+    if (oI) oI.value = "Current Location";
+
+    try {
+      const res = await axios.post('/api/route', {
+        origin: { coordinates: [lng, lat], name: "Current Location" },
+        destination: { coordinates: destinationRef.current.coordinates, name: destinationRef.current.name },
+        transportModes: [selectedRouteRef.current.mode],
+        departureTime: departureTimeRef.current || undefined,
+      });
+      
+      const data = res.data || [];
+      if (data.length) {
+        const newRoute = data[0];
+        setRoutes(data);
+        setSelectedRoute(newRoute);
+        setActiveStep(0);
+        lastSpokenStep.current = -1;
+        displayAllRoutes(data, newRoute);
+        if (voiceOnRef.current) {
+          speak(`New route found. ${newRoute.duration} minutes to destination.`);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to recalculate route:", err);
+    }
+  };
+
+  const recalculateRouteRef = useRef(null);
+  recalculateRouteRef.current = recalculateRoute;
+
   /* ── Navigation ── */
-  const startNav = useCallback((route) => {
+  const startNav = useCallback((route, forceGPS = null) => {
     setIsNavigating(true); setPanel('directions'); setActiveStep(0);
     lastSpokenStep.current=-1; navStartTime.current=Date.now();
     cancelAnim();
@@ -1425,7 +1758,12 @@ const RoutePlanner = ({ user }) => {
     const meta=MODE_META[route.mode]||{};
     const coords=route?.geometry?.coordinates||[];
     
-    if (useGPS) {
+    if (forceGPS === true) {
+      setUseGPS(true);
+    }
+    const activeGPS = forceGPS !== null ? forceGPS : useGPS;
+    
+    if (activeGPS) {
       if (!navigator.geolocation) {
         alert('Geolocation is not supported by your browser.');
         setUseGPS(false);
@@ -1456,32 +1794,80 @@ const RoutePlanner = ({ user }) => {
           
           const dist = getOrthoDistance(
             latitude, longitude,
-            destination.coordinates[1], destination.coordinates[0]
+            destinationRef.current.coordinates[1], destinationRef.current.coordinates[0]
           );
           setDistToDest(dist);
           
           if (dist <= 50) {
-            if (voiceOn) speak("Destination reached. Trip completed.");
-            handleTripCompletion(route);
+            if (voiceOnRef.current) speak("Destination reached. Trip completed.");
+            handleTripCompletion(selectedRouteRef.current);
+            return;
+          }
+
+          // Progress calculation
+          const totalDistance = parseFloat(selectedRouteRef.current.distance) * 1000 || 1;
+          const currentProgress = Math.max(0, Math.min(1, 1 - (dist / totalDistance)));
+          setAnimProgress(currentProgress);
+
+          // Step progression
+          const steps = selectedRouteRef.current?.steps || [];
+          const currentStepIdx = activeStepRef.current;
+          if (currentStepIdx !== null && currentStepIdx < steps.length) {
+            const nextStepIdx = currentStepIdx + 1;
+            if (nextStepIdx < steps.length) {
+              const nextStep = steps[nextStepIdx];
+              if (nextStep.location) {
+                const distToNextStep = getOrthoDistance(
+                  latitude, longitude,
+                  nextStep.location[1], nextStep.location[0]
+                );
+                if (distToNextStep < 25) {
+                  setActiveStep(nextStepIdx);
+                  if (voiceOnRef.current) {
+                    speak(nextStep.instruction);
+                  }
+                }
+              }
+            }
+          }
+
+          // Off-route check
+          const routeCoords = selectedRouteRef.current?.geometry?.coordinates || [];
+          if (routeCoords.length > 0) {
+            let minDistance = Infinity;
+            for (const coord of routeCoords) {
+              const d = getOrthoDistance(latitude, longitude, coord[1], coord[0]);
+              if (d < minDistance) {
+                minDistance = d;
+              }
+            }
+
+            if (minDistance > 80) {
+              if (recalculateRouteRef.current) {
+                recalculateRouteRef.current(longitude, latitude);
+              }
+            }
           }
         },
         (err) => {
           console.error(err);
           alert('GPS tracking error: ' + err.message + '. Falling back to simulation mode.');
           setUseGPS(false);
+          const meta = MODE_META[selectedRouteRef.current?.mode] || {};
+          const coords = selectedRouteRef.current?.geometry?.coordinates || [];
           if(coords.length) startRouteAnimation(coords,meta.mapIcon,meta.color,false,true);
         },
         geoOptions
       );
       
-      if(voiceOn) speak(`Starting live GPS navigation. ${route.duration} minutes to destination.`);
+      if(voiceOnRef.current) speak(`Starting live GPS navigation. ${route.duration} minutes to destination.`);
     } else {
       if(coords.length) startRouteAnimation(coords,meta.mapIcon,meta.color,false,true);
-      if(voiceOn) speak(`Starting navigation simulation. ${route.duration} minutes to destination.`);
+      if(voiceOnRef.current) speak(`Starting navigation simulation. ${route.duration} minutes to destination.`);
     }
     
     map.current.easeTo({center:origin?.coordinates,bearing:0,pitch:55,zoom:17,duration:1600,easing:easeInOutCubic});
-  },[startRouteAnimation,origin,destination,voiceOn,useGPS,spawnTraveller,handleTripCompletion]);
+  },[startRouteAnimation,origin,useGPS,spawnTraveller,handleTripCompletion]);
 
   const stopNav = useCallback(()=>{
     setIsNavigating(false); setActiveStep(null); setPanel('routes');
@@ -1542,19 +1928,7 @@ const RoutePlanner = ({ user }) => {
     }
   };
 
-  /* ── Share ── */
-  const shareRoute = async () => {
-    if(!selectedRoute||!origin||!destination) return;
-    const text=`🌱 GreenRoute: ${origin.name.split(',')[0]} → ${destination.name.split(',')[0]}\n`+
-      `${MODE_META[selectedRoute.mode]?.icon} ${selectedRoute.duration} min · ${selectedRoute.distance} km\n`+
-      `CO₂ saved: ${selectedRoute.co2Saved} kg · ${getCarbonEquivalent(parseFloat(selectedRoute.co2Saved)||0).text}\n`+
-      `#GreenRoute #EcoTravel`;
-    try {
-      await navigator.clipboard.writeText(text);
-      setShareMsg('Copied to clipboard!');
-      setTimeout(()=>setShareMsg(''),2500);
-    } catch { setShareMsg('Could not copy'); setTimeout(()=>setShareMsg(''),2500); }
-  };
+
 
   /* ── Swap ── */
   const swap = ()=>{
@@ -1738,14 +2112,14 @@ const fetchAqi = async (lat, lon) => {
         .rp-stat{display:flex;align-items:center;gap:4px;font-size:12.5px;color:var(--text-secondary);}
         .rp-stat strong{font-size:14px;font-weight:800;color:var(--text-primary);}
         .rp-stat-eco strong{color:#10b981;}
-        .rp-ctas{display:grid;grid-template-columns:1fr auto auto;gap:7px;margin-top:10px;animation:slideUp 0.2s ease;}
-        .rp-go{height:42px;background:linear-gradient(135deg,var(--cc,#10b981),color-mix(in srgb,var(--cc,#10b981) 70%,#000));border:none;border-radius:12px;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.18s;font-family:inherit;}
+        .rp-ctas{display:flex;gap:7px;margin-top:10px;animation:slideUp 0.2s ease;}
+        .rp-go{flex:1;height:42px;background:linear-gradient(135deg,var(--cc,#10b981),color-mix(in srgb,var(--cc,#10b981) 70%,#000));border:none;border-radius:12px;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.18s;font-family:inherit;}
         .rp-go:hover{transform:translateY(-1px);box-shadow:0 4px 14px color-mix(in srgb,var(--cc) 35%,transparent);}
+        .rp-dir-btn{flex:1;height:42px;border:1.5px solid var(--border-color);background:var(--bg-primary);border-radius:12px;color:var(--text-primary);font-size:13.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.18s;font-family:inherit;}
+        .rp-dir-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--hover-bg);transform:translateY(-1px);}
         .rp-save{width:42px;height:42px;border:1.5px solid var(--border-color);background:var(--bg-primary);border-radius:12px;color:var(--text-secondary);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.18s;flex-shrink:0;}
         .rp-save:hover{border-color:var(--primary);color:var(--primary);background:var(--hover-bg);}
         .rp-save.ok{border-color:var(--primary);color:var(--primary);background:var(--hover-bg);}
-        .rp-share{width:42px;height:42px;border:1.5px solid var(--border-color);background:var(--bg-primary);border-radius:12px;color:var(--text-secondary);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.18s;flex-shrink:0;}
-        .rp-share:hover{border-color:var(--blue);color:var(--blue);background:color-mix(in srgb,var(--blue) 12%,var(--bg-secondary));}
 
         /* Directions */
         .rp-dir{display:flex;flex-direction:column;flex:1;overflow:hidden;}
@@ -1862,6 +2236,14 @@ const fetchAqi = async (lat, lon) => {
         /* Toast */
         .rp-toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:12px 22px;border-radius:50px;font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:8px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,0.25);animation:fadeIn 0.25s ease;white-space:nowrap;}
 
+        /* Destination selection banner */
+        .rp-dest-banner{position:absolute;top:20px;left:50%;transform:translateX(-50%);background:rgba(15,23,42,0.92);backdrop-filter:blur(8px);border:1.5px solid rgba(255,255,255,0.15);border-radius:16px;padding:10px 18px;display:flex;align-items:center;gap:12px;z-index:999;box-shadow:0 10px 30px rgba(0,0,0,0.3);color:#fff;font-size:13px;font-weight:700;animation:rpSlideDown 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards;white-space:nowrap;}
+        .rp-dest-banner-icon{font-size:15px;}
+        .rp-dest-banner-text{color:#fff;}
+        .rp-dest-banner-btn{background:rgba(255,255,255,0.15);border:none;color:#fff;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;transition:background 0.2s;}
+        .rp-dest-banner-btn:hover{background:rgba(255,255,255,0.25);}
+        @keyframes rpSlideDown{from{transform:translate(-50%,-20px);opacity:0;}to{transform:translate(-50%,0);opacity:1;}}
+
         /* Traffic legend */
         .rp-traffic-legend{position:absolute;bottom:110px;left:14px;background:var(--bg-glass);border:1px solid var(--border-color);border-radius:12px;padding:10px 14px;z-index:10;backdrop-filter:blur(8px);}
         .rp-traffic-legend-title{font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:7px;}
@@ -1880,7 +2262,8 @@ const fetchAqi = async (lat, lon) => {
       <div className="rp-shell">
 
         {/* ═══ SIDEBAR ═══ */}
-        <aside className="rp-sidebar" style={{ width: sidebarWidth }}>
+        {!isNavigating && (
+          <aside className="rp-sidebar" style={{ width: sidebarWidth }}>
 
           {/* Header */}
           <div className="rp-header">
@@ -1932,14 +2315,18 @@ const fetchAqi = async (lat, lon) => {
           {/* Saved places */}
           <SavedPlaces
             onSelectOrigin={(p)=>{
-              setOrigin({coordinates:p.coordinates,name:p.name});
-              placePin('origin',p.coordinates);
+              const coords = p.coordinates || (p.lng !== undefined && p.lat !== undefined ? [p.lng, p.lat] : p.center);
+              if (!coords) return;
+              setOrigin({coordinates:coords,name:p.name});
+              placePin('origin',coords);
               const i=document.querySelector('#geocoder-origin input');
               if(i) i.value=p.name;
             }}
             onSelectDest={(p)=>{
-              setDestination({coordinates:p.coordinates,name:p.name});
-              placePin('dest',p.coordinates);
+              const coords = p.coordinates || (p.lng !== undefined && p.lat !== undefined ? [p.lng, p.lat] : p.center);
+              if (!coords) return;
+              setDestination({coordinates:coords,name:p.name});
+              placePin('dest',coords);
               const i=document.querySelector('#geocoder-dest input');
               if(i) i.value=p.name;
             }}
@@ -2040,12 +2427,7 @@ const fetchAqi = async (lat, lon) => {
                         {route.cost>0&&<div className="rp-stat"><span style={{fontSize:11,color:'#94a3b8'}}>₹</span><strong>{route.cost}</strong></div>}
                       </div>
 
-                      {/* Carbon equivalent */}
-                      {sel&&(
-                        <div style={{display:'flex',alignItems:'center',gap:6,padding:'7px 11px',background:'var(--green-50)',border:'1px solid var(--border-color)',borderRadius:10,marginTop:8,fontSize:12,color:'var(--primary)'}}>
-                          <span>{eq.text}</span>
-                        </div>
-                      )}
+
 
                       {/* Elevation profile (selected route, walking/cycling) */}
                       {sel&&elevData.length>0&&(route.mode==='walking'||route.mode==='cycling')&&(
@@ -2055,9 +2437,31 @@ const fetchAqi = async (lat, lon) => {
                       {sel&&(
                         <div className="rp-ctas">
                           <button className="rp-go" style={{'--cc':m.color}}
-                            onClick={e=>{e.stopPropagation();startNav(route);}}>
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            onClick={e=>{
+                              e.stopPropagation();
+                              startNav(route, true);
+                            }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+                            </svg>
                             Navigate
+                          </button>
+                          <button className="rp-dir-btn"
+                            onClick={e=>{
+                              e.stopPropagation();
+                              setSelectedRoute(route);
+                              setPanel('directions');
+                              setIsNavigating(false);
+                            }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="8" y1="6" x2="21" y2="6"/>
+                              <line x1="8" y1="12" x2="21" y2="12"/>
+                              <line x1="8" y1="18" x2="21" y2="18"/>
+                              <line x1="3" y1="6" x2="3.01" y2="6"/>
+                              <line x1="3" y1="12" x2="3.01" y2="12"/>
+                              <line x1="3" y1="18" x2="3.01" y2="18"/>
+                            </svg>
+                            Directions
                           </button>
                           <button className={`rp-save ${saveMsg.includes('Saved')?'ok':''}`}
                             onClick={e=>{e.stopPropagation();bookmarkDestination();}} title="Save to Places">
@@ -2065,10 +2469,6 @@ const fetchAqi = async (lat, lon) => {
                               ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
                               : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
                             }
-                          </button>
-                          <button className="rp-share"
-                            onClick={e=>{e.stopPropagation();shareRoute();}} title="Share route">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
                           </button>
                         </div>
                       )}
@@ -2131,12 +2531,21 @@ const fetchAqi = async (lat, lon) => {
                       )}
                       
                       {isNavigating && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, color: useGPS ? '#3b82f6' : 'var(--primary)', padding: '2px 4px' }}>
-                          <span>{useGPS ? '🛰️ Live GPS Active' : '🏃 Simulating Journey...'}</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 0' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, color: useGPS ? '#3b82f6' : 'var(--primary)' }}>
+                            <span>{useGPS ? '🛰️ Live GPS Active' : '🏃 Simulating Journey...'}</span>
+                          </div>
                           {useGPS && distToDest !== null && (
-                            <span style={{ color: 'var(--text-muted)' }}>
-                              · {distToDest < 1000 ? `${Math.round(distToDest)}m` : `${(distToDest/1000).toFixed(1)}km`} left
-                            </span>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                              <span>Remaining: </span>
+                              <strong style={{ color: 'var(--text-primary)' }}>
+                                {distToDest < 1000 ? `${Math.round(distToDest)}m` : `${(distToDest/1000).toFixed(1)}km`}
+                              </strong>
+                              <span> · </span>
+                              <strong style={{ color: 'var(--text-primary)' }}>
+                                {Math.max(1, Math.round(selectedRoute.duration * (distToDest / (parseFloat(selectedRoute.distance) * 1000 || 1)) || 0))} min remaining
+                              </strong>
+                            </div>
                           )}
                         </div>
                       )}
@@ -2226,11 +2635,25 @@ const fetchAqi = async (lat, lon) => {
             )}
           </div>
         </aside>
-        <div className="rp-resizer" onMouseDown={startResizing} />
+        )}
+        {!isNavigating && <div className="rp-resizer" onMouseDown={startResizing} />}
 
         {/* ═══ MAP ═══ */}
         <main className="rp-map-area">
           <div ref={mapContainer} className="rp-map"/>
+
+          {mapSelectDestMode && (
+            <div className="rp-dest-banner">
+              <span className="rp-dest-banner-icon">📍</span>
+              <span className="rp-dest-banner-text">Click on the map to set your destination</span>
+              <button 
+                className="rp-dest-banner-btn"
+                onClick={() => setMapSelectDestMode(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
 
           {/* Floating turn card — shown during navigation */}
           <NavTurnCard
@@ -2387,9 +2810,7 @@ const fetchAqi = async (lat, lon) => {
               </div>
             </div>
             
-            <div style={{ background: 'color-mix(in srgb, var(--primary) 12%, var(--bg-secondary))', border: '1px dashed var(--primary)', borderRadius: 12, padding: '0.75rem 1rem', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: '1.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              🌱 {getCarbonEquivalent(completedTrip.co2Saved).text}
-            </div>
+
             
             <div style={{ display: 'flex', gap: 10 }}>
               <button
@@ -2414,13 +2835,13 @@ const fetchAqi = async (lat, lon) => {
       )}
 
       {/* Toasts */}
-      {(saveMsg||shareMsg)&&(
+      {saveMsg&&(
         <div className="rp-toast">
           {saveMsg.includes('Saved') || saveMsg === 'Already saved!'
             ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg> {saveMsg}</>
             : saveMsg==='error'
             ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Save failed</>
-            : saveMsg ? saveMsg : shareMsg ? shareMsg : ''}
+            : saveMsg}
         </div>
       )}
     </>

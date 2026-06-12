@@ -3,30 +3,30 @@ import axios from 'axios';
 
 /* ─── Constants ─────────────────────────────────────────────────────────────── */
 const MODE_META = {
-  walking: { color: '#10b981', bg: '#ecfdf5', label: 'Walking',  gradient: 'linear-gradient(135deg,#10b981,#34d399)', icon: '🚶' },
-  cycling: { color: '#3b82f6', bg: '#eff6ff', label: 'Cycling',  gradient: 'linear-gradient(135deg,#3b82f6,#60a5fa)', icon: '🚲' },
-  driving: { color: '#f59e0b', bg: '#fffbeb', label: 'Driving',  gradient: 'linear-gradient(135deg,#f59e0b,#fbbf24)', icon: '🚗' },
-  transit: { color: '#8b5cf6', bg: '#f5f3ff', label: 'Transit',  gradient: 'linear-gradient(135deg,#8b5cf6,#a78bfa)', icon: '🚌' },
+  walking: { color: '#10b981', bg: '#ecfdf5', label: 'Walking', gradient: 'linear-gradient(135deg,#10b981,#34d399)', icon: '🚶' },
+  cycling: { color: '#3b82f6', bg: '#eff6ff', label: 'Cycling', gradient: 'linear-gradient(135deg,#3b82f6,#60a5fa)', icon: '🚲' },
+  driving: { color: '#f59e0b', bg: '#fffbeb', label: 'Driving', gradient: 'linear-gradient(135deg,#f59e0b,#fbbf24)', icon: '🚗' },
+  transit: { color: '#8b5cf6', bg: '#f5f3ff', label: 'Transit', gradient: 'linear-gradient(135deg,#8b5cf6,#a78bfa)', icon: '🚌' },
 };
 
 const getMeta = (mode = '') => MODE_META[mode.toLowerCase()] || MODE_META.transit;
 
 /* ─── Helpers ───────────────────────────────────────────────────────────────── */
 const fmt = {
-  co2:  (v) => parseFloat(v || 0).toFixed(2),
+  co2: (v) => parseFloat(v || 0).toFixed(2),
   dist: (v) => parseFloat(v || 0).toFixed(1),
-  dur:  (m) => {
+  dur: (m) => {
     m = parseInt(m) || 0;
     if (m < 60) return `${m}m`;
     return `${Math.floor(m / 60)}h ${m % 60 > 0 ? `${m % 60}m` : ''}`.trim();
   },
   date: (d) => {
     const date = new Date(d);
-    const now  = new Date();
+    const now = new Date();
     const diff = Math.floor((now - date) / 86400000);
     if (diff === 0) return `Today · ${date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
     if (diff === 1) return `Yesterday · ${date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
-    if (diff < 7)  return `${diff} days ago`;
+    if (diff < 7) return `${diff} days ago`;
     return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   },
 };
@@ -34,16 +34,16 @@ const fmt = {
 const ecoEquiv = (kg) => {
   kg = parseFloat(kg) || 0;
   if (kg >= 21.7) return `${(kg / 21.7).toFixed(1)} trees absorbed`;
-  if (kg >= 0.5)  return `${Math.round(kg / 0.021)} coffees saved`;
+  if (kg >= 0.5) return `${Math.round(kg / 0.021)} coffees saved`;
   if (kg >= 0.05) return `${Math.round(kg / 0.008)} phone charges`;
   return `Every gram counts!`;
 };
 
 const calcStats = (trips) => {
-  const totalCO2      = trips.reduce((s, t) => s + (parseFloat(t.co2Saved)  || 0), 0);
-  const totalDistance = trips.reduce((s, t) => s + (parseFloat(t.distance)  || 0), 0);
-  const totalDuration = trips.reduce((s, t) => s + (parseInt(t.duration)    || 0), 0);
-  const totalCalories = trips.reduce((s, t) => s + (parseInt(t.calories)    || 0), 0);
+  const totalCO2 = trips.reduce((s, t) => s + (parseFloat(t.co2Saved) || 0), 0);
+  const totalDistance = trips.reduce((s, t) => s + (parseFloat(t.distance) || 0), 0);
+  const totalDuration = trips.reduce((s, t) => s + (parseInt(t.duration) || 0), 0);
+  const totalCalories = trips.reduce((s, t) => s + (parseInt(t.calories) || 0), 0);
   const modeCount = {};
   trips.forEach(t => { const m = t.mode?.toLowerCase() || 'transit'; modeCount[m] = (modeCount[m] || 0) + 1; });
   const favMode = Object.keys(modeCount).sort((a, b) => modeCount[b] - modeCount[a])[0] || 'walking';
@@ -56,10 +56,12 @@ const calcStats = (trips) => {
 const SkeletonCard = () => (
   <div style={{ ...S.tripCard, padding: '1.5rem', gap: 0 }}>
     <style>{`@keyframes skPulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
-    {[1,2,3].map(i => (
-      <div key={i} style={{ height: i === 1 ? 18 : 12, background:'#e2e8f0', borderRadius:8,
+    {[1, 2, 3].map(i => (
+      <div key={i} style={{
+        height: i === 1 ? 18 : 12, background: '#e2e8f0', borderRadius: 8,
         marginBottom: i < 3 ? 10 : 0, width: i === 1 ? '65%' : i === 2 ? '40%' : '50%',
-        animation:'skPulse 1.5s ease-in-out infinite', animationDelay:`${i*0.15}s` }} />
+        animation: 'skPulse 1.5s ease-in-out infinite', animationDelay: `${i * 0.15}s`
+      }} />
     ))}
   </div>
 );
@@ -89,10 +91,10 @@ const StatCard = ({ icon, value, label, sub, color, bg }) => {
     <div style={{ ...S.statCard, background: `color-mix(in srgb, ${color} 8%, var(--bg-secondary))`, border: `1.5px solid ${color}22` }}>
       <div style={{ ...S.statIconBg, background: `${color}18` }}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          {icon === 'co2'  && <><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z"/><path d="M12 8v4l3 3"/></>}
-          {icon === 'trip' && <><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></>}
-          {icon === 'dist' && <><path d="M3 12h18M3 6h18M3 18h18"/></>}
-          {icon === 'cal'  && <><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></>}
+          {icon === 'co2' && <><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z" /><path d="M12 8v4l3 3" /></>}
+          {icon === 'trip' && <><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></>}
+          {icon === 'dist' && <><path d="M3 12h18M3 6h18M3 18h18" /></>}
+          {icon === 'cal' && <><path d="M18 8h1a4 4 0 0 1 0 8h-1" /><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" /><line x1="6" y1="1" x2="6" y2="4" /><line x1="10" y1="1" x2="10" y2="4" /><line x1="14" y1="1" x2="14" y2="4" /></>}
         </svg>
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -123,38 +125,38 @@ const Pill = ({ label, icon, active, color, onClick }) => (
 
 /* Mode donut mini-chart */
 const ModeDonut = ({ modeCount, total }) => {
-  const modes = Object.entries(modeCount).sort((a,b) => b[1]-a[1]);
+  const modes = Object.entries(modeCount).sort((a, b) => b[1] - a[1]);
   const r = 28, c = 2 * Math.PI * r;
   let offset = 0;
   const slices = modes.map(([m, count]) => {
     const meta = getMeta(m);
-    const pct  = count / total;
+    const pct = count / total;
     const slice = { mode: m, color: meta.color, pct, offset, dash: pct * c, gap: (1 - pct) * c };
     offset += pct * c;
     return slice;
   });
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:'1.25rem', flexWrap:'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
       <svg width={70} height={70} viewBox="0 0 70 70">
         {slices.map((sl, i) => (
           <circle key={i} cx={35} cy={35} r={r}
             fill="none" stroke={sl.color} strokeWidth={10}
             strokeDasharray={`${sl.dash} ${sl.gap}`}
             strokeDashoffset={-sl.offset + c * 0.25}
-            style={{ transform:'rotate(-90deg)', transformOrigin:'35px 35px', transition:'stroke-dasharray 0.8s ease' }}
+            style={{ transform: 'rotate(-90deg)', transformOrigin: '35px 35px', transition: 'stroke-dasharray 0.8s ease' }}
           />
         ))}
-        <circle cx={35} cy={35} r={18} fill="var(--bg-secondary)"/>
+        <circle cx={35} cy={35} r={18} fill="var(--bg-secondary)" />
         <text x={35} y={39} textAnchor="middle" fontSize={13} fontWeight={800} fill="var(--text-primary)">{total}</text>
       </svg>
-      <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {slices.map(sl => {
           const meta = getMeta(sl.mode);
           return (
-            <div key={sl.mode} style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <div style={{ width:10, height:10, borderRadius:'50%', background:meta.color, flexShrink:0 }}/>
-              <span style={{ fontSize:'0.78rem', fontWeight:600, color:'var(--text-secondary, #475569)' }}>{meta.label}</span>
-              <span style={{ fontSize:'0.78rem', fontWeight:800, color:meta.color, marginLeft:'auto', paddingLeft:8 }}>
+            <div key={sl.mode} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 10, height: 10, borderRadius: '50%', background: meta.color, flexShrink: 0 }} />
+              <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>{meta.label}</span>
+              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: meta.color, marginLeft: 'auto', paddingLeft: 8 }}>
                 {Math.round(sl.pct * 100)}%
               </span>
             </div>
@@ -168,50 +170,56 @@ const ModeDonut = ({ modeCount, total }) => {
 /* Trip card */
 const TripCard = ({ trip, onCopy, copiedId }) => {
   const meta = getMeta(trip.mode);
-  const co2  = parseFloat(trip.co2Saved) || 0;
+  const co2 = parseFloat(trip.co2Saved) || 0;
   const isHighImpact = co2 > 2;
 
   return (
     <div style={S.tripCard}>
       {/* Left accent bar */}
-      <div style={{ position:'absolute', left:0, top:0, bottom:0, width:4, borderRadius:'16px 0 0 16px', background: meta.gradient }}/>
+      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderRadius: '16px 0 0 16px', background: meta.gradient }} />
 
       {/* Mode badge */}
-      <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', gap:'0.75rem', flexWrap:'wrap' }}>
-        <div style={{ display:'flex', alignItems:'center', gap:'0.85rem', flex:1, minWidth:0 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flex: 1, minWidth: 0 }}>
           <div style={{
-            width:46, height:46, borderRadius:14, background: meta.gradient,
-            display:'flex', alignItems:'center', justifyContent:'center',
-            fontSize:'0.78rem', fontWeight:800, color:'white', flexShrink:0,
-            boxShadow:`0 2px 8px ${meta.color}30`, letterSpacing:'-0.01em',
+            width: 46, height: 46, borderRadius: 14, background: meta.gradient,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '0.78rem', fontWeight: 800, color: 'white', flexShrink: 0,
+            boxShadow: `0 2px 8px ${meta.color}30`, letterSpacing: '-0.01em',
           }}>
             <span style={{ fontSize: '1.4rem' }}>{meta.icon}</span>
           </div>
-          <div style={{ minWidth:0, flex:1 }}>
-            <div style={{ fontSize:'0.9rem', fontWeight:800, color:'var(--text-primary, #0f172a)', lineHeight:1.3,
-              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{
+              fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary, #0f172a)', lineHeight: 1.3,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}>
               {trip.originName?.split(',')[0]}
             </div>
-            <div style={{ fontSize:'0.75rem', color:'var(--text-muted, #94a3b8)', fontWeight:600, margin:'3px 0' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)', fontWeight: 600, margin: '3px 0' }}>
               TO
             </div>
-            <div style={{ fontSize:'0.9rem', fontWeight:800, color:'var(--text-primary, #0f172a)', lineHeight:1.3,
-              overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+            <div style={{
+              fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary, #0f172a)', lineHeight: 1.3,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
+            }}>
               {trip.destinationName?.split(',')[0]}
             </div>
           </div>
         </div>
 
-        <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:6, flexShrink:0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
           <span style={{
-            padding:'0.3rem 0.75rem', borderRadius:999, fontSize:'0.72rem', fontWeight:800,
-            background: meta.gradient, color:'white', letterSpacing:'0.02em',
+            padding: '0.3rem 0.75rem', borderRadius: 999, fontSize: '0.72rem', fontWeight: 800,
+            background: meta.gradient, color: 'white', letterSpacing: '0.02em',
           }}>
             {meta.label}
           </span>
           {isHighImpact && (
-            <span style={{ padding:'0.25rem 0.6rem', borderRadius:999, fontSize:'0.68rem', fontWeight:700,
-              background:'linear-gradient(135deg,#fbbf24,#f59e0b)', color:'white' }}>
+            <span style={{
+              padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.68rem', fontWeight: 700,
+              background: 'linear-gradient(135deg,#fbbf24,#f59e0b)', color: 'white'
+            }}>
               High Impact
             </span>
           )}
@@ -219,48 +227,50 @@ const TripCard = ({ trip, onCopy, copiedId }) => {
       </div>
 
       {/* Divider */}
-      <div style={{ height:1, background:'var(--border-color, #f1f5f9)', margin:'1rem 0' }}/>
+      <div style={{ height: 1, background: 'var(--border-color, #f1f5f9)', margin: '1rem 0' }} />
 
       {/* Metrics row */}
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(72px,1fr))', gap:'0.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(72px,1fr))', gap: '0.5rem' }}>
         {[
-          { label: 'Duration',  val: fmt.dur(trip.duration),           color: null        },
-          { label: 'Distance',  val: `${fmt.dist(trip.distance)}km`,   color: null        },
-          { label: 'CO₂ Saved', val: `${fmt.co2(trip.co2Saved)}kg`,    color: '#10b981'   },
+          { label: 'Duration', val: fmt.dur(trip.duration), color: null },
+          { label: 'Distance', val: `${fmt.dist(trip.distance)}km`, color: null },
+          { label: 'CO₂ Saved', val: `${fmt.co2(trip.co2Saved)}kg`, color: '#10b981' },
           ...(trip.calories > 0 ? [{ label: 'Calories', val: trip.calories, color: null }] : []),
         ].map((m, i) => (
-          <div key={i} style={{ background:'var(--bg-primary, #f8fafc)', borderRadius:12, padding:'0.65rem 0.5rem', textAlign:'center' }}>
-            <div style={{ fontSize:'0.85rem', fontWeight:800, color: m.color || 'var(--text-primary, #0f172a)', lineHeight:1 }}>{m.val}</div>
-            <div style={{ fontSize:'0.68rem', color:'var(--text-muted, #94a3b8)', fontWeight:600, marginTop:3 }}>{m.label}</div>
+          <div key={i} style={{ background: 'var(--bg-primary, #f8fafc)', borderRadius: 12, padding: '0.65rem 0.5rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: m.color || 'var(--text-primary, #0f172a)', lineHeight: 1 }}>{m.val}</div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted, #94a3b8)', fontWeight: 600, marginTop: 3 }}>{m.label}</div>
           </div>
         ))}
       </div>
 
       {/* Eco equiv + date */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginTop:'0.85rem', gap:'0.5rem', flexWrap:'wrap' }}>
-        <span style={{ fontSize:'0.76rem', color:'var(--text-secondary, #065f46)', fontWeight:600,
-          background:'var(--bg-tag, #ecfdf5)', padding:'0.3rem 0.75rem', borderRadius:999,
-          border:'1px solid var(--border-color, #a7f3d0)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.85rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <span style={{
+          fontSize: '0.76rem', color: 'var(--text-secondary, #065f46)', fontWeight: 600,
+          background: 'var(--bg-tag, #ecfdf5)', padding: '0.3rem 0.75rem', borderRadius: 999,
+          border: '1px solid var(--border-color, #a7f3d0)'
+        }}>
           {ecoEquiv(trip.co2Saved)}
         </span>
-        <span style={{ fontSize:'0.72rem', color:'var(--text-muted, #94a3b8)', fontWeight:500 }}>
+        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)', fontWeight: 500 }}>
           {fmt.date(trip.date)}
         </span>
       </div>
 
       {/* Actions */}
-      <div style={{ display:'flex', gap:'0.5rem', marginTop:'0.85rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.85rem' }}>
         <button onClick={() => onCopy(trip)} style={{
-          ...S.actionBtn, flex:1, background:'var(--bg-primary, #f8fafc)', color:'var(--text-secondary, #475569)',
-          border:'1px solid var(--border-color, #e2e8f0)',
-          ...(copiedId === (trip._id || trip.date) ? { background:'rgba(16, 185, 129, 0.15)', color:'#10b981', borderColor:'#10b981' } : {})
+          ...S.actionBtn, flex: 1, background: 'var(--bg-primary, #f8fafc)', color: 'var(--text-secondary, #475569)',
+          border: '1px solid var(--border-color, #e2e8f0)',
+          ...(copiedId === (trip._id || trip.date) ? { background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', borderColor: '#10b981' } : {})
         }}>
           {copiedId === (trip._id || trip.date) ? 'Copied!' : 'Copy'}
         </button>
         <button onClick={() => {
           const p = new URLSearchParams({ from: trip.originName, to: trip.destinationName, mode: trip.mode });
           window.location.href = `/?${p}`;
-        }} style={{ ...S.actionBtn, flex:1, background: `color-mix(in srgb, ${meta.color} 12%, var(--bg-primary))`, color: meta.color, border: `1.5px solid color-mix(in srgb, ${meta.color} 30%, transparent)` }}>
+        }} style={{ ...S.actionBtn, flex: 1, background: `color-mix(in srgb, ${meta.color} 12%, var(--bg-primary))`, color: meta.color, border: `1.5px solid color-mix(in srgb, ${meta.color} 30%, transparent)` }}>
           Repeat
         </button>
       </div>
@@ -270,15 +280,15 @@ const TripCard = ({ trip, onCopy, copiedId }) => {
 
 /* ─── Main Component ─────────────────────────────────────────────────────────── */
 const TripHistory = ({ user }) => {
-  const [trips,      setTrips]      = useState([]);
-  const [loading,    setLoading]    = useState(true);
+  const [trips, setTrips] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [modeFilter, setModeFilter] = useState('all');
   const [timeFilter, setTimeFilter] = useState('all');
-  const [sortBy,     setSortBy]     = useState('date');
-  const [copiedId,   setCopiedId]   = useState(null);
-  const [clearing,   setClearing]   = useState(false);
-  const [showConfirm,setShowConfirm]= useState(false);
-  const [toast,      setToast]      = useState(null);
+  const [sortBy, setSortBy] = useState('date');
+  const [copiedId, setCopiedId] = useState(null);
+  const [clearing, setClearing] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [toast, setToast] = useState(null);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -324,17 +334,17 @@ const TripHistory = ({ user }) => {
   const exportCSV = () => {
     if (!trips.length) return;
     const rows = [
-      ['Date','From','To','Mode','Distance (km)','Duration (min)','CO₂ Saved (kg)','Calories'],
+      ['Date', 'From', 'To', 'Mode', 'Distance (km)', 'Duration (min)', 'CO₂ Saved (kg)', 'Calories'],
       ...trips.map(t => [
         new Date(t.date).toLocaleDateString(),
         t.originName, t.destinationName, t.mode,
         t.distance, t.duration, t.co2Saved, t.calories || 0
       ])
     ].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
-    const blob = new Blob([rows], { type:'text/csv' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = `greenroute-${new Date().toISOString().slice(0,10)}.csv`;
+    const blob = new Blob([rows], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `greenroute-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click(); URL.revokeObjectURL(url);
     showToast('CSV exported!');
   };
@@ -345,13 +355,13 @@ const TripHistory = ({ user }) => {
     if (modeFilter !== 'all') out = out.filter(t => t.mode?.toLowerCase() === modeFilter);
     if (timeFilter !== 'all') {
       const cut = new Date();
-      if (timeFilter === 'today')  { cut.setHours(0,0,0,0); }
-      if (timeFilter === 'week')   { cut.setDate(cut.getDate()-7); }
-      if (timeFilter === 'month')  { cut.setMonth(cut.getMonth()-1); }
+      if (timeFilter === 'today') { cut.setHours(0, 0, 0, 0); }
+      if (timeFilter === 'week') { cut.setDate(cut.getDate() - 7); }
+      if (timeFilter === 'month') { cut.setMonth(cut.getMonth() - 1); }
       out = out.filter(t => new Date(t.date) >= cut);
     }
-    if (sortBy === 'co2')  out.sort((a,b) => parseFloat(b.co2Saved) - parseFloat(a.co2Saved));
-    if (sortBy === 'dist') out.sort((a,b) => parseFloat(b.distance) - parseFloat(a.distance));
+    if (sortBy === 'co2') out.sort((a, b) => parseFloat(b.co2Saved) - parseFloat(a.co2Saved));
+    if (sortBy === 'dist') out.sort((a, b) => parseFloat(b.distance) - parseFloat(a.distance));
     return out;
   })();
 
@@ -364,13 +374,13 @@ const TripHistory = ({ user }) => {
       {/* Toast */}
       {toast && (
         <div style={{
-          position:'fixed', top:20, right:20, zIndex:9999,
+          position: 'fixed', top: 20, right: 20, zIndex: 9999,
           background: toast.type === 'error' ? '#fee2e2' : '#ecfdf5',
-          color:       toast.type === 'error' ? '#dc2626' : '#065f46',
-          border:`1.5px solid ${toast.type === 'error' ? '#fca5a5' : '#6ee7b7'}`,
-          borderRadius:14, padding:'0.75rem 1.25rem',
-          fontWeight:700, fontSize:'0.88rem', boxShadow:'0 8px 32px rgba(0,0,0,0.12)',
-          animation:'toastIn 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+          color: toast.type === 'error' ? '#dc2626' : '#065f46',
+          border: `1.5px solid ${toast.type === 'error' ? '#fca5a5' : '#6ee7b7'}`,
+          borderRadius: 14, padding: '0.75rem 1.25rem',
+          fontWeight: 700, fontSize: '0.88rem', boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+          animation: 'toastIn 0.3s cubic-bezier(0.34,1.56,0.64,1)',
         }}>
           {toast.msg}
         </div>
@@ -380,25 +390,25 @@ const TripHistory = ({ user }) => {
       {showConfirm && (
         <div style={S.overlay}>
           <div style={S.modal}>
-          <div style={{ width:56, height:56, borderRadius:16, background:'linear-gradient(135deg,#ef4444,#dc2626)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 1rem' }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
-              <polyline points="3 6 5 6 21 6"/>
-              <path d="M19 6l-1 14H6L5 6"/>
-              <path d="M10 11v6M14 11v6"/>
-              <path d="M9 6V4h6v2"/>
-            </svg>
-          </div>
-            <h3 style={{ margin:'0 0 0.5rem', fontSize:'1.15rem', fontWeight:800, textAlign:'center', color: 'var(--text-primary)' }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: 'linear-gradient(135deg,#ef4444,#dc2626)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14H6L5 6" />
+                <path d="M10 11v6M14 11v6" />
+                <path d="M9 6V4h6v2" />
+              </svg>
+            </div>
+            <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.15rem', fontWeight: 800, textAlign: 'center', color: 'var(--text-primary)' }}>
               Clear all history?
             </h3>
-            <p style={{ margin:'0 0 1.5rem', color:'var(--text-secondary, #64748b)', fontSize:'0.88rem', textAlign:'center', lineHeight:1.5 }}>
+            <p style={{ margin: '0 0 1.5rem', color: 'var(--text-secondary, #64748b)', fontSize: '0.88rem', textAlign: 'center', lineHeight: 1.5 }}>
               This will permanently delete all {trips.length} trips. This cannot be undone.
             </p>
-            <div style={{ display:'flex', gap:'0.75rem' }}>
-              <button onClick={() => setShowConfirm(false)} style={{ ...S.actionBtn, flex:1, padding:'0.75rem', background:'var(--bg-primary, #f1f5f9)', color:'var(--text-secondary, #475569)', border:'1px solid var(--border-color, #e2e8f0)', borderRadius:12, fontFamily:'inherit', fontWeight:700, cursor:'pointer' }}>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button onClick={() => setShowConfirm(false)} style={{ ...S.actionBtn, flex: 1, padding: '0.75rem', background: 'var(--bg-primary, #f1f5f9)', color: 'var(--text-secondary, #475569)', border: '1px solid var(--border-color, #e2e8f0)', borderRadius: 12, fontFamily: 'inherit', fontWeight: 700, cursor: 'pointer' }}>
                 Cancel
               </button>
-              <button onClick={handleClear} disabled={clearing} style={{ ...S.actionBtn, flex:1, padding:'0.75rem', background:'linear-gradient(135deg,#ef4444,#dc2626)', color:'white', borderRadius:12, border:'none', fontFamily:'inherit', fontWeight:700, cursor:'pointer' }}>
+              <button onClick={handleClear} disabled={clearing} style={{ ...S.actionBtn, flex: 1, padding: '0.75rem', background: 'linear-gradient(135deg,#ef4444,#dc2626)', color: 'white', borderRadius: 12, border: 'none', fontFamily: 'inherit', fontWeight: 700, cursor: 'pointer' }}>
                 {clearing ? 'Clearing…' : 'Yes, delete all'}
               </button>
             </div>
@@ -409,58 +419,50 @@ const TripHistory = ({ user }) => {
       {/* ── Header ── */}
       <div style={S.header}>
         <div>
-          <h2 style={{ margin:'0 0 0.25rem', fontSize:'1.75rem', fontWeight:800, letterSpacing:'-0.03em', color: 'var(--text-primary)' }}>
+          <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-primary)' }}>
             Trip History
           </h2>
-          <p style={{ margin:0, color:'var(--text-secondary, #64748b)', fontSize:'0.92rem' }}>
+          <p style={{ margin: 0, color: 'var(--text-secondary, #64748b)', fontSize: '0.92rem' }}>
             {trips.length > 0 ? `${trips.length} eco-friendly trips recorded` : 'Your green journey starts here'}
           </p>
-        </div>
-        <div style={{ display:'flex', gap:'0.5rem', flexWrap:'wrap' }}>
-          <button onClick={exportCSV} disabled={!trips.length} style={S.headerBtn}>
-            Export CSV
-          </button>
-          <button onClick={() => setShowConfirm(true)} disabled={!trips.length} style={{ ...S.headerBtn, background:'#fef2f2', color:'#dc2626', borderColor:'#fca5a5' }}>
-            Clear All
-          </button>
         </div>
       </div>
 
       {/* ── Stats grid ── */}
       {loading ? (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:'0.75rem', marginBottom:'1.5rem' }}>
-          {[1,2,3,4].map(i => <SkeletonCard key={i} />)}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
+          {[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
         </div>
       ) : trips.length > 0 ? (
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:'0.75rem', marginBottom:'1.5rem' }}>
-          <StatCard icon="co2"  value={stats.totalCO2}      sub=" kg" label="Total CO₂ Saved"   color="#10b981" bg="#f0fdf4" />
-          <StatCard icon="trip" value={stats.totalTrips}    sub=""    label="Eco-Friendly Trips" color="#3b82f6" bg="#eff6ff" />
-          <StatCard icon="dist" value={stats.totalDistance} sub=" km" label="Green Distance"     color="#8b5cf6" bg="#f5f3ff" />
-          <StatCard icon="cal"  value={stats.totalCalories} sub=""    label="Calories Burned"    color="#f59e0b" bg="#fffbeb" />
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
+          <StatCard icon="co2" value={stats.totalCO2} sub=" kg" label="Total CO₂ Saved" color="#10b981" bg="#f0fdf4" />
+          <StatCard icon="trip" value={stats.totalTrips} sub="" label="Eco-Friendly Trips" color="#3b82f6" bg="#eff6ff" />
+          <StatCard icon="dist" value={stats.totalDistance} sub=" km" label="Green Distance" color="#8b5cf6" bg="#f5f3ff" />
+          <StatCard icon="cal" value={stats.totalCalories} sub="" label="Calories Burned" color="#f59e0b" bg="#fffbeb" />
         </div>
       ) : null}
 
       {/* ── Impact + mode split (only if trips exist) ── */}
       {!loading && trips.length > 0 && (
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'0.75rem', marginBottom:'1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
           {/* CO2 impact card */}
-          <div style={{ ...S.card, background:'linear-gradient(135deg,#064e3b,#065f46)', color:'white', overflow:'hidden', position:'relative' }}>
-            <div style={{ position:'absolute', top:-30, right:-30, width:120, height:120, borderRadius:'50%', background:'rgba(255,255,255,0.06)', pointerEvents:'none' }}/>
-            <div style={{ position:'absolute', bottom:-20, left:-10, width:80, height:80, borderRadius:'50%', background:'rgba(255,255,255,0.04)', pointerEvents:'none' }}/>
-            <div style={{ position:'relative', zIndex:1 }}>
-              <div style={{ fontSize:'0.72rem', fontWeight:700, color:'rgba(167,243,208,0.7)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:8 }}>Environmental Impact</div>
-              <div style={{ display:'flex', alignItems:'flex-end', gap:8, marginBottom:12 }}>
-                <div style={{ fontSize:'2.5rem', fontWeight:900, letterSpacing:'-0.04em', lineHeight:1 }}>{stats.totalCO2.toFixed(1)}</div>
-                <div style={{ fontSize:'1rem', fontWeight:600, opacity:0.7, marginBottom:4 }}>kg CO₂ saved</div>
+          <div style={{ ...S.card, background: 'linear-gradient(135deg,#064e3b,#065f46)', color: 'white', overflow: 'hidden', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', bottom: -20, left: -10, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'rgba(167,243,208,0.7)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Environmental Impact</div>
+              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginBottom: 12 }}>
+                <div style={{ fontSize: '2.5rem', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1 }}>{stats.totalCO2.toFixed(1)}</div>
+                <div style={{ fontSize: '1rem', fontWeight: 600, opacity: 0.7, marginBottom: 4 }}>kg CO₂ saved</div>
               </div>
-              <div style={{ display:'flex', gap:'1.25rem' }}>
+              <div style={{ display: 'flex', gap: '1.25rem' }}>
                 {[
-                  { icon:'🌲', val:`${Math.max(1, (stats.totalCO2/21.7).toFixed(1))}`, lbl:'trees/year equiv.' },
-                  { icon:'⛽', val:`${(stats.totalDistance*0.08).toFixed(0)}L`, lbl:'fuel saved' },
-                ].map((s,i) => (
+                  { icon: '🌲', val: `${Math.max(1, (stats.totalCO2 / 21.7).toFixed(1))}`, lbl: 'trees/year equiv.' },
+                  { icon: '⛽', val: `${(stats.totalDistance * 0.08).toFixed(0)}L`, lbl: 'fuel saved' },
+                ].map((s, i) => (
                   <div key={i}>
-                    <div style={{ fontSize:'1.1rem', fontWeight:800, color:'#4ade80' }}>{s.icon} {s.val}</div>
-                    <div style={{ fontSize:'0.7rem', opacity:0.6, marginTop:2 }}>{s.lbl}</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#4ade80' }}>{s.icon} {s.val}</div>
+                    <div style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: 2 }}>{s.lbl}</div>
                   </div>
                 ))}
               </div>
@@ -469,7 +471,7 @@ const TripHistory = ({ user }) => {
 
           {/* Mode breakdown */}
           <div style={S.card}>
-            <div style={{ fontSize:'0.72rem', fontWeight:700, color:'var(--text-muted, #94a3b8)', textTransform:'uppercase', letterSpacing:'0.1em', marginBottom:12 }}>Mode Breakdown</div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Mode Breakdown</div>
             <ModeDonut modeCount={stats.modeCount} total={stats.totalTrips} />
           </div>
         </div>
@@ -478,13 +480,13 @@ const TripHistory = ({ user }) => {
       {/* ── Filters bar ── */}
       {trips.length > 0 && (
         <div style={S.filtersBar}>
-          <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', flex:1 }}>
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', flex: 1 }}>
             {[
-              { key:'all',     label:'All',     color:'#10b981' },
-              { key:'walking', label:'Walk',    color: getMeta('walking').color },
-              { key:'cycling', label:'Cycle',   color: getMeta('cycling').color },
-              { key:'driving', label:'Drive',   color: getMeta('driving').color },
-              { key:'transit', label:'Transit', color: getMeta('transit').color },
+              { key: 'all', label: 'All', color: '#10b981' },
+              { key: 'walking', label: 'Walk', color: getMeta('walking').color },
+              { key: 'cycling', label: 'Cycle', color: getMeta('cycling').color },
+              { key: 'driving', label: 'Drive', color: getMeta('driving').color },
+              { key: 'transit', label: 'Transit', color: getMeta('transit').color },
             ].map(({ key, label, color }) => (
               <Pill
                 key={key}
@@ -497,7 +499,7 @@ const TripHistory = ({ user }) => {
             ))}
           </div>
 
-          <div style={{ display:'flex', gap:'0.5rem', flexShrink:0 }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
             <select value={timeFilter} onChange={e => setTimeFilter(e.target.value)} style={S.select}>
               <option value="all">All time</option>
               <option value="today">Today</option>
@@ -516,37 +518,38 @@ const TripHistory = ({ user }) => {
       {/* ── Trip list ── */}
       {loading ? (
         <div style={S.grid}>
-          {[1,2,3,4,5,6].map(i => <SkeletonCard key={i} />)}
+          {[1, 2, 3, 4, 5, 6].map(i => <SkeletonCard key={i} />)}
         </div>
       ) : filtered.length === 0 ? (
         <div style={S.emptyState}>
-          <div style={{ width:64, height:64, borderRadius:18, marginBottom:'1rem',
+          <div style={{
+            width: 64, height: 64, borderRadius: 18, marginBottom: '1rem',
             background: trips.length === 0
               ? 'linear-gradient(135deg,#10b981,#34d399)'
               : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-            display:'flex', alignItems:'center', justifyContent:'center',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               {trips.length === 0
-                ? <><path d="M3 12h18M3 6h18M3 18h18"/></>
-                : <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>
+                ? <><path d="M3 12h18M3 6h18M3 18h18" /></>
+                : <><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></>
               }
             </svg>
           </div>
-          <h3 style={{ margin:'0 0 0.5rem', fontSize:'1.25rem', fontWeight:800, color: 'var(--text-primary)' }}>
+          <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
             {trips.length === 0 ? 'No trips yet' : 'No trips match your filters'}
           </h3>
-          <p style={{ margin:'0 0 1.5rem', color:'var(--text-secondary, #64748b)', maxWidth:340, lineHeight:1.6 }}>
+          <p style={{ margin: '0 0 1.5rem', color: 'var(--text-secondary, #64748b)', maxWidth: 340, lineHeight: 1.6 }}>
             {trips.length === 0
               ? 'Plan your first eco-friendly route and start tracking your positive impact on the planet!'
               : 'Try changing the mode or time filters to find your trips.'}
           </p>
           <a href="/" style={{
-            display:'inline-flex', alignItems:'center', gap:'0.5rem',
-            padding:'0.75rem 1.5rem', borderRadius:14,
-            background:'linear-gradient(135deg,#10b981,#059669)',
-            color:'white', fontWeight:700, fontSize:'0.9rem', textDecoration:'none',
-            boxShadow:'0 4px 14px rgba(16,185,129,0.35)',
+            display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+            padding: '0.75rem 1.5rem', borderRadius: 14,
+            background: 'linear-gradient(135deg,#10b981,#059669)',
+            color: 'white', fontWeight: 700, fontSize: '0.9rem', textDecoration: 'none',
+            boxShadow: '0 4px 14px rgba(16,185,129,0.35)',
           }}>
             {trips.length === 0 ? 'Plan First Route' : 'Plan New Route'}
           </a>
@@ -554,19 +557,19 @@ const TripHistory = ({ user }) => {
       ) : (
         <>
           {/* Result count bar */}
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'0.75rem' }}>
-            <span style={{ fontSize:'0.8rem', fontWeight:600, color:'var(--text-secondary, #64748b)' }}>
-              Showing <strong style={{ color:'var(--text-primary)' }}>{filtered.length}</strong> of {trips.length} trips
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary, #64748b)' }}>
+              Showing <strong style={{ color: 'var(--text-primary)' }}>{filtered.length}</strong> of {trips.length} trips
               {(modeFilter !== 'all' || timeFilter !== 'all') && (
                 <button onClick={() => { setModeFilter('all'); setTimeFilter('all'); }} style={{
-                  marginLeft:8, background:'none', border:'none', color:'#10b981', fontWeight:700,
-                  cursor:'pointer', fontSize:'0.78rem', fontFamily:'inherit',
+                  marginLeft: 8, background: 'none', border: 'none', color: '#10b981', fontWeight: 700,
+                  cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'inherit',
                 }}>
                   Clear filters ×
                 </button>
               )}
             </span>
-            <span style={{ fontSize:'0.8rem', color:'var(--text-secondary, #64748b)', fontWeight:500 }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500 }}>
               {filtStats.totalCO2.toFixed(1)} kg CO₂ · {filtStats.totalDistance.toFixed(0)} km
             </span>
           </div>
