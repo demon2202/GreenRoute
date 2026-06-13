@@ -114,11 +114,21 @@ router.get(
 
 router.get(
     '/google/callback',
-    passport.authenticate('google', {
-        failureRedirect: `${process.env.CLIENT_URL}/login`
-    }),
+    (req, res, next) => {
+        const clientUrl = process.env.NODE_ENV === 'production'
+            ? 'https://green-route-seven.vercel.app'
+            : (process.env.CLIENT_URL || 'http://localhost:3000');
+            
+        const cleanClientUrl = clientUrl.replace(/\/$/, '');
+        passport.authenticate('google', {
+            failureRedirect: `${cleanClientUrl}/login`
+        })(req, res, next);
+    },
     (req, res) => {
-        res.redirect(process.env.CLIENT_URL);
+        const clientUrl = process.env.NODE_ENV === 'production'
+            ? 'https://green-route-seven.vercel.app'
+            : (process.env.CLIENT_URL || 'http://localhost:3000');
+        res.redirect(clientUrl);
     }
 );
 

@@ -1167,6 +1167,7 @@ const RoutePlanner = ({ user }) => {
         return [
           {
             id: 'current-location',
+            type: 'Feature',
             place_name: '📍 Use current location',
             center: [0, 0],
             geometry: {
@@ -1175,7 +1176,8 @@ const RoutePlanner = ({ user }) => {
             },
             properties: {
               isCurrentLocation: true
-            }
+            },
+            place_type: ['place']
           }
         ];
       }
@@ -1983,6 +1985,52 @@ const RoutePlanner = ({ user }) => {
     clearRouteLayer(); setRoutes([]); setSelectedRoute(null);
   };
 
+  /* ── GPS Locate Me ── */
+  const handleGpsClick = () => {
+    setSaveMsg('Getting current location...');
+    setTimeout(() => setSaveMsg(''), 2500);
+
+    const input = document.querySelector('#geocoder-origin input');
+    if (input) {
+      input.value = 'Locating...';
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const coords = [longitude, latitude];
+        
+        setOrigin({ coordinates: coords, name: 'Current Location' });
+        placePin('origin', coords);
+        
+        if (input) {
+          input.value = 'Current Location';
+        }
+        
+        map.current.easeTo({ center: coords, zoom: 15, duration: 1200 });
+        setMapSelectDestMode(true);
+        
+        setSaveMsg('Current location set! Click on map to set destination.');
+        setTimeout(() => setSaveMsg(''), 3500);
+      },
+      (err) => {
+        console.error(err);
+        setSaveMsg('Failed to get location');
+        setTimeout(() => setSaveMsg(''), 2500);
+        
+        if (input) {
+          input.value = '';
+        }
+        setOrigin(null);
+        if (originMarker.current) {
+          originMarker.current.remove();
+          originMarker.current = null;
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   /* ── Clear all ── */
   const clearAll = ()=>{
     cancelAnim();
@@ -2086,6 +2134,7 @@ const fetchAqi = async (lat, lon) => {
         /* Search */
         .rp-search{margin:12px 14px 0;background:var(--bg-secondary);border-radius:16px;border:1.5px solid var(--border-color);box-shadow:0 2px 10px rgba(0,0,0,0.05);overflow:visible;flex-shrink:0;}
         .rp-srow{display:flex;align-items:center;padding:0 14px;min-height:50px;position:relative;gap:10px;}
+        .rp-srow:focus-within{z-index:10;}
         .rp-srow:first-child{border-bottom:1px solid var(--border-color);}
         .rp-connector{position:absolute;left:22px;top:50px;height:16px;width:2px;background:repeating-linear-gradient(to bottom,#94a3b8 0,#94a3b8 3px,transparent 3px,transparent 6px);z-index:1;}
         .rp-sdot{width:12px;height:12px;border-radius:50%;flex-shrink:0;position:relative;z-index:1;}
@@ -2111,6 +2160,8 @@ const fetchAqi = async (lat, lon) => {
         .rp-swap{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--border-color);background:var(--bg-primary);color:var(--text-secondary);font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;}
         .rp-swap:hover:not(:disabled){border-color:var(--primary);color:var(--primary);background:var(--hover-bg);transform:rotate(180deg);}
         .rp-swap:disabled{opacity:.35;cursor:not-allowed;}
+        .rp-gps-btn{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--border-color);background:var(--bg-primary);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;margin-left:4px;}
+        .rp-gps-btn:hover{border-color:#10b981;color:#10b981;background:var(--hover-bg);transform:scale(1.05);}
         .rp-find{flex:1;height:44px;background:linear-gradient(135deg,#10b981,#059669);border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all 0.2s;box-shadow:0 4px 14px rgba(16,185,129,0.32);font-family:inherit;}
         .rp-find:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 20px rgba(16,185,129,0.42);}
         .rp-find:active:not(:disabled){transform:translateY(0);}
@@ -2383,6 +2434,21 @@ const fetchAqi = async (lat, lon) => {
               <div className="rp-srow">
                 <div className="rp-sdot rp-dot-a"/>
                 <div className="rp-geo-wrap" id="geocoder-origin"/>
+                <button
+                  className="rp-gps-btn"
+                  onClick={handleGpsClick}
+                  title="Use current location"
+                  type="button"
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <circle cx="12" cy="12" r="3"/>
+                    <line x1="12" y1="1" x2="12" y2="3"/>
+                    <line x1="12" y1="21" x2="12" y2="23"/>
+                    <line x1="1" y1="12" x2="3" y2="12"/>
+                    <line x1="21" y1="12" x2="23" y2="12"/>
+                  </svg>
+                </button>
                 <div className="rp-connector"/>
               </div>
               <div className="rp-srow">
