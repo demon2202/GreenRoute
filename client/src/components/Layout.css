@@ -109,17 +109,7 @@
   z-index: 1;
 }
 
-/* Green dot logo mark — replaces emoji */
-.logo-mark {
-  width: 28px; height: 28px;
-  min-width: 28px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #059669, #34d399);
-  flex-shrink: 0;
-  box-shadow: 0 0 0 2px rgba(52,211,153,0.3), 0 4px 12px rgba(5,150,105,0.4);
-  position: relative;
-  z-index: 1;
-}
+
 
 /* Deprecated emoji icon — keep for backward compat */
 .logo-icon {

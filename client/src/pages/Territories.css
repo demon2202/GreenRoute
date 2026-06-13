@@ -722,14 +722,86 @@
 }
 
 @media (max-width: 991px) {
+    .territory-page {
+        height: calc(100vh - 58px);
+    }
+
     .territory-sidebar {
+        position: absolute;
         top: auto;
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        width: auto;
+        height: 85px; /* Collapsed height */
+        padding: 12px 20px;
+        border-radius: 24px;
+        overflow: hidden;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+    }
+
+    .dark .territory-sidebar {
+        background: rgba(15, 23, 42, 0.92);
+    }
+
+    .territory-sidebar.mobile-expanded {
+        height: calc(85vh - 58px);
+        overflow-y: auto;
+    }
+
+    .territory-sidebar-handle {
+        width: 40px;
+        height: 5px;
+        background: var(--text-muted, #94a3b8);
+        border-radius: 2px;
+        margin: 0 auto 4px;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: background 0.2s;
+    }
+
+    .territory-sidebar-handle:hover {
+        background: var(--text-secondary);
+    }
+
+    .territory-header h2,
+    .territory-header .subtitle {
+        display: none !important;
+    }
+
+    .territory-header-row {
+        margin-bottom: 0 !important;
+        order: 0;
+    }
+
+    .controls-section {
+        order: -1; /* Move tracking button to the top */
+        margin-bottom: 0;
+    }
+
+    .alert-box {
+        position: fixed;
+        top: 68px; /* 10px below layout mobile header */
         left: 20px;
         right: 20px;
-        bottom: 20px;
-        width: auto;
-        height: 40%;
-        border-radius: 24px;
+        z-index: 2000;
+        box-shadow: var(--shadow-lg);
+        margin-bottom: 0;
+    }
+
+    .info-widgets,
+    .activity-feed-section,
+    .inspect-cell-card,
+    .empty,
+    .capture-progress-widget {
+        order: 1;
     }
 }
 
@@ -738,7 +810,7 @@
         left: 10px;
         right: 10px;
         bottom: 10px;
-        padding: 20px;
+        padding: 12px 16px;
     }
 }
 
@@ -769,4 +841,44 @@
     height: 18px;
     background: #ffffff;
     border-radius: 50%;
+}
+
+/* Territory Owner Avatar Marker on Map */
+.territory-avatar-marker {
+    width: 38px;
+    height: 38px;
+    background: var(--bg-secondary, #ffffff);
+    border: 3.5px solid #10b981;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: transform var(--dur-fast, 0.2s) ease, box-shadow var(--dur-fast, 0.2s) ease;
+}
+
+.territory-avatar-marker:hover {
+    transform: scale(1.15);
+    z-index: 1000;
+}
+
+.territory-marker-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+.territory-marker-fallback {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.95rem;
 }

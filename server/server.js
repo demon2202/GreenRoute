@@ -122,11 +122,19 @@ app.use(express.urlencoded({
 
 app.use('/uploads', express.static('uploads'));
 
-mongoose.connect(process.env.MONGO_URI)
-.then(() => {
+// Start Mongoose connection promise to reuse client connection
+const mongooseConnectionPromise = mongoose.connect(process.env.MONGO_URI)
+.then(m => {
     console.log('MongoDB connected successfully');
+    return m.connection.getClient();
 })
 .catch(err => {
+    console.error('MongoDB connection error on startup:', err);
+    throw err;
+});
+
+// Handle post-connection errors
+mongoose.connection.on('error', err => {
     console.error('MongoDB connection error:', err);
 });
 
@@ -138,7 +146,7 @@ app.use(
         saveUninitialized: false,
 
         store: MongoStore.create({
-            mongoUrl: process.env.MONGO_URI,
+            clientPromise: mongooseConnectionPromise,
             touchAfter: 24 * 3600
         }),
 
@@ -157,6 +165,15 @@ app.use(
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Process-wide crash prevention handlers
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('Uncaught Exception thrown:', err);
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
@@ -177,20 +194,24 @@ app.get('/health', (req, res) => {
    Pinging ourselves every 13 min keeps it warm at zero extra cost.
 ─────────────────────────────────────────────────────────────────────────── */
 const SELF_URL = process.env.SERVER_URL;
-if (SELF_URL && process.env.NODE_ENV === 'production') {
-  const https = require('https');
-  const keepAlive = () => {
-    https.get(`${SELF_URL}/health`, (res) => {
-      // success — server stays warm
-    }).on('error', () => {
-      // ignore errors from self-ping
-    });
-  };
-  // Start pinging 5 min after boot, then every 13 min
-  setTimeout(() => {
-    keepAlive();
-    setInterval(keepAlive, 13 * 60 * 1000);
-  }, 5 * 60 * 1000);
+if (process.env.NODE_ENV === 'production') {
+  if (SELF_URL) {
+    const https = require('https');
+    const keepAlive = () => {
+      https.get(`${SELF_URL}/health`, (res) => {
+        // success — server stays warm
+      }).on('error', () => {
+        // ignore errors from self-ping
+      });
+    };
+    // Start pinging 5 min after boot, then every 13 min
+    setTimeout(() => {
+      keepAlive();
+      setInterval(keepAlive, 13 * 60 * 1000);
+    }, 5 * 60 * 1000);
+  } else {
+    console.warn('WARNING: SERVER_URL environment variable is not defined. Self-ping keep-alive is disabled. The server will spin down after 15 minutes of inactivity.');
+  }
 }
 
 app.use((err, req, res, next) => {

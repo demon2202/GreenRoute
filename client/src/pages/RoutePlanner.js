@@ -1094,9 +1094,50 @@ const RoutePlanner = ({ user }) => {
       }
     };
 
+    const requestInitialLocation = () => {
+      const fallbackToIPLocation = async () => {
+        try {
+          const response = await fetch('https://ipinfo.io/json');
+          const data = await response.json();
+          if (data && data.loc) {
+            const [latitude, longitude] = data.loc.split(',').map(Number);
+            if (map.current) {
+              map.current.flyTo({ center: [longitude, latitude], zoom: 13, speed: 1.2 });
+            }
+          }
+        } catch (err) {
+          console.warn('Geolocation fallback issue:', err);
+        }
+      };
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            if (map.current) {
+              map.current.flyTo({ center: [longitude, latitude], zoom: 13, speed: 1.2 });
+            }
+          },
+          (error) => {
+            console.warn('GPS Error or Denied, falling back to IP:', error);
+            fallbackToIPLocation();
+          },
+          { enableHighAccuracy: true, timeout: 5000 }
+        );
+      } else {
+        fallbackToIPLocation();
+      }
+    };
+
     map.current.on('load', () => {
       initGeocoders();
       map.current.resize();
+      
+      const params = new URLSearchParams(window.location.search);
+      if (!params.get('to') && !params.get('from')) {
+        requestInitialLocation();
+      }
+      
       handleQueryParams();
     });
 
@@ -2052,11 +2093,12 @@ const fetchAqi = async (lat, lon) => {
         .rp-dot-b{background:var(--bg-secondary);border:2.5px solid #ea4335;box-shadow:0 0 0 3px rgba(234,67,53,0.15);}
         .rp-geo-wrap{flex:1;min-width:0;}
         .rp-geo-wrap .mapboxgl-ctrl-geocoder{width:100%!important;max-width:100%!important;background:transparent!important;border:none!important;box-shadow:none!important;font-family:inherit!important;}
-        .rp-geo-wrap .mapboxgl-ctrl-geocoder--input{height:46px!important;padding:0 32px 0 0!important;font-size:14px!important;color:var(--text-primary)!important;background:transparent!important;font-family:inherit!important;font-weight:500!important;}
+        .rp-geo-wrap .mapboxgl-ctrl-geocoder--input{height:46px!important;padding:0 38px 0 0!important;font-size:14px!important;color:var(--text-primary)!important;background:transparent!important;font-family:inherit!important;font-weight:500!important;}
         .rp-geo-wrap .mapboxgl-ctrl-geocoder--input::placeholder{color:#94a3b8!important;font-weight:400!important;}
         .rp-geo-wrap .mapboxgl-ctrl-geocoder--input:focus{outline:none!important;}
         .rp-geo-wrap .mapboxgl-ctrl-geocoder--icon-search{display:none!important;}
-        .rp-geo-wrap .mapboxgl-ctrl-geocoder--icon-close{right:0!important;top:50%!important;transform:translateY(-50%)!important;fill:#94a3b8!important;margin:0!important;}
+        .rp-geo-wrap .mapboxgl-ctrl-geocoder--button{top:50%!important;transform:translateY(-50%)!important;right:4px!important;height:32px!important;width:32px!important;display:flex!important;align-items:center!important;justify-content:center!important;background:transparent!important;border:none!important;margin:0!important;padding:0!important;}
+        .rp-geo-wrap .mapboxgl-ctrl-geocoder--icon-close{position:static!important;transform:none!important;fill:#94a3b8!important;width:16px!important;height:16px!important;margin:0!important;}
         .rp-geo-wrap .suggestions-wrapper{position:absolute!important;z-index:99999!important;left:-26px!important;right:-14px!important;top:calc(100% + 6px)!important;}
         .rp-geo-wrap .suggestions{position:relative!important;background:var(--bg-secondary)!important;border:1px solid var(--border-color)!important;border-radius:14px!important;box-shadow:0 12px 40px rgba(0,0,0,0.14)!important;overflow:hidden!important;max-height:260px!important;overflow-y:auto!important;list-style:none!important;padding:4px 0!important;}
         .rp-geo-wrap .suggestions li{padding:0!important;border:none!important;list-style:none!important;}

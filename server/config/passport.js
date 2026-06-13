@@ -55,11 +55,18 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
         try {
+            // Safely parse email and handle cases where profile.emails is undefined or empty
+            const email = profile.emails && profile.emails[0] && profile.emails[0].value
+                ? profile.emails[0].value.toLowerCase()
+                : null;
+
+            const searchConditions = [{ googleId: profile.id }];
+            if (email) {
+                searchConditions.push({ email });
+            }
+
             const existingUser = await User.findOne({ 
-                $or: [
-                    { googleId: profile.id },
-                    { email: profile.emails[0].value.toLowerCase() }
-                ]
+                $or: searchConditions
             });
 
             if (existingUser) {
@@ -70,10 +77,13 @@ passport.use(
                 return done(null, existingUser);
             }
 
+            // Fallback unique email if Google profile has no email associated
+            const userEmail = email || `google-${profile.id}@greenroute.local`;
+
             const user = await new User({
                 googleId: profile.id,
                 displayName: profile.displayName,
-                email: profile.emails[0].value.toLowerCase(),
+                email: userEmail,
                 image: profile.photos?.[0]?.value || ''
             }).save();
             

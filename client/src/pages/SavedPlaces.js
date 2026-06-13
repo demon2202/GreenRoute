@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 
 /* ── SVG icons ── */
 const Ico = ({ d, w = 18, vb = '0 0 24 24', fill = false, color = 'currentColor' }) => (
@@ -197,7 +198,7 @@ const EmptyState = () => (
     <p style={{ margin: '0 0 1.75rem', color: 'var(--text-secondary, #64748b)', maxWidth: 320, lineHeight: 1.6, fontSize: '0.9rem' }}>
       While planning routes, tap the bookmark icon on any location to save it here for quick access.
     </p>
-    <a href="/" style={{
+    <Link to="/" style={{
       display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
       padding: '0.75rem 1.5rem', borderRadius: 14,
       background: 'linear-gradient(135deg,#10b981,#059669)',
@@ -206,12 +207,13 @@ const EmptyState = () => (
     }}>
       Plan a Route
       <NavArrow />
-    </a>
+    </Link>
   </div>
 );
 
 /* ── Main component ── */
 const SavedPlaces = () => {
+  const navigate = useNavigate();
   const [places,  setPlaces]  = useState([]);
   const [query,   setQuery]   = useState('');
   const [removing, setRemoving] = useState(null);
@@ -237,9 +239,14 @@ const SavedPlaces = () => {
 
   const handleNavigate = useCallback((place) => {
     const dest = place.name || place.place_name || '';
+    const lng = place.lng || place.center?.[0];
+    const lat = place.lat || place.center?.[1];
     const params = new URLSearchParams({ to: dest });
-    window.location.href = `/?${params}`;
-  }, []);
+    if (lng != null && lat != null) {
+      params.set('to_coords', `${lng},${lat}`);
+    }
+    navigate(`/?${params}`);
+  }, [navigate]);
 
   const filtered = query.trim()
     ? places.filter(p => (p.name || p.place_name || '').toLowerCase().includes(query.toLowerCase()))

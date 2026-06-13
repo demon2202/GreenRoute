@@ -163,7 +163,7 @@ const Leaderboard = ({ user }) => {
   }
 
   return (
-    <div style={{ width: '100%', maxWidth: 1400, margin: '0 auto', fontFamily: 'inherit', paddingBottom: '3.5rem', paddingLeft: '2rem', paddingRight: '2rem' }}>
+    <div style={{ width: '100%', maxWidth: 1400, margin: '0 auto', fontFamily: 'inherit', paddingBottom: '3.5rem' }}>
       
       {/* Header */}
       <div style={{ marginBottom: '1.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>

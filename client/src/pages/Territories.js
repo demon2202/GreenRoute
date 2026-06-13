@@ -51,7 +51,7 @@ const checkLoop = (path) => {
             for (let j = i; j < path.length - 1; j++) {
                 pathDist += getDistance(path[j], path[j+1]);
             }
-            if (pathDist > 30) { // Walked distance validation
+            if (pathDist >= 100) { // Walked distance validation (at least 100 meters)
                 return {
                     loopStartIndex: i,
                     loopCoords: path.slice(i)
@@ -82,6 +82,9 @@ const Territories = ({ user, theme }) => {
     const socket = useRef(null);
     const watchIdRef = useRef(null);
     const userMarkerRef = useRef(null);
+    const territoryMarkersRef = useRef({});
+
+    const [mobileExpanded, setMobileExpanded] = useState(false);
 
     // Grid and capture states
     const [cells, setCells] = useState([]);
@@ -276,6 +279,89 @@ const Territories = ({ user, theme }) => {
         cellsRef.current = cells;
         redrawCells();
     }, [cells, redrawCells]);
+
+    // Handle drawing and updating owner avatar markers at centroid coordinates
+    useEffect(() => {
+        if (!map.current) return;
+
+        const currentCellIds = new Set(cells.map(cell => cell._id || cell.cellId));
+
+        // Clean up markers for cells that are no longer in the list
+        Object.keys(territoryMarkersRef.current).forEach(cellId => {
+            if (!currentCellIds.has(cellId)) {
+                territoryMarkersRef.current[cellId].remove();
+                delete territoryMarkersRef.current[cellId];
+            }
+        });
+
+        // Add or update markers for current cells
+        cells.forEach(cell => {
+            const cellId = cell._id || cell.cellId;
+            const centroid = cell.location?.coordinates;
+            if (!centroid || centroid.length < 2) return;
+
+            const ownerId = cell.owner?._id || cell.owner;
+            const ownerName = cell.ownerName || cell.owner?.displayName || 'Unknown';
+            const ownerImage = cell.ownerImage || cell.owner?.image;
+            const isMe = ownerId === userRef.current?._id;
+            const color = getOwnerColor(ownerId, isMe);
+
+            if (territoryMarkersRef.current[cellId]) {
+                territoryMarkersRef.current[cellId].setLngLat(centroid);
+            } else {
+                const el = document.createElement('div');
+                el.className = 'territory-avatar-marker';
+                el.style.borderColor = color;
+                el.style.boxShadow = `0 4px 12px ${color}50`;
+
+                if (ownerImage) {
+                    const img = document.createElement('img');
+                    img.src = ownerImage;
+                    img.alt = ownerName;
+                    img.className = 'territory-marker-img';
+                    el.appendChild(img);
+                } else {
+                    const fallback = document.createElement('div');
+                    fallback.className = 'territory-marker-fallback';
+                    fallback.style.backgroundColor = color;
+                    fallback.innerText = ownerName.charAt(0).toUpperCase();
+                    el.appendChild(fallback);
+                }
+
+                const popup = new mapboxgl.Popup({ offset: 22, closeButton: false })
+                    .setHTML(`
+                        <div style="font-family: 'Outfit', sans-serif; padding: 4px; text-align: center;">
+                            <strong style="color: ${color}; font-size: 0.88rem; display: block; margin-bottom: 2px;">
+                                ${ownerName}
+                            </strong>
+                            <span style="font-size: 0.76rem; color: #64748b;">
+                                Area: ${(cell.area || 0).toFixed(4)} km²
+                            </span>
+                        </div>
+                    `);
+
+                // Prevent marker click propagation and load territory stats directly
+                el.addEventListener('click', async (evt) => {
+                    evt.stopPropagation();
+                    try {
+                        const { data } = await axios.get(`/api/territory/territories/${cellId}/stats`);
+                        if (data) {
+                            setInspectedCell(data);
+                        }
+                    } catch (err) {
+                        console.error(err);
+                    }
+                });
+
+                const marker = new mapboxgl.Marker({ element: el })
+                    .setLngLat(centroid)
+                    .setPopup(popup)
+                    .addTo(map.current);
+
+                territoryMarkersRef.current[cellId] = marker;
+            }
+        });
+    }, [cells]);
 
     // Submit territory capture request
     const submitClaim = useCallback(async (lat, lng, boundary, isSim = false) => {
@@ -632,26 +718,49 @@ const Territories = ({ user, theme }) => {
 
         map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-        // Fallbacks
-        const fallbackToIPLocation = async () => {
-            try {
-                const response = await fetch('https://ipapi.co/json/');
-                const data = await response.json();
-                if (data && data.latitude && data.longitude) {
-                    const { latitude, longitude } = data;
-                    if (map.current) {
-                        map.current.flyTo({ center: [longitude, latitude], zoom: 17.5, speed: 1.2 });
+        // Map initialization and user location
+        const requestInitialLocation = () => {
+            const fallbackToIPLocation = async () => {
+                try {
+                    // Using ipinfo.io as it often provides better accuracy for ISPs than ipapi
+                    const response = await fetch('https://ipinfo.io/json');
+                    const data = await response.json();
+                    if (data && data.loc) {
+                        const [latitude, longitude] = data.loc.split(',').map(Number);
+                        if (map.current) {
+                            map.current.flyTo({ center: [longitude, latitude], zoom: 17.5, speed: 1.2 });
+                        }
+                        setCurrentCoords({ lat: latitude, lng: longitude });
+                        updateOrCreateUserMarker(latitude, longitude);
                     }
-                    setCurrentCoords({ lat: latitude, lng: longitude });
-                    updateOrCreateUserMarker(latitude, longitude);
+                } catch (err) {
+                    console.warn('Geolocation fallback issue:', err);
                 }
-            } catch (err) {
-                console.warn('Geolocation fallback issue:', err);
+            };
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const { latitude, longitude } = position.coords;
+                        if (map.current) {
+                            map.current.flyTo({ center: [longitude, latitude], zoom: 17.5, speed: 1.2 });
+                        }
+                        setCurrentCoords({ lat: latitude, lng: longitude });
+                        updateOrCreateUserMarker(latitude, longitude);
+                    },
+                    (error) => {
+                        console.warn('GPS Error or Denied, falling back to IP:', error);
+                        fallbackToIPLocation();
+                    },
+                    { enableHighAccuracy: true, timeout: 5000 }
+                );
+            } else {
+                fallbackToIPLocation();
             }
         };
 
         map.current.on('load', () => {
-            fallbackToIPLocation();
+            requestInitialLocation();
             if (handleBoundsChangeRef.current) {
                 handleBoundsChangeRef.current();
             }
@@ -762,6 +871,7 @@ const Territories = ({ user, theme }) => {
                 map.current.remove();
                 map.current = null;
             }
+            territoryMarkersRef.current = {};
         };
     }, []);
 
@@ -769,7 +879,8 @@ const Territories = ({ user, theme }) => {
 
     return (
         <div className="territory-page">
-            <div className="territory-sidebar">
+            <div className={`territory-sidebar ${mobileExpanded ? 'mobile-expanded' : ''}`}>
+                <div className="territory-sidebar-handle" onClick={() => setMobileExpanded(!mobileExpanded)} title="Toggle panel" />
                 <div className="territory-header-row">
                     <div className="territory-header">
                         <div className="header-badge">
@@ -841,28 +952,28 @@ const Territories = ({ user, theme }) => {
                             
                             <div className="row">
                                 <span>Defense Strength:</span>
-                                <strong>{inspectedCell.cell.strength}/100</strong>
+                                <strong>{(inspectedCell.cell?.strength !== undefined ? inspectedCell.cell.strength : 0)}/100</strong>
                             </div>
                             <div className="progress-bar-small">
-                                <div className="progress-bar-fill" style={{ width: `${inspectedCell.cell.strength}%` }} />
+                                <div className="progress-bar-fill" style={{ width: `${inspectedCell.cell?.strength || 0}%` }} />
                             </div>
 
                             <div className="row">
                                 <span>Defense Level:</span>
-                                <strong>Level {inspectedCell.cell.defenseLevel || 1}</strong>
+                                <strong>Level {inspectedCell.cell?.defenseLevel || 1}</strong>
                             </div>
                             <div className="row">
                                 <span>Required Attack Laps:</span>
-                                <strong>{inspectedCell.cell.defenseLevel || 1} laps</strong>
+                                <strong>{inspectedCell.cell?.defenseLevel || 1} laps</strong>
                             </div>
                             <div className="row">
                                 <span>Battles Count:</span>
-                                <span>{inspectedCell.cell.battlesCount} times</span>
+                                <span>{inspectedCell.cell?.battlesCount || 0} times</span>
                             </div>
                             <div className="row">
                                 <span>Status:</span>
-                                <strong style={{ color: inspectedCell.cell.status === 'under_attack' ? '#ef4444' : '#10b981' }}>
-                                    {inspectedCell.cell.status?.toUpperCase() || 'ACTIVE'}
+                                <strong style={{ color: inspectedCell.cell?.status === 'under_attack' ? '#ef4444' : '#10b981' }}>
+                                    {(inspectedCell.cell?.status || 'active').toUpperCase()}
                                 </strong>
                             </div>
                         </div>

@@ -102,13 +102,18 @@ const Toast = ({ message, type }) => {
 };
 
 const Toggle = ({ checked, onChange, id }) => (
-  <button role="switch" aria-checked={checked} id={id} onClick={onChange} style={{
-    width: 50, height: 27, borderRadius: 14,
-    background: checked ? 'var(--primary, #10b981)' : 'var(--border-color, #e2e8f0)',
-    border: 'none', cursor: 'pointer', position: 'relative',
-    transition: 'background 0.25s ease', flexShrink: 0, outline: 'none',
-    boxShadow: checked ? '0 2px 8px rgba(16,185,129,0.3)' : 'none',
-  }}
+  <button role="switch" aria-checked={checked} id={id}
+    onClick={(e) => {
+      e.stopPropagation();
+      onChange && onChange(e);
+    }}
+    style={{
+      width: 50, height: 27, borderRadius: 14,
+      background: checked ? 'var(--primary, #10b981)' : 'var(--border-color, #e2e8f0)',
+      border: 'none', cursor: 'pointer', position: 'relative',
+      transition: 'background 0.25s ease', flexShrink: 0, outline: 'none',
+      boxShadow: checked ? '0 2px 8px rgba(16,185,129,0.3)' : 'none',
+    }}
     onFocus={e => (e.currentTarget.style.boxShadow = '0 0 0 3px rgba(16,185,129,0.25)')}
     onBlur={e  => (e.currentTarget.style.boxShadow = checked ? '0 2px 8px rgba(16,185,129,0.3)' : 'none')}
   >
@@ -389,7 +394,7 @@ const Settings = ({ user, theme, onThemeChange }) => {
 
         {/* ── Appearance ── */}
         <SectionCard iconKey="palette" title="Appearance" subtitle="Choose how GreenRoute looks on your device">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '0.75rem' }}>
+          <div className="theme-grid">
             {THEME_OPTIONS.map(opt => {
               const active = theme === opt.value;
               return (
@@ -487,6 +492,16 @@ const Settings = ({ user, theme, onThemeChange }) => {
         @keyframes stSlideUp { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
         @keyframes stFadeIn  { from { opacity:0; } to { opacity:1; } }
         @keyframes stScaleIn { from { opacity:0; transform:scale(0.92); } to { opacity:1; transform:scale(1); } }
+        .theme-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 0.75rem;
+        }
+        @media (max-width: 640px) {
+          .theme-grid {
+            grid-template-columns: 1fr;
+          }
+        }
       `}</style>
     </div>
   );

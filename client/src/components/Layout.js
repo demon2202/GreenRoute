@@ -207,7 +207,6 @@ const Layout = ({ children, user, onLogout, theme, onThemeChange }) => {
         {/* Brand */}
         <div className="sidebar-header">
           <Link to="/" className="sidebar-logo" onClick={close}>
-            <div className="logo-mark" />
             <div className="logo-text sidebar-text">
               <span className="logo-title">Green<span>Route</span></span>
               <span className="logo-subtitle">Eco Travel</span>

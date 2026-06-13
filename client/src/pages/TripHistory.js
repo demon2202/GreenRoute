@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 /* ─── Constants ─────────────────────────────────────────────────────────────── */
@@ -169,6 +170,7 @@ const ModeDonut = ({ modeCount, total }) => {
 
 /* Trip card */
 const TripCard = ({ trip, onCopy, copiedId }) => {
+  const navigate = useNavigate();
   const meta = getMeta(trip.mode);
   const co2 = parseFloat(trip.co2Saved) || 0;
   const isHighImpact = co2 > 2;
@@ -268,8 +270,18 @@ const TripCard = ({ trip, onCopy, copiedId }) => {
           {copiedId === (trip._id || trip.date) ? 'Copied!' : 'Copy'}
         </button>
         <button onClick={() => {
-          const p = new URLSearchParams({ from: trip.originName, to: trip.destinationName, mode: trip.mode });
-          window.location.href = `/?${p}`;
+          const params = new URLSearchParams({
+            from: trip.originName || '',
+            to: trip.destinationName || '',
+            mode: trip.mode || ''
+          });
+          if (trip.originCoords?.lng != null && trip.originCoords?.lat != null) {
+            params.set('from_coords', `${trip.originCoords.lng},${trip.originCoords.lat}`);
+          }
+          if (trip.destinationCoords?.lng != null && trip.destinationCoords?.lat != null) {
+            params.set('to_coords', `${trip.destinationCoords.lng},${trip.destinationCoords.lat}`);
+          }
+          navigate(`/?${params}`);
         }} style={{ ...S.actionBtn, flex: 1, background: `color-mix(in srgb, ${meta.color} 12%, var(--bg-primary))`, color: meta.color, border: `1.5px solid color-mix(in srgb, ${meta.color} 30%, transparent)` }}>
           Repeat
         </button>
@@ -605,8 +617,6 @@ const S = {
     margin: '0 auto',
     fontFamily: 'inherit',
     paddingBottom: '3rem',
-    paddingLeft: '2rem',
-    paddingRight: '2rem',
   },
   header: {
     display: 'flex',

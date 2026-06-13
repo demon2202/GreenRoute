@@ -315,6 +315,9 @@ router.post('/claim', ensureAuth, async (req, res) => {
 
     // 2. Enforce MVP sizing limits
     const { area, perimeter } = calculateAreaAndPerimeter(boundary);
+    if (perimeter < 0.1) {
+        return res.status(400).json({ error: `Territory perimeter must be at least 100 meters (Current: ${Math.round(perimeter * 1000)} meters)` });
+    }
     if (area > 0.5) {
         return res.status(400).json({ error: `Area exceeds MVP size limit of 0.5 km² (Current: ${area.toFixed(3)} km²)` });
     }
@@ -745,7 +748,7 @@ router.get('/territories/:territoryId/stats', ensureAuth, async (req, res) => {
         const activeAttacksCount = await TerritoryAttack.countDocuments({ territoryId });
 
         res.json({
-            territory: {
+            cell: {
                 territoryId: territory._id,
                 area: updated.area,
                 perimeter: updated.perimeter,
@@ -894,8 +897,8 @@ router.get('/leaderboard', ensureAuth, async (req, res) => {
         // Filter out users with 0 area owned
         let filteredRanked = ranked.filter(r => r.areaOwned > 0);
 
-        // Sort by the chosen metric
-        filteredRanked.sort((a, b) => b[sortKey] - a[sortKey] || b.empireScore - a.empireScore);
+        // Sort by the chosen metric, breaking ties with areaOwned descending
+        filteredRanked.sort((a, b) => b[sortKey] - a[sortKey] || b.areaOwned - a.areaOwned);
 
         // Add dynamic rank
         filteredRanked = filteredRanked.map((item, index) => ({
@@ -987,13 +990,6 @@ router.get('/activity', ensureAuth, async (req, res) => {
             .sort({ createdAt: -1 })
             .limit(20)
             .lean();
-
-        if (bounds && activities.length === 0) {
-            activities = await TerritoryActivity.find({})
-                .sort({ createdAt: -1 })
-                .limit(10)
-                .lean();
-        }
 
         res.json(activities);
     } catch (err) {

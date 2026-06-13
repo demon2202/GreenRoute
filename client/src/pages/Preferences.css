@@ -472,6 +472,11 @@
 .pref-input-icon {
   position: absolute;
   left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--text-muted);
   transition: color var(--dur-fast) var(--ease-smooth);
 }
@@ -489,6 +494,8 @@
 .pref-clear-btn {
   position: absolute;
   right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
   background: none;
   border: none;
   color: var(--text-muted);
@@ -590,6 +597,7 @@
 @media (max-width: 900px) {
   .pref-dashboard-grid {
     grid-template-columns: 1fr;
+    padding: 0;
   }
   .pref-span-full {
     grid-column: span 1;
