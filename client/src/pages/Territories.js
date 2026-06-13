@@ -568,7 +568,7 @@ const Territories = ({ user, theme }) => {
     }, []);
 
     useEffect(() => {
-        const socketUrl = axios.defaults.baseURL || 'http://localhost:5000';
+        const socketUrl = axios.defaults.baseURL || 'https://greenroute-backend-syxi.onrender.com';
         socket.current = io(socketUrl, { withCredentials: true });
 
         socket.current.on('cellCaptured', handleRemoteClaim);

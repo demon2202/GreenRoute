@@ -13,17 +13,10 @@ import Leaderboard from './pages/Leaderboard';
 import Territories from './pages/Territories';
 import './index.css';
 
-const isLocal = typeof window !== 'undefined' && 
-  (window.location.hostname === 'localhost' || 
-   window.location.hostname === '127.0.0.1' || 
-   window.location.hostname.startsWith('192.168.'));
-
-axios.defaults.baseURL = isLocal
-  ? 'http://localhost:5000'
-  : 'https://greenroute-backend-syxi.onrender.com';
+axios.defaults.baseURL = 'https://greenroute-backend-syxi.onrender.com';
 axios.defaults.withCredentials = true;
 // Generous timeout so the cold-start doesn't fail mid-request
-axios.defaults.timeout    = 60000;
+axios.defaults.timeout = 60000;
 
 function App() {
   // Phase 1: waiting for the backend to be alive (Render cold-start)
@@ -31,7 +24,7 @@ function App() {
   // Phase 2: checking if there's an existing session
   const [authChecked, setAuthChecked] = useState(false);
 
-  const [user,  setUser]  = useState(null);
+  const [user, setUser] = useState(null);
   const [theme, setTheme] = useState('light');
 
   /* ── Called by StartupLoader once the /health ping succeeds ── */
@@ -79,7 +72,7 @@ function App() {
 
   /* ─── Phase 2: keep showing the loader while we confirm session ─── */
   if (!authChecked) {
-    return <StartupLoader onReady={() => {}} />;
+    return <StartupLoader onReady={() => { }} />;
   }
 
   /* ─── Phase 3: normal app ─── */
@@ -102,13 +95,13 @@ function App() {
                   onThemeChange={updateTheme}
                 >
                   <Routes>
-                    <Route path="/"            element={<RoutePlanner user={user} />} />
-                    <Route path="/leaderboard" element={<Leaderboard  user={user} />} />
-                    <Route path="/territory"   element={<Territories  user={user} theme={theme} />} />
-                    <Route path="/history"     element={<TripHistory  user={user} />} />
-                    <Route path="/preferences" element={<Preferences  user={user} />} />
-                    <Route path="/saved"       element={<SavedPlaces  user={user} />} />
-                    <Route path="/settings"    element={<Settings user={user} theme={theme} onThemeChange={updateTheme} />} />
+                    <Route path="/" element={<RoutePlanner user={user} />} />
+                    <Route path="/leaderboard" element={<Leaderboard user={user} />} />
+                    <Route path="/territory" element={<Territories user={user} theme={theme} />} />
+                    <Route path="/history" element={<TripHistory user={user} />} />
+                    <Route path="/preferences" element={<Preferences user={user} />} />
+                    <Route path="/saved" element={<SavedPlaces user={user} />} />
+                    <Route path="/settings" element={<Settings user={user} theme={theme} onThemeChange={updateTheme} />} />
                   </Routes>
                 </Layout>
               ) : (

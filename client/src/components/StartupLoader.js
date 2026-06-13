@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 
-const IS_DEV = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-
 const MESSAGES = [
   'Starting GreenRoute',
   'Waking up the server',
@@ -39,13 +37,7 @@ export default function StartupLoader({ onReady }) {
       setTimeout(() => onReady(), 300);
     };
 
-    /* In dev: skip CORS-prone cross-origin health ping.
-       The user is running locally so the backend is either up or they'll
-       see the login page — no point hanging forever. */
-    if (IS_DEV) {
-      const t = setTimeout(finish, 800);
-      return () => { cancelled = true; clearTimeout(t); };
-    }
+
 
     /* In production: ping /health via axios (same baseURL as app).
        Give up and let the app load anyway after 60 s max. */

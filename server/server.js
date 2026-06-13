@@ -98,9 +98,6 @@ app.use('/api/auth/google',   authLimiter);
 const ALLOWED_ORIGINS = [
     process.env.CLIENT_URL,
     'https://green-route-seven.vercel.app',
-    // Allow localhost in development
-    'http://localhost:3000',
-    'http://localhost:3001',
 ].filter(Boolean);
 
 app.use(

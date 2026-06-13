@@ -47,14 +47,7 @@ const Login = ({ onLogin }) => {
   };
 
   const handleGoogleLogin = () => {
-    const isLocal = typeof window !== 'undefined' && 
-      (window.location.hostname === 'localhost' || 
-       window.location.hostname === '127.0.0.1' || 
-       window.location.hostname.startsWith('192.168.'));
-    const backendUrl = isLocal
-      ? 'http://localhost:5000'
-      : 'https://greenroute-backend-syxi.onrender.com';
-    window.location.href = `${backendUrl}/api/auth/google`;
+    window.location.href = 'https://greenroute-backend-syxi.onrender.com/api/auth/google';
   };
 
   const switchMode = () => {

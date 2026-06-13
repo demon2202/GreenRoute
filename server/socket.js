@@ -2,7 +2,6 @@ const { Server } = require("socket.io");
 
 const ALLOWED_ORIGINS = [
     process.env.CLIENT_URL,
-    process.env.LOCAL_CLIENT_URL || 'http://localhost:3000',
     'https://green-route-seven.vercel.app'
 ].filter(Boolean);
 
