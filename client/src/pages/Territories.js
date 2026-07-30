@@ -650,15 +650,53 @@ const Territories = ({ user, theme }) => {
             setAttackVisitedCheckpoints([]);
         } else {
             if (!navigator.geolocation) {
-                alert('Geolocation is not supported by your browser.');
+                setErrorMsg('Geolocation is not supported by your browser. Try Chrome or Firefox.');
                 return;
             }
-            setIsTracking(true);
 
+            setErrorMsg('');
+            setIsTracking(true);
             setActivePath([]);
+
+            const handleGpsError = (err) => {
+                console.warn('GPS position error:', err);
+                // err.code: 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
+                if (err.code === 1) {
+                    setErrorMsg('Location access denied. Please allow location permission in your browser settings.');
+                } else if (err.code === 2) {
+                    setErrorMsg('GPS signal unavailable. Make sure your device GPS is enabled and try again.');
+                } else if (err.code === 3) {
+                    // Timeout — don't stop tracking, try again with lower accuracy
+                    console.warn('GPS timeout, retrying with lower accuracy...');
+                    if (watchIdRef.current !== null) {
+                        navigator.geolocation.clearWatch(watchIdRef.current);
+                    }
+                    watchIdRef.current = navigator.geolocation.watchPosition(
+                        (pos) => {
+                            setErrorMsg('');
+                            const { latitude, longitude } = pos.coords;
+                            setCurrentCoords({ lat: latitude, lng: longitude });
+                            updateOrCreateUserMarker(latitude, longitude);
+                            handleLocationUpdate(latitude, longitude, false);
+                            if (map.current) {
+                                map.current.easeTo({ center: [longitude, latitude], zoom: 17.5 });
+                            }
+                        },
+                        (retryErr) => {
+                            console.warn('GPS retry failed:', retryErr);
+                            setErrorMsg('Could not get GPS signal. Check your device settings and try again.');
+                            setIsTracking(false);
+                        },
+                        { enableHighAccuracy: false, timeout: 30000, maximumAge: 30000 }
+                    );
+                    return; // don't stop tracking yet
+                }
+                setIsTracking(false);
+            };
 
             watchIdRef.current = navigator.geolocation.watchPosition(
                 (pos) => {
+                    setErrorMsg('');
                     const { latitude, longitude } = pos.coords;
                     setCurrentCoords({ lat: latitude, lng: longitude });
                     updateOrCreateUserMarker(latitude, longitude);
@@ -668,11 +706,7 @@ const Territories = ({ user, theme }) => {
                         map.current.easeTo({ center: [longitude, latitude], zoom: 17.5 });
                     }
                 },
-                (err) => {
-                    console.warn('GPS position error:', err);
-                    setErrorMsg('GPS Connection Lost or Access Denied.');
-                    setIsTracking(false);
-                },
+                handleGpsError,
                 { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
             );
         }
@@ -875,12 +909,74 @@ const Territories = ({ user, theme }) => {
         };
     }, []);
 
-
-
     return (
         <div className="territory-page">
             <div className={`territory-sidebar ${mobileExpanded ? 'mobile-expanded' : ''}`}>
+                {/* Drag Handle */}
                 <div className="territory-sidebar-handle" onClick={() => setMobileExpanded(!mobileExpanded)} title="Toggle panel" />
+
+                {/* ── MOBILE QUICK-BAR (always visible when collapsed) ── */}
+                <div className="territory-mobile-quickbar">
+                    {/* GPS badge or status */}
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        {isTracking ? (
+                            <div className="header-badge" style={{ marginBottom: 0 }}>
+                                <span className="badge-pulse"></span>
+                                TRACKING
+                            </div>
+                        ) : (
+                            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary, #64748b)' }}>
+                                🗺️ Territory Map
+                            </div>
+                        )}
+                        {currentAttackCell && (
+                            <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#ef4444', background: 'rgba(239,68,68,0.1)', padding: '3px 8px', borderRadius: 999, border: '1px solid rgba(239,68,68,0.2)' }}>
+                                ⚔️ {attackLapsCompleted}/{currentAttackCell.defenseLevel} Laps
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Quick stats pill */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(16,185,129,0.08)', borderRadius: 12, padding: '5px 10px', border: '1px solid rgba(16,185,129,0.15)' }}>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--primary, #10b981)' }}>
+                            {(userStats.areaOwned || 0).toFixed(2)}
+                        </span>
+                        <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-secondary, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>km²</span>
+                    </div>
+
+                    {/* Tracking toggle button */}
+                    <button
+                        onClick={(e) => { e.stopPropagation(); toggleTracking(); }}
+                        style={{
+                            height: 38,
+                            padding: '0 14px',
+                            borderRadius: 12,
+                            border: 'none',
+                            background: isTracking
+                                ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                                : 'linear-gradient(135deg, #10b981, #059669)',
+                            color: 'white',
+                            fontSize: '0.82rem',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            boxShadow: isTracking
+                                ? '0 4px 14px rgba(239,68,68,0.3)'
+                                : '0 4px 14px rgba(16,185,129,0.3)',
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                        }}
+                    >
+                        {isTracking ? '⏹ Stop' : '▶ Start GPS'}
+                    </button>
+                </div>
+
+                {/* ── CONTENT (shown when expanded) ── */}
+                <div className="territory-mobile-content">
+
+                {/* Desktop header (hidden on mobile via CSS) */}
                 <div className="territory-header-row">
                     <div className="territory-header">
                         <div className="header-badge">
@@ -1055,10 +1151,8 @@ const Territories = ({ user, theme }) => {
                         onClick={toggleTracking}
                         className={`btn ${isTracking ? 'btn-danger' : 'btn-primary'} btn-full`}
                     >
-                        {isTracking ? 'Stop GPS Tracking' : 'Start GPS Tracking'}
+                        {isTracking ? '⏹ Stop GPS Tracking' : '▶ Start GPS Tracking'}
                     </button>
-
-
 
                     {activePath.length > 0 && (
                         <button
@@ -1093,6 +1187,8 @@ const Territories = ({ user, theme }) => {
                         {activities.length === 0 && <p className="empty">No recent activity nearby.</p>}
                     </div>
                 </div>
+
+                </div>{/* end .territory-mobile-content */}
             </div>
 
             <div className="map-view-container" ref={mapContainer} />

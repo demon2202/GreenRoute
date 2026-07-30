@@ -2216,35 +2216,41 @@ const fetchAqi = async (lat, lon) => {
 
         /* Directions */
         .rp-dir{display:flex;flex-direction:column;flex:1;overflow:hidden;}
-        .rp-dir-head{padding:12px 14px 10px;border-bottom:1px solid var(--border-color);background:var(--bg-secondary);flex-shrink:0;}
-        .rp-dir-sum{display:flex;align-items:center;gap:11px;margin-bottom:10px;}
-        .rp-dir-mode-ico{width:44px;height:44px;border-radius:13px;background:color-mix(in srgb,var(--cc,#10b981) 12%,var(--bg-secondary));display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;}
-        .rp-dir-title{font-size:13.5px;font-weight:700;color:var(--text-primary);line-height:1.3;}
-        .rp-dir-meta{font-size:12px;color:var(--text-secondary);margin-top:2px;}
+        .rp-dir-head{padding:14px 16px 12px;border-bottom:1px solid var(--border-color);background:var(--bg-secondary);flex-shrink:0;}
+        .rp-dir-top-bar{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+        .rp-dir-back-inline{height:32px;padding:0 10px;border-radius:8px;border:1.5px solid var(--border-color);background:var(--bg-primary);color:var(--text-secondary);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.15s;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:5px;}
+        .rp-dir-back-inline:hover{background:var(--hover-bg);border-color:var(--primary);color:var(--primary);}
+        .rp-dir-sum{display:flex;align-items:center;gap:11px;flex:1;min-width:0;}
+        .rp-dir-mode-ico{width:38px;height:38px;border-radius:11px;background:color-mix(in srgb,var(--cc,#10b981) 12%,var(--bg-secondary));display:flex;align-items:center;justify-content:center;font-size:1.25rem;flex-shrink:0;}
+        .rp-dir-title{font-size:13px;font-weight:700;color:var(--text-primary);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        .rp-dir-meta{font-size:11.5px;color:var(--text-secondary);margin-top:2px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+        .rp-dir-meta-pill{background:var(--bg-primary);border:1px solid var(--border-color);border-radius:999px;padding:2px 8px;font-size:11px;font-weight:600;white-space:nowrap;}
+        .rp-dir-meta-pill.eco{background:rgba(16,185,129,0.08);border-color:rgba(16,185,129,0.2);color:#059669;}
         .rp-dir-btns{display:flex;gap:8px;}
-        .rp-nav-prog{display:flex;align-items:center;gap:10px;}
-        .rp-npbar{flex:1;height:4px;background:var(--bg-primary);border-radius:2px;overflow:hidden;}
-        .rp-npfill{height:100%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:2px;transition:width 0.4s ease;}
-        .rp-nptxt{font-size:11px;color:var(--text-light);font-weight:600;white-space:nowrap;}
-        .rp-steps{overflow-y:auto;flex:1;padding:6px 10px 20px;}
-        .rp-step{display:flex;align-items:flex-start;gap:12px;padding:11px 11px;border-radius:13px;cursor:pointer;transition:all 0.15s;margin-bottom:1px;position:relative;}
+        .rp-nav-prog{display:flex;align-items:center;gap:10px;margin-top:8px;}
+        .rp-npbar{flex:1;height:5px;background:var(--bg-primary);border-radius:999px;overflow:hidden;border:1px solid var(--border-color);}
+        .rp-npfill{height:100%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:999px;transition:width 0.4s ease;}
+        .rp-nptxt{font-size:11px;color:var(--text-light);font-weight:700;white-space:nowrap;}
+        .rp-steps{overflow-y:auto;flex:1;padding:8px 10px 24px;}
+        .rp-step{display:flex;align-items:flex-start;gap:14px;padding:13px 12px;border-radius:14px;cursor:pointer;transition:all 0.15s;margin-bottom:2px;position:relative;}
         .rp-step:hover{background:var(--hover-bg);}
-        .rp-step.on{background:rgba(16,185,129,0.1);}
-        .rp-step:not(:last-child)::after{content:'';position:absolute;left:26px;top:42px;bottom:-14px;width:1.5px;background:var(--border-color);}
+        .rp-step.on{background:rgba(16,185,129,0.1);border-left:3px solid #10b981;padding-left:9px;}
+        .rp-step:not(:last-child)::after{content:'';position:absolute;left:28px;top:46px;bottom:-16px;width:1.5px;background:var(--border-color);z-index:0;}
         .rp-step.on::after{background:rgba(16,185,129,0.3);}
-        .rp-step-ico{width:34px;height:34px;border-radius:50%;background:var(--bg-primary);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;z-index:1;}
-        .rp-step.on .rp-step-ico{background:#10b981;border-color:#10b981;box-shadow:0 0 0 4px rgba(16,185,129,0.2);}
-        .rp-step-body{flex:1;min-width:0;}
-        .rp-step-inst{font-size:13.5px;font-weight:600;color:var(--text-primary);line-height:1.4;}
-        .rp-step-dist{font-size:12px;color:var(--text-light);margin-top:3px;}
-        .rp-step-arrive{opacity:.6;cursor:default;}
+        .rp-step-ico{width:36px;height:36px;border-radius:50%;background:var(--bg-primary);border:2px solid var(--border-color);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.15s;z-index:1;}
+        .rp-step.on .rp-step-ico{background:#10b981;border-color:#10b981;box-shadow:0 0 0 4px rgba(16,185,129,0.18);}
+        .rp-step-body{flex:1;min-width:0;padding-top:1px;}
+        .rp-step-inst{font-size:14px;font-weight:600;color:var(--text-primary);line-height:1.45;}
+        .rp-step-dist{font-size:12px;color:var(--text-light);margin-top:4px;display:flex;align-items:center;gap:5px;}
+        .rp-step-dist-badge{background:var(--bg-primary);border:1px solid var(--border-color);border-radius:999px;padding:1px 7px;font-size:11px;font-weight:700;color:var(--text-secondary);}
+        .rp-step-arrive{opacity:.65;cursor:default;}
         .rp-step-arrive:hover{background:transparent;}
-        .rp-btn-go{flex:1;height:38px;background:linear-gradient(135deg,#10b981,#059669);border:none;border-radius:10px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.15s;font-family:inherit;}
-        .rp-btn-go:hover{box-shadow:0 3px 10px rgba(16,185,129,0.35);}
-        .rp-btn-stop{height:38px;padding:0 14px;border:none;border-radius:10px;background:rgba(239,68,68,0.15);color:var(--red);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.15s;white-space:nowrap;}
-        .rp-btn-stop:hover{background:rgba(239,68,68,0.25);}
-        .rp-back{margin:0 12px 12px;padding:10px;background:var(--bg-primary);border:1.5px solid var(--border-color);border-radius:12px;color:var(--text-secondary);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;flex-shrink:0;transition:all 0.15s;width:calc(100% - 24px);}
-        .rp-back:hover{background:var(--hover-bg);border-color:var(--primary);color:var(--primary);}
+        .rp-step-arrive.on{opacity:1;background:rgba(16,185,129,0.08);}
+        .rp-btn-go{flex:1;height:40px;background:linear-gradient(135deg,#10b981,#059669);border:none;border-radius:11px;color:#fff;font-size:13.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.15s;font-family:inherit;box-shadow:0 3px 10px rgba(16,185,129,0.25);}
+        .rp-btn-go:hover{box-shadow:0 5px 16px rgba(16,185,129,0.38);transform:translateY(-1px);}
+        .rp-btn-stop{height:40px;padding:0 14px;border:none;border-radius:11px;background:rgba(239,68,68,0.12);color:var(--red);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.15s;white-space:nowrap;border:1px solid rgba(239,68,68,0.18);}
+        .rp-btn-stop:hover{background:rgba(239,68,68,0.22);}
+        .rp-back{display:none;}
 
         /* Weather */
         .rp-wx{margin:0 12px 10px;background:linear-gradient(135deg,#1e3a5f,#1d4ed8);border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:12px;color:#fff;flex-shrink:0;}
@@ -2345,10 +2351,17 @@ const fetchAqi = async (lat, lon) => {
 
         @media(max-width:900px){
           .rp-shell{flex-direction:column;}
-          .rp-sidebar{width:100%!important;min-width:unset;height:auto;max-height:50vh;border-right:none;border-bottom:1px solid var(--border-color);}
-          .rp-map-area{flex:1;min-height:50vh;}
+          .rp-sidebar{width:100%!important;min-width:unset;height:auto;max-height:42vh;border-right:none;border-bottom:1px solid var(--border-color);}
+          .rp-sidebar.dir-mode{max-height:58vh;}
+          .rp-map-area{flex:1;min-height:42vh;}
           .rp-map-ctrl{bottom:${isNavigating?'90px':'14px'};}
           .rp-resizer{display:none;}
+          .rp-dir-head{padding:10px 12px 8px;}
+          .rp-dir-top-bar{margin-bottom:8px;}
+          .rp-step{padding:11px 10px;gap:12px;}
+          .rp-step-ico{width:32px;height:32px;}
+          .rp-step-inst{font-size:13px;}
+          .rp-dir-title{font-size:12.5px;}
         }
       `}</style>
 
@@ -2356,7 +2369,7 @@ const fetchAqi = async (lat, lon) => {
 
         {/* ═══ SIDEBAR ═══ */}
         {!isNavigating && (
-          <aside className="rp-sidebar" style={{ width: sidebarWidth }}>
+          <aside className={`rp-sidebar ${panel === 'directions' ? 'dir-mode' : ''}`} style={{ width: sidebarWidth }}>
 
           {/* Header */}
           <div className="rp-header">
@@ -2609,23 +2622,36 @@ const fetchAqi = async (lat, lon) => {
               return (
                 <div className="rp-dir">
                   <div className="rp-dir-head">
-                    <div className="rp-dir-sum">
-                      <div className="rp-dir-mode-ico" style={{'--cc':m.color}}>{m.icon}</div>
-                      <div>
-                        <div className="rp-dir-title">{origin?.name?.split(',')[0]} → {destination?.name?.split(',')[0]}</div>
-                        <div className="rp-dir-meta">{selectedRoute.duration} min · {selectedRoute.distance} km · {selectedRoute.co2Saved} kg saved</div>
+                    {/* Top bar: back + route summary */}
+                    <div className="rp-dir-top-bar">
+                      <button className="rp-dir-back-inline" onClick={()=>setPanel('routes')}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5m7-7-7 7 7 7"/></svg>
+                        Routes
+                      </button>
+                      <div className="rp-dir-sum">
+                        <div className="rp-dir-mode-ico" style={{'--cc':m.color}}>{m.icon}</div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div className="rp-dir-title">{origin?.name?.split(',')[0]} → {destination?.name?.split(',')[0]}</div>
+                          <div className="rp-dir-meta">
+                            <span className="rp-dir-meta-pill">{selectedRoute.duration} min</span>
+                            <span className="rp-dir-meta-pill">{selectedRoute.distance} km</span>
+                            <span className="rp-dir-meta-pill eco">🌿 {selectedRoute.co2Saved} kg saved</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="rp-dir-btns" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+                    {/* Action buttons row */}
+                    <div className="rp-dir-btns" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       <div style={{ display: 'flex', gap: 8, width: '100%' }}>
                         {isNavigating
-                          ?<button className="rp-btn-stop" style={{ flex: 1 }} onClick={stopNav}>✕ Stop</button>
-                          :<button className="rp-btn-go" style={{ flex: 1, '--cc':m.color }} onClick={()=>startNav(selectedRoute)}>▶ Start Journey</button>
+                          ?<button className="rp-btn-stop" style={{ flex: 1 }} onClick={stopNav}>✕ Stop Navigation</button>
+                          :<button className="rp-btn-go" style={{ flex: 1, '--cc':m.color }} onClick={()=>startNav(selectedRoute)}>▶ Start Navigation</button>
                         }
                       </div>
                       
                       {!isNavigating && (
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '6px 8px', borderRadius: 8, background: 'var(--bg-primary)', border: '1px solid var(--border-color)' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '6px 10px', borderRadius: 10, background: 'var(--bg-primary)', border: '1px solid var(--border-color)' }}>
                           <input
                             type="checkbox"
                             checked={useGPS}
@@ -2639,19 +2665,18 @@ const fetchAqi = async (lat, lon) => {
                       )}
                       
                       {isNavigating && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '4px 0' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, color: useGPS ? '#3b82f6' : 'var(--primary)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', fontWeight: 700, color: useGPS ? '#3b82f6' : 'var(--primary)', flex: 1 }}>
                             <span>{useGPS ? '🛰️ Live GPS Active' : '🏃 Simulating Journey...'}</span>
                           </div>
                           {useGPS && distToDest !== null && (
-                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                              <span>Remaining: </span>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)', flexShrink: 0 }}>
                               <strong style={{ color: 'var(--text-primary)' }}>
                                 {distToDest < 1000 ? `${Math.round(distToDest)}m` : `${(distToDest/1000).toFixed(1)}km`}
                               </strong>
-                              <span> · </span>
+                              {' · '}
                               <strong style={{ color: 'var(--text-primary)' }}>
-                                {Math.max(1, Math.round(selectedRoute.duration * (distToDest / (parseFloat(selectedRoute.distance) * 1000 || 1)) || 0))} min remaining
+                                {Math.max(1, Math.round(selectedRoute.duration * (distToDest / (parseFloat(selectedRoute.distance) * 1000 || 1)) || 0))} min
                               </strong>
                             </div>
                           )}
@@ -2659,16 +2684,27 @@ const fetchAqi = async (lat, lon) => {
                       )}
                     </div>
                     {isNavigating&&(
-                      <div className="rp-nav-prog" style={{marginTop:8}}>
+                      <div className="rp-nav-prog">
                         <div className="rp-npbar"><div className="rp-npfill" style={{width:`${Math.round(animProgress*100)}%`}}/></div>
                         <span className="rp-nptxt">{Math.round(animProgress*100)}%</span>
                       </div>
                     )}
                   </div>
 
-                  {/* Directions panel — improved step list with SVG arrows */}
+                  {/* Step count header */}
+                  <div style={{padding:'10px 14px 6px',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                    <span style={{fontSize:11,fontWeight:700,color:'var(--text-muted)',textTransform:'uppercase',letterSpacing:'0.07em'}}>
+                      {totalSteps} Steps
+                    </span>
+                    {activeStep !== null && (
+                      <span style={{fontSize:11,fontWeight:700,color:'var(--primary)'}}>
+                        Step {activeStep+1} of {totalSteps}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Steps list */}
                   <div className="rp-steps" ref={el => {
-                    // auto-scroll active step into view
                     if (el && activeStep !== null) {
                       const activeEl = el.querySelector('.rp-step.on');
                       if (activeEl) activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -2687,8 +2723,8 @@ const fetchAqi = async (lat, lon) => {
                         <div className="rp-step-body">
                           <div className="rp-step-inst">{step.instruction}</div>
                           <div className="rp-step-dist">
-                            {step.distance>0&&<span>{formatDist(step.distance)}</span>}
-                            {step.duration>0&&<span> · {formatDur(step.duration)}</span>}
+                            {step.distance>0&&<span className="rp-step-dist-badge">{formatDist(step.distance)}</span>}
+                            {step.duration>0&&<span style={{color:'var(--text-muted)',fontSize:11}}>{formatDur(step.duration)}</span>}
                           </div>
                         </div>
                       </div>
@@ -2699,7 +2735,7 @@ const fetchAqi = async (lat, lon) => {
                       </div>
                       <div className="rp-step-body">
                         <div className="rp-step-inst">Arrive at {destination?.name?.split(',')[0]}</div>
-                        <div className="rp-step-dist">You've reached your destination</div>
+                        <div className="rp-step-dist" style={{color:'#10b981',fontWeight:600}}>You've reached your destination 🎉</div>
                       </div>
                     </div>
                   </div>
