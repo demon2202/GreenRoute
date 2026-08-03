@@ -310,14 +310,23 @@ const TripHistory = ({ user }) => {
   useEffect(() => { loadTrips(); }, []);
 
   const loadTrips = async () => {
+    let serverTrips = [];
     try {
       const { data } = await axios.get('/api/history');
-      setTrips(data);
+      if (Array.isArray(data)) serverTrips = data;
     } catch (e) {
-      showToast('Failed to load trips', 'error');
-    } finally {
-      setLoading(false);
+      console.warn('Trip history server fetch offline/unauthenticated, using local history');
     }
+
+    const localTrips = JSON.parse(localStorage.getItem('gr_trip_history') || '[]');
+    const map = new Map();
+    [...serverTrips, ...localTrips].forEach(t => {
+      const key = t._id || `${t.date}_${t.originName}_${t.destinationName}`;
+      if (!map.has(key)) map.set(key, t);
+    });
+    const merged = Array.from(map.values()).sort((a, b) => new Date(b.date) - new Date(a.date));
+    setTrips(merged);
+    setLoading(false);
   };
 
   const handleCopy = (trip) => {
@@ -331,16 +340,14 @@ const TripHistory = ({ user }) => {
 
   const handleClear = async () => {
     setClearing(true);
+    localStorage.removeItem('gr_trip_history');
     try {
       await axios.delete('/api/history');
-      setTrips([]);
-      setShowConfirm(false);
-      showToast('All trips cleared!', 'success');
-    } catch {
-      showToast('Failed to clear history', 'error');
-    } finally {
-      setClearing(false);
-    }
+    } catch {}
+    setTrips([]);
+    setShowConfirm(false);
+    showToast('All trips cleared!', 'success');
+    setClearing(false);
   };
 
   const exportCSV = () => {
@@ -392,7 +399,7 @@ const TripHistory = ({ user }) => {
           border: `1.5px solid ${toast.type === 'error' ? '#fca5a5' : '#6ee7b7'}`,
           borderRadius: 14, padding: '0.75rem 1.25rem',
           fontWeight: 700, fontSize: '0.88rem', boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-          animation: 'toastIn 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+          animation: 'toastIn 0.3s cubic-bezier(0.16,1,0.3,1)',
         }}>
           {toast.msg}
         </div>
@@ -428,15 +435,78 @@ const TripHistory = ({ user }) => {
         </div>
       )}
 
-      {/* ── Header ── */}
-      <div style={S.header}>
-        <div>
-          <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-primary)' }}>
-            Trip History
-          </h2>
-          <p style={{ margin: 0, color: 'var(--text-secondary, #64748b)', fontSize: '0.92rem' }}>
-            {trips.length > 0 ? `${trips.length} eco-friendly trips recorded` : 'Your green journey starts here'}
-          </p>
+      {/* ── Glassmorphic Header ── */}
+      <div style={{
+        position: 'relative',
+        background: 'linear-gradient(135deg, var(--bg-secondary, #ffffff) 0%, rgba(16,185,129,0.06) 100%)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        border: '1.5px solid var(--border-color, rgba(16,185,129,0.2))',
+        borderRadius: 24,
+        padding: '22px 28px',
+        marginBottom: '1.75rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '16px',
+        boxShadow: '0 12px 32px rgba(15,23,42,0.04)',
+        overflow: 'hidden',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', zIndex: 1 }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: 16,
+            background: 'linear-gradient(135deg, rgba(16,185,129,0.18), rgba(16,185,129,0.05))',
+            border: '1.5px solid rgba(16,185,129,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--primary, #10b981)', flexShrink: 0,
+            boxShadow: '0 4px 14px rgba(16,185,129,0.15)'
+          }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="12 8 12 12 14 14"/><path d="M3.05 11a9 9 0 1 0 .5-4.5"/><polyline points="3 3 3 9 9 9"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)',
+              color: 'var(--primary, #059669)', fontSize: '0.72rem', fontWeight: 800,
+              padding: '3px 10px', borderRadius: 999, letterSpacing: '0.06em',
+              textTransform: 'uppercase', marginBottom: 4
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
+              Eco Telemetry Logs
+            </div>
+            <h2 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 900, fontFamily: "'Outfit', sans-serif", letterSpacing: '-0.03em', color: 'var(--text-primary, #0f172a)' }}>
+              Trip History
+            </h2>
+            <p style={{ margin: '3px 0 0', fontSize: '0.9rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500 }}>
+              {trips.length > 0 ? `${trips.length} eco-friendly trips recorded` : 'Your green journey starts here'}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 10 }}>
+          {trips.length > 0 && (
+            <>
+              <button onClick={exportCSV} style={{
+                padding: '8px 16px', borderRadius: 12, border: '1.5px solid var(--border-color, #e2e8f0)',
+                background: 'var(--bg-secondary, #fff)', color: 'var(--text-primary, #0f172a)',
+                fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                display: 'flex', alignItems: 'center', gap: 6, boxShadow: 'var(--shadow-xs)'
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export CSV
+              </button>
+              <button onClick={() => setShowConfirm(true)} style={{
+                padding: '8px 14px', borderRadius: 12, border: '1px solid rgba(239,68,68,0.3)',
+                background: 'rgba(239,68,68,0.08)', color: '#ef4444',
+                fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit'
+              }}>
+                Clear All
+              </button>
+            </>
+          )}
         </div>
       </div>
 

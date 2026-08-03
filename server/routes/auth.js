@@ -115,7 +115,7 @@ router.get(
 router.get(
     '/google/callback',
     (req, res, next) => {
-        const clientUrl = process.env.CLIENT_URL || 'https://green-route-seven.vercel.app';
+        const clientUrl = process.env.CLIENT_URL || 'https://green-route-seven.vercel.app' || 'http://localhost:5173';
             
         const cleanClientUrl = clientUrl.replace(/\/$/, '');
         passport.authenticate('google', {
@@ -123,7 +123,7 @@ router.get(
         })(req, res, next);
     },
     (req, res) => {
-        const clientUrl = process.env.CLIENT_URL || 'https://green-route-seven.vercel.app';
+        const clientUrl = process.env.CLIENT_URL || 'https://green-route-seven.vercel.app' || 'http://localhost:5173';
         res.redirect(clientUrl);
     }
 );
@@ -133,6 +133,7 @@ router.post('/logout', (req, res, next) => {
 
         if (err) {
             return next(err);
+            
         }
 
         req.session.destroy(err => {

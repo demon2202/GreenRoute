@@ -264,24 +264,72 @@ const SavedPlaces = () => {
           borderRadius: 14, padding: '0.75rem 1.25rem',
           fontWeight: 700, fontSize: '0.88rem',
           boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-          animation: 'spToastIn 0.3s cubic-bezier(0.34,1.56,0.64,1)',
+          animation: 'spToastIn 0.3s cubic-bezier(0.16,1,0.3,1)',
         }}>
           {toast.msg}
         </div>
       )}
 
-      {/* Header */}
+      {/* ── Glassmorphic Header ── */}
       <div style={{
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
-        gap: '1rem', marginBottom: '1.5rem', flexWrap: 'wrap',
+        position: 'relative',
+        background: 'linear-gradient(135deg, var(--bg-secondary, #ffffff) 0%, rgba(16,185,129,0.06) 100%)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        border: '1.5px solid var(--border-color, rgba(16,185,129,0.2))',
+        borderRadius: 24,
+        padding: '22px 28px',
+        marginBottom: '1.75rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '16px',
+        boxShadow: '0 12px 32px rgba(15,23,42,0.04)',
+        overflow: 'hidden',
       }}>
-        <div>
-          <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-primary, #0f172a)' }}>
-            Saved Places
-          </h2>
-          <p style={{ margin: 0, color: 'var(--text-secondary, #64748b)', fontSize: '0.92rem' }}>
-            {places.length > 0 ? `${places.length} saved location${places.length !== 1 ? 's' : ''}` : 'Your favourite spots at a glance'}
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', zIndex: 1 }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: 16,
+            background: 'linear-gradient(135deg, rgba(16,185,129,0.18), rgba(16,185,129,0.05))',
+            border: '1.5px solid rgba(16,185,129,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--primary, #10b981)', flexShrink: 0,
+            boxShadow: '0 4px 14px rgba(16,185,129,0.15)'
+          }}>
+            <Pin w={22} color="var(--primary, #10b981)" />
+          </div>
+          <div>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)',
+              color: 'var(--primary, #059669)', fontSize: '0.72rem', fontWeight: 800,
+              padding: '3px 10px', borderRadius: 999, letterSpacing: '0.06em',
+              textTransform: 'uppercase', marginBottom: 4
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
+              Favourite Destinations
+            </div>
+            <h2 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 900, fontFamily: "'Outfit', sans-serif", letterSpacing: '-0.03em', color: 'var(--text-primary, #0f172a)' }}>
+              Saved Places
+            </h2>
+            <p style={{ margin: '3px 0 0', fontSize: '0.9rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500 }}>
+              {places.length > 0 ? `${places.length} saved location${places.length !== 1 ? 's' : ''}` : 'Your favourite spots at a glance'}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Link to="/" style={{
+            display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+            padding: '0.65rem 1.25rem', borderRadius: 12,
+            background: 'linear-gradient(135deg,#10b981,#059669)',
+            color: 'white', fontWeight: 700, fontSize: '0.85rem', textDecoration: 'none',
+            boxShadow: '0 4px 14px rgba(16,185,129,0.35)',
+          }}>
+            Plan New Route
+            <NavArrow />
+          </Link>
         </div>
       </div>
 

@@ -47,7 +47,8 @@ const Login = ({ onLogin }) => {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = 'https://greenroute-backend-syxi.onrender.com/api/auth/google';
+    const base = axios.defaults.baseURL || 'https://greenroute-backend-syxi.onrender.com';
+    window.location.href = `${base}/api/auth/google`;
   };
 
   const switchMode = () => {
@@ -78,22 +79,27 @@ const Login = ({ onLogin }) => {
 
 
         <div className="lp-hero-content">
+          <div className="lp-brand">
+            <span className="lp-brand-dot" />
+            <span className="lp-brand-name">GreenRoute</span>
+          </div>
+
           <h1 className="lp-headline">
-            Travel Smarter,<br />
+            Travel Smarter.<br />
             <span className="lp-headline-em">Save the Planet.</span>
           </h1>
 
           <p className="lp-sub">
-            Discover eco-friendly routes for your daily commute.
-            Track your carbon savings and make every journey count.
+            Discover carbon-optimized routes for your daily commute.
+            Track real-time emissions and compete on the green leaderboard.
           </p>
 
           {/* Stats */}
           <div className="lp-stats">
             {[
-              { val: '2.4t',  lbl: 'CO₂ Saved'    },
-              { val: '12k+',  lbl: 'Green Trips'   },
-              { val: '98%',   lbl: 'Happy Users'   },
+              { val: '2.4t',  lbl: 'CO₂ Offset' },
+              { val: '12k+',  lbl: 'Eco Trips'  },
+              { val: '98%',   lbl: 'Efficiency' },
             ].map(s => (
               <div key={s.val} className="lp-stat">
                 <div className="lp-stat-val">{s.val}</div>
@@ -102,9 +108,9 @@ const Login = ({ onLogin }) => {
             ))}
           </div>
 
-          {/* Feature pills — text only, no emoji */}
+          {/* Feature pills */}
           <div className="lp-pills">
-            {['Walk & Cycle', 'Public Transit', 'Impact Tracking'].map(p => (
+            {['Zero Emission Navigation', 'H3 Spatial Territories', 'Live Carbon Telemetry'].map(p => (
               <span key={p} className="lp-pill">{p}</span>
             ))}
           </div>

@@ -270,7 +270,7 @@ const Layout = ({ children, user, onLogout, theme, onThemeChange }) => {
             <div className="pw-bar-track">
               <div
                 className="pw-bar-fill"
-                style={{ width: `${carbon.pct}%` }}
+                style={{ transform: `scaleX(${carbon.pct / 100})` }}
                 role="progressbar"
                 aria-valuenow={carbon.pct}
                 aria-valuemin={0}

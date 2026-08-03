@@ -150,13 +150,13 @@ const Leaderboard = ({ user }) => {
   if (loading) {
     return (
       <div style={{ width: '100%', padding: '4rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <div className="bl-wrap" style={{ animation: 'blBounce 2s infinite ease-in-out' }}>
+        <div className="bl-wrap" style={{ animation: 'blFloat 3s cubic-bezier(0.16, 1, 0.3, 1) infinite alternate' }}>
           <div style={{ width: 48, height: 48, border: '4px solid var(--border-color, #e2e8f0)', borderTopColor: 'var(--primary, #10b981)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
         </div>
         <p style={{ marginTop: '1.25rem', color: 'var(--text-secondary, #64748b)', fontWeight: 600, fontSize: '0.95rem' }}>Loading Rankings…</p>
         <style>{`
           @keyframes spin { to { transform: rotate(360deg); } }
-          @keyframes blBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+          @keyframes blFloat { 0% { transform: translateY(0); } 100% { transform: translateY(-6px); } }
         `}</style>
       </div>
     );
@@ -165,15 +165,53 @@ const Leaderboard = ({ user }) => {
   return (
     <div style={{ width: '100%', maxWidth: 1400, margin: '0 auto', fontFamily: 'inherit', paddingBottom: '3.5rem' }}>
       
-      {/* Header */}
-      <div style={{ marginBottom: '1.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
-        <div>
-          <h2 style={{ margin: '0 0 0.25rem', fontSize: '1.75rem', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-primary, #0f172a)' }}>
-            Leaderboards
-          </h2>
-          <p style={{ margin: 0, color: 'var(--text-secondary, #64748b)', fontSize: '0.92rem' }}>
-            Compete for the highest green impact or dominate the map.
-          </p>
+      {/* ── Glassmorphic Header ── */}
+      <div style={{
+        position: 'relative',
+        background: 'linear-gradient(135deg, var(--bg-secondary, #ffffff) 0%, rgba(16,185,129,0.06) 100%)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        border: '1.5px solid var(--border-color, rgba(16,185,129,0.2))',
+        borderRadius: 24,
+        padding: '22px 28px',
+        marginBottom: '1.75rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '16px',
+        boxShadow: '0 12px 32px rgba(15,23,42,0.04)',
+        overflow: 'hidden',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', zIndex: 1 }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: 16,
+            background: 'linear-gradient(135deg, rgba(16,185,129,0.18), rgba(16,185,129,0.05))',
+            border: '1.5px solid rgba(16,185,129,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--primary, #10b981)', flexShrink: 0,
+            boxShadow: '0 4px 14px rgba(16,185,129,0.15)'
+          }}>
+            <TrophyIcon size={24} />
+          </div>
+          <div>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)',
+              color: 'var(--primary, #059669)', fontSize: '0.72rem', fontWeight: 800,
+              padding: '3px 10px', borderRadius: 999, letterSpacing: '0.06em',
+              textTransform: 'uppercase', marginBottom: 4
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
+              Global Rankings
+            </div>
+            <h2 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 900, fontFamily: "'Outfit', sans-serif", letterSpacing: '-0.03em', color: 'var(--text-primary, #0f172a)' }}>
+              Leaderboards
+            </h2>
+            <p style={{ margin: '3px 0 0', fontSize: '0.9rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500 }}>
+              Compete for the highest green impact or dominate the map.
+            </p>
+          </div>
         </div>
 
         {/* Tab Selector */}
@@ -182,7 +220,8 @@ const Leaderboard = ({ user }) => {
           background: 'var(--bg-secondary, #fff)',
           border: '1.5px solid var(--border-color, #e2e8f0)',
           borderRadius: '14px',
-          padding: '4px'
+          padding: '4px',
+          position: 'relative', zIndex: 1
         }}>
           <button
             onClick={() => { setActiveTab('green'); setQuery(''); }}
@@ -195,7 +234,8 @@ const Leaderboard = ({ user }) => {
               cursor: 'pointer',
               background: activeTab === 'green' ? 'var(--primary, #10b981)' : 'transparent',
               color: activeTab === 'green' ? '#fff' : 'var(--text-secondary, #64748b)',
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
+              fontFamily: 'inherit'
             }}
           >
             Green Journeys
@@ -211,7 +251,8 @@ const Leaderboard = ({ user }) => {
               cursor: 'pointer',
               background: activeTab === 'territory' ? 'var(--primary, #10b981)' : 'transparent',
               color: activeTab === 'territory' ? '#fff' : 'var(--text-secondary, #64748b)',
-              transition: 'all 0.2s'
+              transition: 'all 0.2s',
+              fontFamily: 'inherit'
             }}
           >
             Territory Empire
@@ -264,29 +305,35 @@ const Leaderboard = ({ user }) => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: 'var(--bg-secondary, #fff)',
-          border: '1.5px solid var(--border-color, #e2e8f0)',
-          borderRadius: '16px',
-          padding: '12px 18px',
-          marginBottom: '1.5rem',
           flexWrap: 'wrap',
-          gap: '12px'
+          gap: '12px',
+          marginBottom: '1.75rem'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Sort Empire Standings By:</span>
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '10px',
+            background: 'var(--bg-secondary, #fff)',
+            border: '1.5px solid var(--border-color, #e2e8f0)',
+            borderRadius: '999px',
+            padding: '8px 18px',
+            boxShadow: 'var(--shadow-xs)'
+          }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Sort Standings:</span>
             <select
               value={sortBy}
               onChange={e => setSortBy(e.target.value)}
               style={{
-                background: 'var(--bg-primary, #f8fafc)',
-                border: '1px solid var(--border-color, #cbd5e1)',
-                borderRadius: '8px',
-                padding: '6px 12px',
-                fontSize: '0.86rem',
-                fontWeight: 700,
-                color: 'var(--text-primary)',
+                background: 'rgba(16,185,129,0.08)',
+                border: '1px solid rgba(16,185,129,0.25)',
+                borderRadius: '999px',
+                padding: '6px 14px',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                color: 'var(--primary, #10b981)',
                 cursor: 'pointer',
-                outline: 'none'
+                outline: 'none',
+                fontFamily: 'inherit'
               }}
             >
               <option value="empireScore">Empire Score (Overall)</option>
@@ -350,16 +397,16 @@ const Leaderboard = ({ user }) => {
           alignItems: 'end',
         }}>
           
-          {/* Rank 2 (Silver) */}
+          {/* Rank 2 (Silver - Left) */}
           {second && (
             <div style={{
               background: 'var(--bg-secondary, #fff)',
               borderRadius: 24, border: '1.5px solid var(--border-color, #e2e8f0)',
-              padding: '1.5rem', textAlign: 'center', order: 1,
+              padding: '1.75rem 1.25rem 1.5rem', textAlign: 'center', order: 1,
               boxShadow: 'var(--shadow-md)', position: 'relative',
               animation: 'slideUp 0.3s ease',
             }}>
-              <div style={{ position: 'absolute', top: 12, left: 16 }}><Medal rank={2} /></div>
+              <div style={{ position: 'absolute', top: 14, right: 16 }}><Medal rank={2} /></div>
               <LeaderboardAvatar name={second.displayName} image={second.image} size={70} border="3px solid #cbd5e1" />
               <h3 style={{ margin: '0.75rem 0 0.25rem', fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>{second.displayName}</h3>
               <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.82rem', fontWeight: 500 }}>
@@ -375,18 +422,18 @@ const Leaderboard = ({ user }) => {
             </div>
           )}
 
-          {/* Rank 1 (Gold - Larger Card) */}
+          {/* Rank 1 (Gold - Center Champion) */}
           {first && (
             <div style={{
               background: 'linear-gradient(135deg, var(--bg-secondary) 0%, rgba(16,185,129,0.06) 100%)',
               borderRadius: 28, border: '2.5px solid var(--primary, #10b981)',
-              padding: '2rem 1.5rem 1.75rem', textAlign: 'center', order: 0,
+              padding: '2rem 1.5rem 1.75rem', textAlign: 'center', order: 2,
               boxShadow: 'var(--shadow-lg), 0 10px 30px rgba(16,185,129,0.12)',
-              position: 'relative', transform: 'scale(1.03)', zIndex: 5,
+              position: 'relative', transform: 'scale(1.04)', zIndex: 5,
               animation: 'slideUp 0.2s ease',
             }}>
-              <div style={{ position: 'absolute', top: 16, left: 16 }}><Medal rank={1} /></div>
-              <div style={{ animation: 'bounce 3s infinite', marginBottom: '0.75rem' }}>
+              <div style={{ position: 'absolute', top: 16, right: 16 }}><Medal rank={1} /></div>
+              <div style={{ animation: 'trophyGlow 3s cubic-bezier(0.16, 1, 0.3, 1) infinite alternate', marginBottom: '0.75rem' }}>
                 <TrophyIcon size={44} />
               </div>
               <LeaderboardAvatar name={first.displayName} image={first.image} size={84} border="4px solid var(--primary, #10b981)" />
@@ -406,16 +453,16 @@ const Leaderboard = ({ user }) => {
             </div>
           )}
 
-          {/* Rank 3 (Bronze) */}
+          {/* Rank 3 (Bronze - Right) */}
           {third && (
             <div style={{
               background: 'var(--bg-secondary, #fff)',
               borderRadius: 24, border: '1.5px solid var(--border-color, #e2e8f0)',
-              padding: '1.5rem', textAlign: 'center', order: 2,
+              padding: '1.75rem 1.25rem 1.5rem', textAlign: 'center', order: 3,
               boxShadow: 'var(--shadow-md)', position: 'relative',
               animation: 'slideUp 0.4s ease',
             }}>
-              <div style={{ position: 'absolute', top: 12, left: 16 }}><Medal rank={3} /></div>
+              <div style={{ position: 'absolute', top: 14, right: 16 }}><Medal rank={3} /></div>
               <LeaderboardAvatar name={third.displayName} image={third.image} size={70} border="3px solid #d97706" />
               <h3 style={{ margin: '0.75rem 0 0.25rem', fontSize: '1.05rem', fontWeight: 800, color: 'var(--text-primary)' }}>{third.displayName}</h3>
               <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.82rem', fontWeight: 500 }}>

@@ -565,23 +565,67 @@ const Preferences = ({ user }) => {
     <div style={{ paddingBottom: '130px', paddingTop: '1rem' }}>
 
 
-      {/* Header Panel */}
-      <div className="pref-header">
-        <div className="pref-title-group">
-          <h2>Your Preferences</h2>
-          <p>Customize travel options, route priority rules, goals, and locations</p>
+      {/* ── Glassmorphic Header ── */}
+      <div style={{
+        position: 'relative',
+        background: 'linear-gradient(135deg, var(--bg-secondary, #ffffff) 0%, rgba(16,185,129,0.06) 100%)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        border: '1.5px solid var(--border-color, rgba(16,185,129,0.2))',
+        borderRadius: 24,
+        padding: '22px 28px',
+        marginBottom: '1.75rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '16px',
+        boxShadow: '0 12px 32px rgba(15,23,42,0.04)',
+        overflow: 'hidden',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', zIndex: 1 }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: 16,
+            background: 'linear-gradient(135deg, rgba(16,185,129,0.18), rgba(16,185,129,0.05))',
+            border: '1.5px solid rgba(16,185,129,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'var(--primary, #10b981)', flexShrink: 0,
+            boxShadow: '0 4px 14px rgba(16,185,129,0.15)'
+          }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)',
+              color: 'var(--primary, #059669)', fontSize: '0.72rem', fontWeight: 800,
+              padding: '3px 10px', borderRadius: 999, letterSpacing: '0.06em',
+              textTransform: 'uppercase', marginBottom: 4
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
+              Commute Rules & Goals
+            </div>
+            <h2 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 900, fontFamily: "'Outfit', sans-serif", letterSpacing: '-0.03em', color: 'var(--text-primary, #0f172a)' }}>
+              Preferences
+            </h2>
+            <p style={{ margin: '3px 0 0', fontSize: '0.9rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500 }}>
+              Customize travel options, route priority rules, goals, and locations
+            </p>
+          </div>
         </div>
 
         {/* Quick summary status pills */}
-        <div className="pref-quick-badges">
-          <div className="pref-badge-pill">
-            <span>🌱</span> Priority: {preferences.sustainabilityPriority}
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', padding: '6px 12px', borderRadius: 12, fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary, #059669)' }}>
+            Priority: {preferences.sustainabilityPriority}
           </div>
-          <div className="pref-badge-pill">
-            <span>🚗</span> Modes: {preferences.transportModes.length} Active
+          <div style={{ background: 'rgba(14,165,233,0.08)', border: '1px solid rgba(14,165,233,0.2)', padding: '6px 12px', borderRadius: 12, fontSize: '0.8rem', fontWeight: 700, color: '#0ea5e9' }}>
+            Modes: {preferences.transportModes.length} Active
           </div>
-          <div className="pref-badge-pill">
-            <span>🏆</span> Goal: {preferences.monthlyGoal} kg CO₂
+          <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', padding: '6px 12px', borderRadius: 12, fontSize: '0.8rem', fontWeight: 700, color: '#d97706' }}>
+            Goal: {preferences.monthlyGoal} kg CO₂
           </div>
         </div>
       </div>
@@ -818,7 +862,7 @@ const Preferences = ({ user }) => {
           gap: '1.5rem',
           boxShadow: 'var(--shadow-lg), 0 8px 32px rgba(16, 185, 129, 0.18)',
           zIndex: 1000,
-          animation: 'pref-savebar-in var(--dur-normal) var(--ease-spring) forwards',
+          animation: 'pref-savebar-in var(--dur-normal) var(--ease-out-expo) forwards',
           maxWidth: 'calc(100vw - 3rem)',
           width: 'max-content'
         }}>

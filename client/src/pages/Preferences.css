@@ -18,10 +18,7 @@
   font-size: 2.15rem;
   font-weight: 800;
   letter-spacing: -0.03em;
-  background: linear-gradient(135deg, var(--text-primary) 30%, var(--primary) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text-primary);
 }
 
 .pref-title-group p {
@@ -222,7 +219,7 @@
   color: white;
   font-size: 0.8rem;
   font-weight: 800;
-  animation: scaleIn var(--dur-normal) var(--ease-spring) forwards;
+  animation: scaleIn var(--dur-normal) var(--ease-out-expo) forwards;
 }
 
 /* Custom Select Cards (Radio button replacements) */
@@ -434,7 +431,7 @@
 }
 
 .pref-single-tree {
-  animation: treeGrow var(--dur-slow) var(--ease-spring) forwards, treeSway 4s ease-in-out infinite alternate;
+  animation: treeGrow var(--dur-slow) var(--ease-out-expo) forwards, treeSway 4s ease-in-out infinite alternate;
   transform-origin: bottom center;
 }
 

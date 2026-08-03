@@ -79,11 +79,11 @@ export default function StartupLoader({ onReady }) {
       <style>{`
         /* ── Layout ── */
         .bl-wrap {
-          animation: blBounce 2.4s ease-in-out infinite;
+          animation: blFloat 3s cubic-bezier(0.16, 1, 0.3, 1) infinite alternate;
         }
-        @keyframes blBounce {
-          0%, 100% { transform: translateY(0); }
-          50%       { transform: translateY(-10px); }
+        @keyframes blFloat {
+          0%   { transform: translateY(0); }
+          100% { transform: translateY(-8px); }
         }
 
         /* ── Message row ── */

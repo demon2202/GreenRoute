@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-03T17:51:30Z",
+  "title": "Design System: GreenRoute",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Emerald Green", "canonical": "#16a34a" },
+      "bg-primary": { "role": "neutral", "displayName": "Mint Canvas", "canonical": "#f0faf5" },
+      "text-primary": { "role": "neutral", "displayName": "Deep Botanical", "canonical": "#0a1f14" }
+    },
+    "shadows": [
+      { "name": "shadow-md", "value": "0 4px 16px rgba(0,0,0,0.08)", "purpose": "Default floating card elevation" },
+      { "name": "shadow-green", "value": "0 4px 20px rgba(22,163,74,0.22)", "purpose": "Eco button and active route highlight glow" }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "narrative": {
+    "northStar": "The Emerald Navigation Terminal",
+    "overview": "GreenRoute brings precision environmental telemetry into high-visibility, glanceable map navigation. The visual language blends crisp spatial telemetry with high-legibility map overlays.",
+    "keyCharacteristics": [
+      "Glassmorphic Overlays",
+      "Emerald Telemetry",
+      "Adaptive Contrast Mode",
+      "Micro-Interactions"
+    ],
+    "dos": [
+      "Do show carbon savings metrics alongside trip duration on every route selection card.",
+      "Do maintain high visual contrast between map route polylines and map background features.",
+      "Do use responsive bottom-sheet drawers for mobile map navigation."
+    ],
+    "donts": [
+      "Don't use pure un-tinted black (#000000) for text or dark mode backgrounds.",
+      "Don't clutter the map viewport with redundant floating buttons.",
+      "Don't rely on color alone to distinguish route safety or emissions."
+    ]
+  }
+}

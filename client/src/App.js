@@ -13,7 +13,8 @@ import Leaderboard from './pages/Leaderboard';
 import Territories from './pages/Territories';
 import './index.css';
 
-axios.defaults.baseURL = 'https://greenroute-backend-syxi.onrender.com';
+const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+axios.defaults.baseURL = process.env.REACT_APP_API_URL || (isLocal ? 'http://localhost:5000' : 'https://greenroute-backend-syxi.onrender.com');
 axios.defaults.withCredentials = true;
 // Generous timeout so the cold-start doesn't fail mid-request
 axios.defaults.timeout = 60000;
