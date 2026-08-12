@@ -377,10 +377,73 @@ router.delete('/history', ensureAuth, async (req, res) => {
 });
 
 /* ─────────────────────────────────────────────────────────────
+   SAVED PLACES
+───────────────────────────────────────────────────────────── */
+router.get('/saved-places', ensureAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id, 'savedPlaces').lean();
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    res.json(user.savedPlaces || []);
+  } catch (err) {
+    console.error('[saved-places GET]', err.message);
+    res.status(500).json({ error: 'Failed to fetch saved places.' });
+  }
+});
+
+router.post('/saved-places', ensureAuth, async (req, res) => {
+  const { name, category, coordinates, address, preferredMode } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Place name is required.' });
+  if (!coordinates || isNaN(coordinates.lat) || isNaN(coordinates.lng)) {
+    return res.status(400).json({ error: 'Valid lat/lng coordinates are required.' });
+  }
+
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+
+    const newPlace = {
+      name: name.trim().slice(0, 100),
+      category: (category || 'Custom').trim().slice(0, 50),
+      coordinates: {
+        lat: parseFloat(coordinates.lat),
+        lng: parseFloat(coordinates.lng)
+      },
+      address: (address || '').trim().slice(0, 250),
+      preferredMode: (preferredMode || 'cycling').toLowerCase(),
+      savedAt: new Date()
+    };
+
+    user.savedPlaces = user.savedPlaces || [];
+    user.savedPlaces.unshift(newPlace);
+    if (user.savedPlaces.length > 50) user.savedPlaces = user.savedPlaces.slice(0, 50);
+    await user.save();
+
+    res.status(201).json({ message: 'Place saved successfully', place: user.savedPlaces[0] });
+  } catch (err) {
+    console.error('[saved-places POST]', err.message);
+    res.status(500).json({ error: 'Failed to save place.' });
+  }
+});
+
+router.delete('/saved-places/:id', ensureAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+
+    user.savedPlaces = (user.savedPlaces || []).filter(p => p._id.toString() !== req.params.id);
+    await user.save();
+    res.json({ message: 'Place removed.' });
+  } catch (err) {
+    console.error('[saved-places DELETE]', err.message);
+    res.status(500).json({ error: 'Failed to delete saved place.' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
    PREFERENCES
 ───────────────────────────────────────────────────────────── */
 const PREF_DEFAULTS = {
-  transportModes:         ['Walking', 'Cycling', 'Driving'],
+  transportModes:         ['Walking', 'Cycling', 'Public Transit', 'Driving'],
   maxWalkingDistance:     5,
   maxCyclingDistance:     20,
   sustainabilityPriority: 'Balanced',

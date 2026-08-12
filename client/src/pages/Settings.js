@@ -1,554 +1,938 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   SVG Icon helpers — no emoji anywhere
-───────────────────────────────────────────────────────────────────────────── */
-const Svg = ({ children, size = 20, color = 'currentColor' }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-    stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-    style={{ display: 'block', flexShrink: 0 }}>
-    {children}
-  </svg>
-);
-
-const Icons = {
-  user:     () => <Svg><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></Svg>,
-  palette:  () => <Svg><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></Svg>,
-  bell:     () => <Svg><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></Svg>,
-  lock:     () => <Svg><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></Svg>,
-  leaf:     () => <Svg><path d="M2 22c1.25-1.25 2.2-2.7 2.82-4.28C6.46 13.92 5.35 8.76 9.28 5.38 11.06 3.84 13.47 3 16 3c2.5 0 4.5 1 6 3-3 .5-5 1.5-6.5 3-1.47 1.47-2.09 3.47-2.09 5.5 0 3.59-2.1 6.5-4.91 7.5A8.35 8.35 0 0 1 2 22z"/></Svg>,
-  download: () => <Svg><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></Svg>,
-  trash:    () => <Svg><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></Svg>,
-  sun:      () => <Svg><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></Svg>,
-  moon:     () => <Svg><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></Svg>,
-  monitor:  () => <Svg><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></Svg>,
-  map:      () => <Svg><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></Svg>,
-  bar:      () => <Svg><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></Svg>,
-  mail:     () => <Svg><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></Svg>,
-  shield:   () => <Svg><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></Svg>,
-  check:    () => <Svg><polyline points="20 6 9 17 4 12"/></Svg>,
-  star:     () => <Svg fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></Svg>,
-};
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   Reusable sub-components
-───────────────────────────────────────────────────────────────────────────── */
-
-const SectionCard = ({ iconKey, title, subtitle, children, accent = false }) => (
-  <div style={{
-    background: accent
-      ? 'linear-gradient(135deg,#064e3b 0%,#065f46 100%)'
-      : 'var(--bg-secondary, #fff)',
-    borderRadius: 20,
-    border: accent ? 'none' : '1.5px solid var(--border-color, #f1f5f9)',
-    padding: '1.5rem',
-    boxShadow: accent
-      ? '0 8px 32px rgba(6,78,59,0.35)'
-      : '0 2px 12px rgba(0,0,0,0.04)',
-    position: 'relative',
-    overflow: 'hidden',
-  }}>
-    {accent && (
-      <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', pointerEvents: 'none' }} />
-    )}
-    <div style={{ position: 'relative', zIndex: 1 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', marginBottom: subtitle ? '0.4rem' : '1.25rem' }}>
-        <div style={{
-          width: 38, height: 38, borderRadius: 11,
-          background: accent ? 'rgba(255,255,255,0.15)' : 'rgba(16, 185, 129, 0.12)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: accent ? 'white' : 'var(--primary, #10b981)', flexShrink: 0,
-          border: accent ? '1px solid rgba(255,255,255,0.2)' : '1px solid var(--border-color, #bbf7d0)',
-        }}>
-          {Icons[iconKey]?.()}
-        </div>
-        <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: accent ? '#fff' : 'var(--text-primary, #0f172a)', letterSpacing: '-0.02em' }}>
-          {title}
-        </h3>
-      </div>
-      {subtitle && (
-        <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.88rem', color: accent ? 'rgba(167,243,208,0.8)' : 'var(--text-secondary, #64748b)', lineHeight: 1.5 }}>
-          {subtitle}
-        </p>
-      )}
-      {children}
-    </div>
-  </div>
-);
-
-const Toast = ({ message, type }) => {
-  if (!message) return null;
-  const cfg = {
-    success: { bg: 'var(--bg-tag, #ecfdf5)', color: 'var(--text-secondary, #065f46)', border: 'var(--border-color, #6ee7b7)' },
-    error:   { bg: '#fef2f2', color: '#991b1b', border: '#fca5a5' },
-    info:    { bg: 'var(--bg-primary, #eff6ff)', color: 'var(--text-secondary, #1e40af)', border: 'var(--border-color, #93c5fd)' },
+/* ── Minimalist SVG icons ── */
+const Icon = ({ name, size = 20 }) => {
+  const icons = {
+    settings: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      </svg>
+    ),
+    user: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
+    ),
+    palette: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" /><circle cx="17.5" cy="10.5" r=".5" fill="currentColor" /><circle cx="8.5" cy="7.5" r=".5" fill="currentColor" /><circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
+        <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+      </svg>
+    ),
+    bell: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+      </svg>
+    ),
+    badge: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+    ),
+    route: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="6" cy="19" r="3" />
+        <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" />
+        <circle cx="18" cy="5" r="3" />
+      </svg>
+    ),
+    sun: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+      </svg>
+    ),
+    chart: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
+      </svg>
+    ),
+    medal: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="8" r="6" /><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11" />
+      </svg>
+    ),
+    check: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+    ),
+    star: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" stroke="none">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+      </svg>
+    ),
   };
-  const s = cfg[type] || cfg.info;
-  return (
-    <div role="alert" aria-live="polite" style={{
-      backgroundColor: s.bg, color: s.color,
-      border: `1.5px solid ${s.border}`,
-      padding: '0.875rem 1.25rem', borderRadius: 14, marginBottom: '1.25rem',
-      fontWeight: 600, fontSize: '0.9rem',
-      boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-      display: 'flex', alignItems: 'center', gap: '0.6rem',
-      animation: 'stSlideUp 0.3s ease',
-    }}>
-      {type === 'success' && <span style={{ color: '#10b981' }}><Icons.check /></span>}
-      {message}
-    </div>
-  );
+  return icons[name] || null;
 };
 
-const Toggle = ({ checked, onChange, id }) => (
-  <button role="switch" aria-checked={checked} id={id}
-    onClick={(e) => {
-      e.stopPropagation();
-      onChange && onChange(e);
-    }}
-    style={{
-      width: 50, height: 27, borderRadius: 14,
-      background: checked ? 'var(--primary, #10b981)' : 'var(--border-color, #e2e8f0)',
-      border: 'none', cursor: 'pointer', position: 'relative',
-      transition: 'background 0.25s ease', flexShrink: 0, outline: 'none',
-      boxShadow: checked ? '0 2px 8px rgba(16,185,129,0.3)' : 'none',
-    }}
-    onFocus={e => (e.currentTarget.style.boxShadow = '0 0 0 3px rgba(16,185,129,0.25)')}
-    onBlur={e  => (e.currentTarget.style.boxShadow = checked ? '0 2px 8px rgba(16,185,129,0.3)' : 'none')}
-  >
-    <span style={{
-      position: 'absolute', top: 2.5,
-      left: checked ? 23 : 2.5,
-      width: 22, height: 22, borderRadius: '50%',
-      background: 'white', boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
-      transition: 'left 0.25s ease', display: 'block',
-    }} />
-  </button>
-);
-
-const Avatar = ({ user }) => {
-  const initials = (user.displayName || 'U').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
-  return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
-      {user.image ? (
-        <img src={user.image} alt={`${user.displayName}'s avatar`}
-          style={{ width: 80, height: 80, borderRadius: '50%', border: '3px solid var(--primary, #10b981)', objectFit: 'cover', display: 'block' }} />
-      ) : (
-        <div aria-label="Profile initials" style={{
-          width: 80, height: 80, borderRadius: '50%',
-          background: 'linear-gradient(135deg,#10b981,#34d399)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: 'white', fontSize: '1.6rem', fontWeight: 800, userSelect: 'none',
-          boxShadow: '0 4px 16px rgba(16,185,129,0.3)',
-        }}>
-          {initials}
-        </div>
-      )}
-      {/* Online dot */}
-      <div style={{
-        position: 'absolute', bottom: 3, right: 3,
-        width: 14, height: 14, borderRadius: '50%',
-        background: '#10b981', border: '2px solid var(--bg-secondary, white)',
-        boxShadow: '0 0 0 1px rgba(16,185,129,0.2)',
-      }} />
-    </div>
-  );
-};
-
-const ConfirmDialog = ({ message, onConfirm, onCancel }) => (
-  <div style={{
-    position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)',
-    backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center',
-    justifyContent: 'center', zIndex: 9000, padding: '1rem',
-    animation: 'stFadeIn 0.15s ease',
-  }}>
-    <div style={{
-      background: 'var(--bg-secondary, #fff)', borderRadius: 24, padding: '2rem',
-      maxWidth: 380, width: '100%',
-      border: '1px solid var(--border-color, #e2e8f0)',
-      boxShadow: '0 24px 60px rgba(0,0,0,0.2)',
-      animation: 'stScaleIn 0.2s cubic-bezier(0.16,1,0.3,1)',
-    }}>
-      <div style={{ width: 52, height: 52, borderRadius: 14, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', color: '#ef4444' }}>
-        <Icons.trash />
-      </div>
-      <p style={{ margin: '0 0 1.5rem', fontSize: '0.95rem', fontWeight: 600, lineHeight: 1.5, textAlign: 'center', color: 'var(--text-primary, #0f172a)' }}>
-        {message}
-      </p>
-      <div style={{ display: 'flex', gap: '0.75rem' }}>
-        <button onClick={onCancel} style={{
-          flex: 1, padding: '0.75rem', borderRadius: 12, border: '1.5px solid var(--border-color, #e2e8f0)',
-          background: 'var(--bg-primary, #f8fafc)', color: 'var(--text-secondary, #475569)', fontWeight: 700,
-          cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.9rem',
-        }}>Cancel</button>
-        <button onClick={onConfirm} style={{
-          flex: 1, padding: '0.75rem', borderRadius: 12, border: 'none',
-          background: 'linear-gradient(135deg,#ef4444,#dc2626)', color: 'white',
-          fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.9rem',
-          boxShadow: '0 4px 12px rgba(239,68,68,0.3)',
-        }}>Yes, delete all</button>
-      </div>
-    </div>
-  </div>
-);
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   Config constants
-───────────────────────────────────────────────────────────────────────────── */
-const NOTIFICATION_OPTIONS = [
-  { key: 'routeRecommendations', iconKey: 'map',    label: 'Route recommendations', description: 'Personalised eco-friendly route suggestions'    },
-  { key: 'weatherAlerts',        iconKey: 'sun',    label: 'Weather alerts',        description: 'Real-time weather updates for your routes'        },
-  { key: 'monthlyReports',       iconKey: 'bar',    label: 'Monthly impact reports', description: 'Carbon savings and achievements summary'         },
-  { key: 'achievements',         iconKey: 'star',   label: 'Achievement milestones', description: 'Celebrate your sustainability wins'              },
-];
-
-const THEME_OPTIONS = [
-  { value: 'light',  label: 'Light',  iconKey: 'sun',     description: 'Clean & bright',   accent: '#f59e0b', preview: ['#ffffff','#f8fafc','#0f172a'] },
-  { value: 'dark',   label: 'Dark',   iconKey: 'moon',    description: 'Easy on the eyes',  accent: '#3b82f6', preview: ['#0f172a','#1e293b','#ffffff'] },
-  { value: 'auto',   label: 'System', iconKey: 'monitor', description: 'Match OS setting',  accent: '#8b5cf6', preview: ['#f0fdf4','#e2e8f0','#0f172a'] },
-];
-
-const useToast = () => {
-  const [toast, setToast] = useState({ message: '', type: 'info' });
-  const timer = useRef(null);
-  const showToast = useCallback((message, type = 'info', duration = 3500) => {
-    if (timer.current) clearTimeout(timer.current);
-    setToast({ message, type });
-    timer.current = setTimeout(() => setToast({ message: '', type: 'info' }), duration);
-  }, []);
-  return { toast, showToast };
-};
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   Main Settings component
-───────────────────────────────────────────────────────────────────────────── */
 const Settings = ({ user, theme, onThemeChange }) => {
-  const { toast, showToast } = useToast();
+  const [displayName, setDisplayName] = useState(user?.displayName || '');
+  const [email, setEmail] = useState(user?.email || '');
   const [saving, setSaving] = useState(false);
-  const [confirmClear, setConfirmClear] = useState(false);
+  const [msg, setMsg] = useState('');
 
-  const [profileData, setProfileData] = useState({
-    displayName: user.displayName || '',
-    email:       user.email       || '',
-  });
-  const [profileErrors, setProfileErrors] = useState({});
-
+  // Notification toggles state
   const [notifications, setNotifications] = useState({
-    routeRecommendations: true,
-    weatherAlerts:        true,
-    monthlyReports:       true,
-    achievements:         false,
+    routes: true,
+    weather: true,
+    impact: true,
+    achievements: false,
   });
 
-  const withSaving = useCallback(async (fn) => {
-    if (saving) return;
+  const toggleNotification = (key) => {
+    setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault();
     setSaving(true);
-    try { await fn(); }
-    catch { showToast('Something went wrong. Please try again.', 'error'); }
-    finally { setSaving(false); }
-  }, [saving, showToast]);
-
-  const validateProfile = () => {
-    const errors = {};
-    if (!profileData.displayName.trim()) errors.displayName = 'Display name is required';
-    if (!profileData.email.trim()) errors.email = 'Email is required';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileData.email)) errors.email = 'Enter a valid email address';
-    return errors;
+    setMsg('');
+    try {
+      await axios.put('/api/profile', { displayName, email });
+      setMsg('Profile updated successfully!');
+      setTimeout(() => setMsg(''), 3500);
+    } catch (err) {
+      setMsg(err.response?.data?.error || 'Failed to update profile');
+      setTimeout(() => setMsg(''), 3500);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleThemeChange  = (value) => withSaving(async () => { await onThemeChange(value); showToast('Theme updated', 'success'); });
-  const handleProfileUpdate = () => {
-    const errors = validateProfile();
-    if (Object.keys(errors).length) { setProfileErrors(errors); return; }
-    setProfileErrors({});
-    withSaving(async () => {
-      await axios.put('/api/profile', {
-        displayName: profileData.displayName.trim(),
-        email:       profileData.email.trim(),
-      });
-      showToast('Profile saved successfully', 'success');
-    });
-  };
-  const handleNotificationToggle = (key) => setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
-  const handleClearHistory = () => setConfirmClear(true);
-  const handleConfirmClear = () => {
-    setConfirmClear(false);
-    withSaving(async () => {
-      await axios.delete('/api/history');
-      showToast('Trip history cleared', 'success');
-    });
-  };
-  const handleExport = () => withSaving(async () => {
-    showToast('Preparing your export…', 'info', 2000);
-    await new Promise(r => setTimeout(r, 2000));
-    showToast('Export ready — check your downloads', 'success', 4000);
-  });
+  const initials = (user?.displayName || 'User')
+    .split(' ')
+    .map(w => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 
-  /* ── Render ── */
   return (
-    <div style={{ width: '100%', maxWidth: 1400, margin: '0 auto', paddingBottom: '3rem', paddingLeft: '2rem', paddingRight: '2rem' }}>
-      {confirmClear && (
-        <ConfirmDialog
-          message="Delete all trip history? This cannot be undone."
-          onConfirm={handleConfirmClear}
-          onCancel={() => setConfirmClear(false)}
-        />
-      )}
-
-      {/* ── Glassmorphic Header ── */}
-      <div style={{
-        position: 'relative',
-        background: 'linear-gradient(135deg, var(--bg-secondary, #ffffff) 0%, rgba(16,185,129,0.06) 100%)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        border: '1.5px solid var(--border-color, rgba(16,185,129,0.2))',
-        borderRadius: 24,
-        padding: '22px 28px',
-        marginBottom: '1.75rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '16px',
-        boxShadow: '0 12px 32px rgba(15,23,42,0.04)',
-        overflow: 'hidden',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', zIndex: 1 }}>
-          <div style={{
-            width: 48, height: 48, borderRadius: 16,
-            background: 'linear-gradient(135deg, rgba(16,185,129,0.18), rgba(16,185,129,0.05))',
-            border: '1.5px solid rgba(16,185,129,0.3)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'var(--primary, #10b981)', flexShrink: 0,
-            boxShadow: '0 4px 14px rgba(16,185,129,0.15)'
-          }}>
-            {Icons.settings?.()}
-          </div>
-          <div>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)',
-              color: 'var(--primary, #059669)', fontSize: '0.72rem', fontWeight: 800,
-              padding: '3px 10px', borderRadius: 999, letterSpacing: '0.06em',
-              textTransform: 'uppercase', marginBottom: 4
-            }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
-              User Configuration
+    <div className="settings-page-wrapper">
+      <div className="settings-container">
+        {/* ── Top Header Banner Card matching Reference Image 3 ── */}
+        <div className="settings-header-banner">
+          <div className="banner-left">
+            <div className="banner-icon-emblem">
+              <Icon name="settings" size={24} />
             </div>
-            <h2 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 900, fontFamily: "'Outfit', sans-serif", letterSpacing: '-0.03em', color: 'var(--text-primary, #0f172a)' }}>
-              Settings
-            </h2>
-            <p style={{ margin: '3px 0 0', fontSize: '0.9rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500 }}>
-              Manage your account identity, themes, and notification alerts
-            </p>
-          </div>
-        </div>
-
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{
-            background: 'rgba(16, 185, 129, 0.15)', border: '1.5px solid var(--primary, #10b981)',
-            color: 'var(--primary, #065f46)', fontSize: '0.78rem', fontWeight: 800,
-            padding: '0.35rem 0.85rem', borderRadius: 999,
-          }}>
-            Eco Champion Member
-          </span>
-        </div>
-      </div>
-
-      <Toast message={toast.message} type={toast.type} />
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
-
-        {/* ── Profile ── */}
-        <SectionCard iconKey="user" title="Profile" subtitle="Your public identity on GreenRoute">
-
-          {/* Avatar + name row */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-            <Avatar user={user} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: '0 0 0.15rem', fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-primary, #0f172a)' }}>
-                {user.displayName}
-              </p>
-              <p style={{ margin: '0 0 0.65rem', fontSize: '0.85rem', color: 'var(--text-secondary, #64748b)' }}>
-                {user.email}
-              </p>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
-                background: 'rgba(16, 185, 129, 0.15)', border: '1.5px solid var(--primary, #10b981)',
-                color: 'var(--primary, #065f46)', fontSize: '0.75rem', fontWeight: 700,
-                padding: '0.25rem 0.7rem', borderRadius: 999,
-              }}>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="var(--primary, #10b981)"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                Eco Champion
-              </span>
-            </div>
-          </div>
-
-          {/* Form fields */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
-            {[
-              { id: 'displayName', label: 'Display Name', type: 'text', placeholder: 'Your name', field: 'displayName' },
-              { id: 'email',       label: 'Email Address', type: 'email', placeholder: 'you@example.com', field: 'email' },
-            ].map(({ id, label, type, placeholder, field }) => (
-              <div key={id}>
-                <label htmlFor={id} style={{ display: 'block', fontWeight: 700, fontSize: '0.82rem', marginBottom: '0.4rem', color: 'var(--text-primary, #0f172a)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                  {label}
-                </label>
-                <input
-                  id={id} type={type}
-                  value={profileData[field]}
-                  onChange={e => {
-                    setProfileData(p => ({ ...p, [field]: e.target.value }));
-                    if (profileErrors[field]) setProfileErrors(p => ({ ...p, [field]: '' }));
-                  }}
-                  placeholder={placeholder}
-                  style={{
-                    width: '100%', boxSizing: 'border-box',
-                    padding: '0.65rem 0.9rem', borderRadius: 10,
-                    border: `1.5px solid ${profileErrors[field] ? '#ef4444' : 'var(--border-color, #e2e8f0)'}`,
-                    fontSize: '0.9rem', fontFamily: 'inherit',
-                    background: profileErrors[field] ? '#fef2f2' : 'var(--bg-primary, #f8fafc)',
-                    color: 'var(--text-primary, #0f172a)',
-                    outline: 'none',
-                    transition: 'border-color 0.15s',
-                  }}
-                  onFocus={e => (e.target.style.borderColor = 'var(--primary, #10b981)')}
-                  onBlur={e  => (e.target.style.borderColor = profileErrors[field] ? '#ef4444' : 'var(--border-color, #e2e8f0)')}
-                />
-                {profileErrors[field] && (
-                  <p id={`${id}-error`} role="alert" style={{ margin: '0.3rem 0 0', fontSize: '0.78rem', color: '#ef4444', fontWeight: 600 }}>
-                    {profileErrors[field]}
-                  </p>
-                )}
+            <div className="banner-text">
+              <div className="banner-eyebrow">
+                <span className="eyebrow-star"><Icon name="star" size={12} /></span>
+                <span>USER CONFIGURATION</span>
               </div>
-            ))}
+              <h1 className="banner-title">Settings</h1>
+              <p className="banner-subtitle">
+                Manage your account identity, themes, and notification alerts.
+              </p>
+            </div>
           </div>
 
-          <button
-            onClick={handleProfileUpdate}
-            disabled={saving}
-            style={{
-              padding: '0.7rem 1.75rem', borderRadius: 11, border: 'none',
-              background: 'linear-gradient(135deg,#10b981,#059669)',
-              color: 'white', fontWeight: 700, fontSize: '0.9rem',
-              cursor: saving ? 'not-allowed' : 'pointer', fontFamily: 'inherit',
-              boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
-              transition: 'opacity 0.15s',
-              opacity: saving ? 0.7 : 1,
-            }}
-          >
-            {saving ? 'Saving…' : 'Save Changes'}
-          </button>
-        </SectionCard>
-
-        {/* ── Appearance ── */}
-        <SectionCard iconKey="palette" title="Appearance" subtitle="Choose how GreenRoute looks on your device">
-          <div className="theme-grid">
-            {THEME_OPTIONS.map(opt => {
-              const active = theme === opt.value;
-              return (
-                <button
-                  key={opt.value}
-                  onClick={() => handleThemeChange(opt.value)}
-                  disabled={saving}
-                  aria-pressed={active}
-                  style={{
-                    padding: '1.1rem 0.75rem', borderRadius: 14, cursor: saving ? 'not-allowed' : 'pointer',
-                    border: `2px solid ${active ? 'var(--primary, #10b981)' : 'var(--border-color, #e2e8f0)'}`,
-                    background: active ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-secondary, #f8fafc)',
-                    transition: 'all 0.2s ease', textAlign: 'center', position: 'relative',
-                    outline: 'none', fontFamily: 'inherit',
-                  }}
-                  onMouseOver={e => { if (!active && !saving) { e.currentTarget.style.borderColor = 'var(--primary, #10b981)'; e.currentTarget.style.transform = 'translateY(-2px)'; } }}
-                  onMouseOut={e  => { if (!active) { e.currentTarget.style.borderColor = 'var(--border-color, #e2e8f0)'; e.currentTarget.style.transform = 'none'; } }}
-                >
-                  {/* Mini preview strip */}
-                  <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', height: 28, marginBottom: '0.6rem', border: '1px solid var(--border-color, rgba(0,0,0,0.08))' }}>
-                    {opt.preview.map((c, i) => (
-                      <div key={i} style={{ flex: i === 2 ? 0.6 : 1, background: c }} />
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', marginBottom: '0.2rem' }}>
-                    <span style={{ color: active ? 'var(--primary, #10b981)' : 'var(--text-secondary, #475569)' }}>
-                      {Icons[opt.iconKey]?.()}
-                    </span>
-                    <span style={{ fontWeight: 800, fontSize: '0.88rem', color: active ? 'var(--primary, #065f46)' : 'var(--text-primary, #0f172a)' }}>
-                      {opt.label}
-                    </span>
-                  </div>
-                  <p style={{ margin: 0, fontSize: '0.73rem', color: 'var(--text-muted, #94a3b8)', fontWeight: 500 }}>
-                    {opt.description}
-                  </p>
-                  {active && (
-                    <span style={{
-                      position: 'absolute', top: 8, right: 8,
-                      background: '#10b981', color: 'white',
-                      width: 18, height: 18, borderRadius: '50%',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          <div className="banner-right">
+            <div className="member-badge-pill">
+              <Icon name="badge" size={16} />
+              <span>Eco Champion Member</span>
+            </div>
           </div>
-        </SectionCard>
+        </div>
 
-        {/* ── Notifications ── */}
-        <SectionCard iconKey="bell" title="Notifications" subtitle="Choose what updates you want to receive">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {NOTIFICATION_OPTIONS.map(({ key, iconKey, label, description }) => {
-              const on = notifications[key];
-              return (
-                <div
-                  key={key}
-                  onClick={() => handleNotificationToggle(key)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '1rem',
-                    padding: '1rem 1.1rem', borderRadius: 14, cursor: 'pointer',
-                    border: `1.5px solid ${on ? 'var(--primary, #10b981)' : 'var(--border-color, #f1f5f9)'}`,
-                    background: on ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-secondary, #f8fafc)',
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                    background: on ? 'var(--primary, #10b981)' : 'var(--border-color, #e2e8f0)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: on ? 'white' : 'var(--text-muted, #94a3b8)',
-                    transition: 'all 0.2s',
-                  }}>
-                    {Icons[iconKey]?.()}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ margin: '0 0 0.15rem', fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-primary, #0f172a)' }}>
-                      {label}
-                    </p>
-                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary, #64748b)' }}>
-                      {description}
-                    </p>
-                  </div>
-                  <Toggle id={`notif-${key}`} checked={on} onChange={() => handleNotificationToggle(key)} />
+        {/* ── 2-Column Grid Layout ── */}
+        <div className="settings-grid">
+          {/* Left Column: Profile Card + Appearance Card */}
+          <div className="settings-col left-col">
+            {/* Card 1: Profile */}
+            <div className="settings-card">
+              <div className="card-header">
+                <div className="card-icon-wrap">
+                  <Icon name="user" size={18} />
                 </div>
-              );
-            })}
+                <div>
+                  <h2 className="card-title">Profile</h2>
+                  <p className="card-subtitle">Your public identity on GreenRoute</p>
+                </div>
+              </div>
+
+              {/* Avatar + Identity Row */}
+              <div className="profile-identity-row">
+                <div className="profile-avatar-container">
+                  {user?.image ? (
+                    <img src={user.image} alt={user.displayName} className="profile-avatar-img" />
+                  ) : (
+                    <div className="profile-avatar-fallback">{initials}</div>
+                  )}
+                  <div className="profile-check-badge">
+                    <Icon name="check" size={12} />
+                  </div>
+                </div>
+
+                <div className="profile-identity-info">
+                  <div className="profile-name-text">{user?.displayName || (user?.email ? user.email.split('@')[0] : 'GreenRoute Explorer')}</div>
+                  <div className="profile-email-text">{user?.email || 'Eco User'}</div>
+                  <div className="profile-status-pill">
+                    <span className="status-star"><Icon name="star" size={10} /></span>
+                    <span>Eco Champion</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Form Inputs */}
+              <form onSubmit={handleSaveProfile} className="profile-form">
+                {msg && (
+                  <div className={`form-msg ${msg.includes('success') ? 'success' : 'error'}`}>
+                    {msg}
+                  </div>
+                )}
+
+                <div className="form-group">
+                  <label className="form-label">DISPLAY NAME</label>
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className="form-input"
+                    placeholder="Your name"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">EMAIL ADDRESS</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="form-input"
+                    placeholder="Your email"
+                  />
+                </div>
+
+                <button type="submit" disabled={saving} className="save-btn">
+                  <span className="save-icon">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                      <polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" />
+                    </svg>
+                  </span>
+                  <span>{saving ? 'Saving...' : 'Save Changes'}</span>
+                </button>
+              </form>
+            </div>
+
+            {/* Card 2: Appearance */}
+            <div className="settings-card">
+              <div className="card-header">
+                <div className="card-icon-wrap">
+                  <Icon name="palette" size={18} />
+                </div>
+                <div>
+                  <h2 className="card-title">Appearance</h2>
+                  <p className="card-subtitle">Choose how GreenRoute looks on your device</p>
+                </div>
+              </div>
+
+              <div className="theme-options-grid">
+                {/* Light Mode Option */}
+                <div
+                  className={`theme-option-card ${theme === 'light' ? 'selected' : ''}`}
+                  onClick={() => onThemeChange('light')}
+                >
+                  <div className="theme-preview-box light-preview">
+                    <div className="preview-top-bar" />
+                    <div className="preview-content-box" />
+                  </div>
+                  <div className="theme-option-info">
+                    <div className="theme-name">
+                      <span className="theme-icon">☼</span> Light
+                    </div>
+                    <div className="theme-desc">Clean & bright</div>
+                  </div>
+                </div>
+
+                {/* Dark Mode Option */}
+                <div
+                  className={`theme-option-card ${theme === 'dark' ? 'selected' : ''}`}
+                  onClick={() => onThemeChange('dark')}
+                >
+                  <div className="theme-preview-box dark-preview">
+                    <div className="preview-top-bar dark" />
+                    <div className="preview-content-box dark" />
+                  </div>
+                  <div className="theme-option-info">
+                    <div className="theme-name">
+                      <span className="theme-icon">☾</span> Dark
+                    </div>
+                    <div className="theme-desc">Easy on the eyes</div>
+                  </div>
+                </div>
+
+                {/* System Option */}
+                <div
+                  className={`theme-option-card ${theme === 'auto' ? 'selected' : ''}`}
+                  onClick={() => onThemeChange('auto')}
+                >
+                  <div className="theme-preview-box system-preview">
+                    <div className="preview-half light" />
+                    <div className="preview-half dark" />
+                  </div>
+                  <div className="theme-option-info">
+                    <div className="theme-name">
+                      <span className="theme-icon">⬒</span> System
+                    </div>
+                    <div className="theme-desc">Match OS setting</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </SectionCard>
+
+          {/* Right Column: Notifications Card */}
+          <div className="settings-col right-col">
+            <div className="settings-card notifications-card">
+              <div className="card-header">
+                <div className="card-icon-wrap">
+                  <Icon name="bell" size={18} />
+                </div>
+                <div>
+                  <h2 className="card-title">Notifications</h2>
+                  <p className="card-subtitle">Update preferences</p>
+                </div>
+              </div>
+
+              <div className="toggle-items-list">
+                {/* Item 1: Route Recommendations */}
+                <div className="toggle-item-row">
+                  <div className="toggle-item-icon green">
+                    <Icon name="route" size={18} />
+                  </div>
+                  <div className="toggle-item-content">
+                    <div className="toggle-item-title">Route recommendations</div>
+                    <div className="toggle-item-desc">Personalised eco-friendly route suggestions.</div>
+                  </div>
+                  <label className="switch-control">
+                    <input
+                      type="checkbox"
+                      checked={notifications.routes}
+                      onChange={() => toggleNotification('routes')}
+                    />
+                    <span className="switch-slider" />
+                  </label>
+                </div>
+
+                {/* Item 2: Weather Alerts */}
+                <div className="toggle-item-row">
+                  <div className="toggle-item-icon green">
+                    <Icon name="sun" size={18} />
+                  </div>
+                  <div className="toggle-item-content">
+                    <div className="toggle-item-title">Weather alerts</div>
+                    <div className="toggle-item-desc">Real-time weather updates for your routes.</div>
+                  </div>
+                  <label className="switch-control">
+                    <input
+                      type="checkbox"
+                      checked={notifications.weather}
+                      onChange={() => toggleNotification('weather')}
+                    />
+                    <span className="switch-slider" />
+                  </label>
+                </div>
+
+                {/* Item 3: Monthly Impact */}
+                <div className="toggle-item-row">
+                  <div className="toggle-item-icon green">
+                    <Icon name="chart" size={18} />
+                  </div>
+                  <div className="toggle-item-content">
+                    <div className="toggle-item-title">Monthly impact</div>
+                    <div className="toggle-item-desc">Carbon savings and achievements summary.</div>
+                  </div>
+                  <label className="switch-control">
+                    <input
+                      type="checkbox"
+                      checked={notifications.impact}
+                      onChange={() => toggleNotification('impact')}
+                    />
+                    <span className="switch-slider" />
+                  </label>
+                </div>
+
+                {/* Item 4: Achievement Milestones */}
+                <div className="toggle-item-row">
+                  <div className="toggle-item-icon amber">
+                    <Icon name="medal" size={18} />
+                  </div>
+                  <div className="toggle-item-content">
+                    <div className="toggle-item-title">Achievement milestones</div>
+                    <div className="toggle-item-desc">Celebrate your sustainability wins.</div>
+                  </div>
+                  <label className="switch-control">
+                    <input
+                      type="checkbox"
+                      checked={notifications.achievements}
+                      onChange={() => toggleNotification('achievements')}
+                    />
+                    <span className="switch-slider" />
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <style>{`
-        @keyframes stSlideUp { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
-        @keyframes stFadeIn  { from { opacity:0; } to { opacity:1; } }
-        @keyframes stScaleIn { from { opacity:0; transform:scale(0.92); } to { opacity:1; transform:scale(1); } }
-        .theme-grid {
+        .settings-page-wrapper {
+          min-height: 100vh;
+          background: var(--bg-primary, #FBF9F4);
+          color: var(--text-primary, #1C281F);
+          padding: 2.5rem;
+          box-sizing: border-box;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        .settings-container {
+          max-width: 1060px;
+          margin: 0 auto;
+          display: flex;
+          flex-direction: column;
+          gap: 1.75rem;
+        }
+
+        /* ── Header Banner ── */
+        .settings-header-banner {
+          background: var(--bg-secondary, #FFFFFF);
+          border: 1.5px solid var(--border-color, #EAE4DA);
+          border-radius: 24px;
+          padding: 1.75rem 2rem;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          box-shadow: 0 4px 18px rgba(28, 40, 31, 0.03);
+          flex-wrap: wrap;
+          gap: 1.25rem;
+        }
+
+        .banner-left {
+          display: flex;
+          align-items: center;
+          gap: 1.25rem;
+        }
+
+        .banner-icon-emblem {
+          width: 52px;
+          height: 52px;
+          border-radius: 16px;
+          background: var(--primary-soft, #E8EFE9);
+          color: var(--primary, #4A7C59);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .banner-text {
+          display: flex;
+          flex-direction: column;
+          gap: 0.2rem;
+        }
+
+        .banner-eyebrow {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          font-size: 0.72rem;
+          font-weight: 800;
+          letter-spacing: 0.08em;
+          color: #A16207;
+          background: #FEF3C7;
+          padding: 0.2rem 0.6rem;
+          border-radius: 9999px;
+          width: fit-content;
+        }
+
+        .eyebrow-star {
+          display: flex;
+          align-items: center;
+        }
+
+        .banner-title {
+          font-family: 'Newsreader', Georgia, serif;
+          font-size: 2.2rem;
+          font-weight: 700;
+          color: var(--text-primary, #1C281F);
+          margin: 0;
+          line-height: 1.15;
+        }
+
+        .banner-subtitle {
+          font-size: 0.92rem;
+          color: var(--text-secondary, #5F7163);
+          margin: 0;
+        }
+
+        .member-badge-pill {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: var(--primary, #4A7C59);
+          color: #FFFFFF;
+          font-size: 0.85rem;
+          font-weight: 700;
+          padding: 0.6rem 1.25rem;
+          border-radius: 9999px;
+          box-shadow: 0 4px 14px var(--primary-glow);
+        }
+
+        /* ── Grid Layout ── */
+        .settings-grid {
+          display: grid;
+          grid-template-columns: 1.25fr 1fr;
+          gap: 1.75rem;
+          align-items: start;
+        }
+
+        .settings-col {
+          display: flex;
+          flex-direction: column;
+          gap: 1.75rem;
+        }
+
+        .settings-card {
+          background: var(--bg-secondary, #FFFFFF);
+          border: 1.5px solid var(--border-color, #EAE4DA);
+          border-radius: 24px;
+          padding: 1.75rem;
+          box-shadow: 0 4px 16px rgba(28, 40, 31, 0.03);
+        }
+
+        .card-header {
+          display: flex;
+          align-items: center;
+          gap: 0.85rem;
+          margin-bottom: 1.5rem;
+        }
+
+        .card-icon-wrap {
+          width: 38px;
+          height: 38px;
+          border-radius: 12px;
+          background: var(--primary-soft, #E8EFE9);
+          color: var(--primary, #4A7C59);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .card-title {
+          font-family: 'Newsreader', Georgia, serif;
+          font-size: 1.35rem;
+          font-weight: 700;
+          color: var(--text-primary, #1C281F);
+          margin: 0;
+          line-height: 1.2;
+        }
+
+        .card-subtitle {
+          font-size: 0.85rem;
+          color: var(--text-secondary, #5F7163);
+          margin: 0;
+        }
+
+        /* ── Profile Identity Row ── */
+        .profile-identity-row {
+          display: flex;
+          align-items: center;
+          gap: 1.25rem;
+          padding-bottom: 1.5rem;
+          margin-bottom: 1.5rem;
+          border-bottom: 1.5px solid var(--border-color, #EAE4DA);
+        }
+
+        .profile-avatar-container {
+          position: relative;
+          width: 76px;
+          height: 76px;
+          flex-shrink: 0;
+        }
+
+        .profile-avatar-img {
+          width: 76px;
+          height: 76px;
+          border-radius: 50%;
+          object-fit: cover;
+          border: 3px solid var(--primary, #4A7C59);
+        }
+
+        .profile-avatar-fallback {
+          width: 76px;
+          height: 76px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, var(--primary, #4A7C59), #7DAF87);
+          color: #FFFFFF;
+          font-size: 1.6rem;
+          font-weight: 800;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 16px var(--primary-glow);
+        }
+
+        .profile-check-badge {
+          position: absolute;
+          bottom: 0;
+          right: 0;
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: #22C55E;
+          color: white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2.5px solid var(--bg-secondary, #FFFFFF);
+        }
+
+        .profile-identity-info {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+
+        .profile-name-text {
+          font-size: 1.2rem;
+          font-weight: 800;
+          color: var(--text-primary, #1C281F);
+        }
+
+        .profile-email-text {
+          font-size: 0.88rem;
+          color: var(--text-secondary, #5F7163);
+        }
+
+        .profile-status-pill {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          background: #EAF1EB;
+          color: #2D5334;
+          font-size: 0.75rem;
+          font-weight: 700;
+          padding: 0.2rem 0.65rem;
+          border-radius: 9999px;
+          width: fit-content;
+          margin-top: 0.2rem;
+        }
+
+        .status-star {
+          display: flex;
+          color: #4A7C59;
+        }
+
+        /* ── Profile Form ── */
+        .profile-form {
+          display: flex;
+          flex-direction: column;
+          gap: 1.15rem;
+        }
+
+        .form-msg {
+          padding: 0.75rem 1rem;
+          border-radius: 12px;
+          font-size: 0.85rem;
+          font-weight: 600;
+        }
+
+        .form-msg.success {
+          background: #EAF1EB;
+          color: #2D5334;
+          border: 1px solid #A8C9AF;
+        }
+
+        .form-msg.error {
+          background: #FEE2E2;
+          color: #991B1B;
+          border: 1px solid #FCA5A5;
+        }
+
+        .form-group {
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+        }
+
+        .form-label {
+          font-size: 0.72rem;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          color: var(--text-secondary, #5F7163);
+          text-transform: uppercase;
+        }
+
+        .form-input {
+          height: 48px;
+          background: var(--bg-input, #F3EFE8);
+          border: 1.5px solid var(--border-color, #EAE4DA);
+          border-radius: 14px;
+          padding: 0 1.15rem;
+          font-family: inherit;
+          font-size: 0.92rem;
+          font-weight: 600;
+          color: var(--text-primary, #1C281F);
+          outline: none;
+          transition: border-color 0.2s ease;
+        }
+
+        .form-input:focus {
+          border-color: var(--primary, #4A7C59);
+        }
+
+        .save-btn {
+          margin-top: 0.5rem;
+          height: 44px;
+          border-radius: 9999px;
+          border: none;
+          background: var(--primary, #4A7C59);
+          color: #FFFFFF;
+          font-family: inherit;
+          font-size: 0.9rem;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          box-shadow: 0 4px 14px var(--primary-glow);
+          width: fit-content;
+          padding: 0 1.5rem;
+        }
+
+        .save-btn:hover {
+          background: var(--primary-hover, #3B6647);
+          transform: translateY(-1px);
+        }
+
+        /* ── Theme Options Grid ── */
+        .theme-options-grid {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
-          gap: 0.75rem;
+          gap: 0.85rem;
         }
-        @media (max-width: 640px) {
-          .theme-grid {
+
+        .theme-option-card {
+          border: 2px solid var(--border-color, #EAE4DA);
+          border-radius: 16px;
+          padding: 0.85rem;
+          background: var(--bg-input, #F3EFE8);
+          cursor: pointer;
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+          transition: all 0.2s ease;
+        }
+
+        .theme-option-card:hover {
+          border-color: var(--primary, #4A7C59);
+        }
+
+        .theme-option-card.selected {
+          border-color: var(--primary, #4A7C59);
+          background: var(--bg-secondary, #FFFFFF);
+          box-shadow: 0 4px 14px rgba(74, 124, 89, 0.12);
+        }
+
+        .theme-preview-box {
+          height: 70px;
+          border-radius: 10px;
+          overflow: hidden;
+          border: 1px solid var(--border-color, #EAE4DA);
+          display: flex;
+          flex-direction: column;
+        }
+
+        .theme-preview-box.light-preview {
+          background: #FBF9F4;
+        }
+
+        .preview-top-bar {
+          height: 14px;
+          background: #EAE4DA;
+          width: 50%;
+          border-radius: 4px;
+          margin: 8px 8px 6px;
+        }
+
+        .preview-content-box {
+          flex: 1;
+          background: #FFFFFF;
+          border: 1px solid #EAE4DA;
+          border-radius: 6px;
+          margin: 0 8px 8px;
+        }
+
+        .theme-preview-box.dark-preview {
+          background: #111714;
+        }
+
+        .preview-top-bar.dark {
+          background: #24342A;
+        }
+
+        .preview-content-box.dark {
+          background: #17211C;
+          border: 1px solid #24342A;
+        }
+
+        .theme-preview-box.system-preview {
+          flex-direction: row;
+        }
+
+        .preview-half {
+          flex: 1;
+          height: 100%;
+        }
+
+        .preview-half.light {
+          background: #FBF9F4;
+        }
+
+        .preview-half.dark {
+          background: #111714;
+        }
+
+        .theme-option-info {
+          display: flex;
+          flex-direction: column;
+          gap: 0.1rem;
+        }
+
+        .theme-name {
+          font-size: 0.9rem;
+          font-weight: 700;
+          color: var(--text-primary, #1C281F);
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+        }
+
+        .theme-desc {
+          font-size: 0.75rem;
+          color: var(--text-secondary, #5F7163);
+        }
+
+        /* ── Notifications Column ── */
+        .toggle-items-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.85rem;
+        }
+
+        .toggle-item-row {
+          background: var(--bg-input, #F3EFE8);
+          border: 1px solid var(--border-color, #EAE4DA);
+          border-radius: 16px;
+          padding: 1.15rem;
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .toggle-item-icon {
+          width: 38px;
+          height: 38px;
+          border-radius: 10px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+
+        .toggle-item-icon.green {
+          background: #EAF1EB;
+          color: #4A7C59;
+        }
+
+        .toggle-item-icon.amber {
+          background: #FEF3C7;
+          color: #D97706;
+        }
+
+        .toggle-item-content {
+          flex: 1;
+          min-width: 0;
+        }
+
+        .toggle-item-title {
+          font-size: 0.92rem;
+          font-weight: 700;
+          color: var(--text-primary, #1C281F);
+          margin-bottom: 0.15rem;
+        }
+
+        .toggle-item-desc {
+          font-size: 0.78rem;
+          color: var(--text-secondary, #5F7163);
+          line-height: 1.35;
+        }
+
+        /* Switch Slider */
+        .switch-control {
+          position: relative;
+          display: inline-block;
+          width: 44px;
+          height: 24px;
+          flex-shrink: 0;
+        }
+
+        .switch-control input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+
+        .switch-slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background-color: #D1D5DB;
+          transition: .25s;
+          border-radius: 24px;
+        }
+
+        .switch-slider:before {
+          position: absolute;
+          content: "";
+          height: 18px;
+          width: 18px;
+          left: 3px;
+          bottom: 3px;
+          background-color: white;
+          transition: .25s;
+          border-radius: 50%;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+
+        input:checked + .switch-slider {
+          background-color: var(--primary, #4A7C59);
+        }
+
+        input:checked + .switch-slider:before {
+          transform: translateX(20px);
+        }
+
+        @media (max-width: 900px) {
+          .settings-page-wrapper {
+            padding: 1.25rem 1rem;
+          }
+          .settings-grid {
+            grid-template-columns: 1fr;
+          }
+          .theme-options-grid {
             grid-template-columns: 1fr;
           }
         }

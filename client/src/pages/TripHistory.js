@@ -1,820 +1,1000 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getCachedData, setCachedData } from '../utils/cache';
 
-/* ─── Constants ─────────────────────────────────────────────────────────────── */
-const MODE_META = {
-  walking: { color: '#10b981', bg: '#ecfdf5', label: 'Walking', gradient: 'linear-gradient(135deg,#10b981,#34d399)', icon: '🚶' },
-  cycling: { color: '#3b82f6', bg: '#eff6ff', label: 'Cycling', gradient: 'linear-gradient(135deg,#3b82f6,#60a5fa)', icon: '🚲' },
-  driving: { color: '#f59e0b', bg: '#fffbeb', label: 'Driving', gradient: 'linear-gradient(135deg,#f59e0b,#fbbf24)', icon: '🚗' },
-  transit: { color: '#8b5cf6', bg: '#f5f3ff', label: 'Transit', gradient: 'linear-gradient(135deg,#8b5cf6,#a78bfa)', icon: '🚌' },
-};
-
-const getMeta = (mode = '') => MODE_META[mode.toLowerCase()] || MODE_META.transit;
-
-/* ─── Helpers ───────────────────────────────────────────────────────────────── */
-const fmt = {
-  co2: (v) => parseFloat(v || 0).toFixed(2),
-  dist: (v) => parseFloat(v || 0).toFixed(1),
-  dur: (m) => {
-    m = parseInt(m) || 0;
-    if (m < 60) return `${m}m`;
-    return `${Math.floor(m / 60)}h ${m % 60 > 0 ? `${m % 60}m` : ''}`.trim();
-  },
-  date: (d) => {
-    const date = new Date(d);
-    const now = new Date();
-    const diff = Math.floor((now - date) / 86400000);
-    if (diff === 0) return `Today · ${date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
-    if (diff === 1) return `Yesterday · ${date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
-    if (diff < 7) return `${diff} days ago`;
-    return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-  },
-};
-
-const ecoEquiv = (kg) => {
-  kg = parseFloat(kg) || 0;
-  if (kg >= 21.7) return `${(kg / 21.7).toFixed(1)} trees absorbed`;
-  if (kg >= 0.5) return `${Math.round(kg / 0.021)} coffees saved`;
-  if (kg >= 0.05) return `${Math.round(kg / 0.008)} phone charges`;
-  return `Every gram counts!`;
-};
-
-const calcStats = (trips) => {
-  const totalCO2 = trips.reduce((s, t) => s + (parseFloat(t.co2Saved) || 0), 0);
-  const totalDistance = trips.reduce((s, t) => s + (parseFloat(t.distance) || 0), 0);
-  const totalDuration = trips.reduce((s, t) => s + (parseInt(t.duration) || 0), 0);
-  const totalCalories = trips.reduce((s, t) => s + (parseInt(t.calories) || 0), 0);
-  const modeCount = {};
-  trips.forEach(t => { const m = t.mode?.toLowerCase() || 'transit'; modeCount[m] = (modeCount[m] || 0) + 1; });
-  const favMode = Object.keys(modeCount).sort((a, b) => modeCount[b] - modeCount[a])[0] || 'walking';
-  return { totalCO2, totalDistance, totalDuration, totalCalories, totalTrips: trips.length, favMode, modeCount };
-};
-
-/* ─── Sub-components ────────────────────────────────────────────────────────── */
-
-/* Skeleton pulse card */
-const SkeletonCard = () => (
-  <div style={{ ...S.tripCard, padding: '1.5rem', gap: 0 }}>
-    <style>{`@keyframes skPulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
-    {[1, 2, 3].map(i => (
-      <div key={i} style={{
-        height: i === 1 ? 18 : 12, background: '#e2e8f0', borderRadius: 8,
-        marginBottom: i < 3 ? 10 : 0, width: i === 1 ? '65%' : i === 2 ? '40%' : '50%',
-        animation: 'skPulse 1.5s ease-in-out infinite', animationDelay: `${i * 0.15}s`
-      }} />
-    ))}
-  </div>
-);
-
-/* Stat card with animated counter */
-const StatCard = ({ icon, value, label, sub, color, bg }) => {
-  const [display, setDisplay] = useState(0);
-  const target = parseFloat(value) || 0;
-  const raf = useRef();
-  useEffect(() => {
-    const start = performance.now();
-    const dur = 900;
-    const tick = (now) => {
-      const t = Math.min((now - start) / dur, 1);
-      const ease = 1 - Math.pow(1 - t, 3);
-      setDisplay(target * ease);
-      if (t < 1) raf.current = requestAnimationFrame(tick);
-    };
-    raf.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf.current);
-  }, [target]);
-
-  const isInt = Number.isInteger(target);
-  const shown = isInt ? Math.round(display) : display.toFixed(1);
-
-  return (
-    <div style={{ ...S.statCard, background: `color-mix(in srgb, ${color} 8%, var(--bg-secondary))`, border: `1.5px solid ${color}22` }}>
-      <div style={{ ...S.statIconBg, background: `${color}18` }}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          {icon === 'co2' && <><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z" /><path d="M12 8v4l3 3" /></>}
-          {icon === 'trip' && <><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" /><line x1="9" y1="3" x2="9" y2="18" /><line x1="15" y1="6" x2="15" y2="21" /></>}
-          {icon === 'dist' && <><path d="M3 12h18M3 6h18M3 18h18" /></>}
-          {icon === 'cal' && <><path d="M18 8h1a4 4 0 0 1 0 8h-1" /><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z" /><line x1="6" y1="1" x2="6" y2="4" /><line x1="10" y1="1" x2="10" y2="4" /><line x1="14" y1="1" x2="14" y2="4" /></>}
-        </svg>
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: '1.65rem', fontWeight: 800, color, letterSpacing: '-0.03em', lineHeight: 1 }}>
-          {shown}{sub}
-        </div>
-        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #64748b)', fontWeight: 600, marginTop: 4 }}>{label}</div>
-      </div>
-    </div>
-  );
-};
-
-/* Mode pill filter */
-const Pill = ({ label, icon, active, color, onClick }) => (
-  <button onClick={onClick} style={{
-    display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-    padding: '0.45rem 1rem', borderRadius: 999, border: 'none', cursor: 'pointer',
-    fontWeight: 700, fontSize: '0.82rem', fontFamily: 'inherit',
-    transition: 'all 0.2s ease',
-    background: active ? color : 'var(--bg-primary, #f1f5f9)',
-    color: active ? '#fff' : 'var(--text-secondary, #64748b)',
-    boxShadow: active ? `0 4px 12px ${color}40` : 'none',
-    transform: active ? 'translateY(-1px)' : 'none',
-  }}>
-    <span>{icon}</span>{label}
-  </button>
-);
-
-/* Mode donut mini-chart */
-const ModeDonut = ({ modeCount, total }) => {
-  const modes = Object.entries(modeCount).sort((a, b) => b[1] - a[1]);
-  const r = 28, c = 2 * Math.PI * r;
-  let offset = 0;
-  const slices = modes.map(([m, count]) => {
-    const meta = getMeta(m);
-    const pct = count / total;
-    const slice = { mode: m, color: meta.color, pct, offset, dash: pct * c, gap: (1 - pct) * c };
-    offset += pct * c;
-    return slice;
-  });
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
-      <svg width={70} height={70} viewBox="0 0 70 70">
-        {slices.map((sl, i) => (
-          <circle key={i} cx={35} cy={35} r={r}
-            fill="none" stroke={sl.color} strokeWidth={10}
-            strokeDasharray={`${sl.dash} ${sl.gap}`}
-            strokeDashoffset={-sl.offset + c * 0.25}
-            style={{ transform: 'rotate(-90deg)', transformOrigin: '35px 35px', transition: 'stroke-dasharray 0.8s ease' }}
-          />
-        ))}
-        <circle cx={35} cy={35} r={18} fill="var(--bg-secondary)" />
-        <text x={35} y={39} textAnchor="middle" fontSize={13} fontWeight={800} fill="var(--text-primary)">{total}</text>
+/* ── Minimalist SVG icons matching the reference designs ── */
+const Icon = ({ name, size = 18 }) => {
+  const icons = {
+    tree: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22v-6" />
+        <path d="M12 16a6 6 0 0 1-6-6c0-2 1-4 3-5 0-3 3-4 6-4s6 1 6 4c2 1 3 3 3 5a6 6 0 0 1-6 6z" />
       </svg>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {slices.map(sl => {
-          const meta = getMeta(sl.mode);
-          return (
-            <div key={sl.mode} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: meta.color, flexShrink: 0 }} />
-              <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>{meta.label}</span>
-              <span style={{ fontSize: '0.78rem', fontWeight: 800, color: meta.color, marginLeft: 'auto', paddingLeft: 8 }}>
-                {Math.round(sl.pct * 100)}%
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-/* Trip card */
-const TripCard = ({ trip, onCopy, copiedId }) => {
-  const navigate = useNavigate();
-  const meta = getMeta(trip.mode);
-  const co2 = parseFloat(trip.co2Saved) || 0;
-  const isHighImpact = co2 > 2;
-
-  return (
-    <div style={S.tripCard}>
-      {/* Left accent bar */}
-      <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 4, borderRadius: '16px 0 0 16px', background: meta.gradient }} />
-
-      {/* Mode badge */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', flex: 1, minWidth: 0 }}>
-          <div style={{
-            width: 46, height: 46, borderRadius: 14, background: meta.gradient,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '0.78rem', fontWeight: 800, color: 'white', flexShrink: 0,
-            boxShadow: `0 2px 8px ${meta.color}30`, letterSpacing: '-0.01em',
-          }}>
-            <span style={{ fontSize: '1.4rem' }}>{meta.icon}</span>
-          </div>
-          <div style={{ minWidth: 0, flex: 1 }}>
-            <div style={{
-              fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary, #0f172a)', lineHeight: 1.3,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-            }}>
-              {trip.originName?.split(',')[0]}
-            </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)', fontWeight: 600, margin: '3px 0' }}>
-              TO
-            </div>
-            <div style={{
-              fontSize: '0.9rem', fontWeight: 800, color: 'var(--text-primary, #0f172a)', lineHeight: 1.3,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-            }}>
-              {trip.destinationName?.split(',')[0]}
-            </div>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6, flexShrink: 0 }}>
-          <span style={{
-            padding: '0.3rem 0.75rem', borderRadius: 999, fontSize: '0.72rem', fontWeight: 800,
-            background: meta.gradient, color: 'white', letterSpacing: '0.02em',
-          }}>
-            {meta.label}
-          </span>
-          {isHighImpact && (
-            <span style={{
-              padding: '0.25rem 0.6rem', borderRadius: 999, fontSize: '0.68rem', fontWeight: 700,
-              background: 'linear-gradient(135deg,#fbbf24,#f59e0b)', color: 'white'
-            }}>
-              High Impact
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Divider */}
-      <div style={{ height: 1, background: 'var(--border-color, #f1f5f9)', margin: '1rem 0' }} />
-
-      {/* Metrics row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(72px,1fr))', gap: '0.5rem' }}>
-        {[
-          { label: 'Duration', val: fmt.dur(trip.duration), color: null },
-          { label: 'Distance', val: `${fmt.dist(trip.distance)}km`, color: null },
-          { label: 'CO₂ Saved', val: `${fmt.co2(trip.co2Saved)}kg`, color: '#10b981' },
-          ...(trip.calories > 0 ? [{ label: 'Calories', val: trip.calories, color: null }] : []),
-        ].map((m, i) => (
-          <div key={i} style={{ background: 'var(--bg-primary, #f8fafc)', borderRadius: 12, padding: '0.65rem 0.5rem', textAlign: 'center' }}>
-            <div style={{ fontSize: '0.85rem', fontWeight: 800, color: m.color || 'var(--text-primary, #0f172a)', lineHeight: 1 }}>{m.val}</div>
-            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted, #94a3b8)', fontWeight: 600, marginTop: 3 }}>{m.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Eco equiv + date */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.85rem', gap: '0.5rem', flexWrap: 'wrap' }}>
-        <span style={{
-          fontSize: '0.76rem', color: 'var(--text-secondary, #065f46)', fontWeight: 600,
-          background: 'var(--bg-tag, #ecfdf5)', padding: '0.3rem 0.75rem', borderRadius: 999,
-          border: '1px solid var(--border-color, #a7f3d0)'
-        }}>
-          {ecoEquiv(trip.co2Saved)}
-        </span>
-        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)', fontWeight: 500 }}>
-          {fmt.date(trip.date)}
-        </span>
-      </div>
-
-      {/* Actions */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.85rem' }}>
-        <button onClick={() => onCopy(trip)} style={{
-          ...S.actionBtn, flex: 1, background: 'var(--bg-primary, #f8fafc)', color: 'var(--text-secondary, #475569)',
-          border: '1px solid var(--border-color, #e2e8f0)',
-          ...(copiedId === (trip._id || trip.date) ? { background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', borderColor: '#10b981' } : {})
-        }}>
-          {copiedId === (trip._id || trip.date) ? 'Copied!' : 'Copy'}
-        </button>
-        <button onClick={() => {
-          const params = new URLSearchParams({
-            from: trip.originName || '',
-            to: trip.destinationName || '',
-            mode: trip.mode || ''
-          });
-          if (trip.originCoords?.lng != null && trip.originCoords?.lat != null) {
-            params.set('from_coords', `${trip.originCoords.lng},${trip.originCoords.lat}`);
-          }
-          if (trip.destinationCoords?.lng != null && trip.destinationCoords?.lat != null) {
-            params.set('to_coords', `${trip.destinationCoords.lng},${trip.destinationCoords.lat}`);
-          }
-          navigate(`/?${params}`);
-        }} style={{ ...S.actionBtn, flex: 1, background: `color-mix(in srgb, ${meta.color} 12%, var(--bg-primary))`, color: meta.color, border: `1.5px solid color-mix(in srgb, ${meta.color} 30%, transparent)` }}>
-          Repeat
-        </button>
-      </div>
-    </div>
-  );
-};
-
-/* ─── Main Component ─────────────────────────────────────────────────────────── */
-const TripHistory = ({ user }) => {
-  const [trips, setTrips] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [modeFilter, setModeFilter] = useState('all');
-  const [timeFilter, setTimeFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('date');
-  const [copiedId, setCopiedId] = useState(null);
-  const [clearing, setClearing] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [toast, setToast] = useState(null);
-
-  const showToast = (msg, type = 'success') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+    ),
+    compass: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" />
+      </svg>
+    ),
+    cycling: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="18.5" cy="17.5" r="3.5" />
+        <circle cx="5.5" cy="17.5" r="3.5" />
+        <circle cx="15" cy="5" r="1" />
+        <path d="M12 17.5V14l-3-3 4-3 2 3h2" />
+      </svg>
+    ),
+    walking: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m13 4 1 2-2 4 3 4-2 6" />
+        <path d="m9 10-3 4 2 6" />
+        <circle cx="12" cy="3" r="1.5" />
+      </svg>
+    ),
+    driving: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3C13 6.8 11.8 6 10.5 6H8.2C7.5 6 7 6.5 7 7.2v3.3C7 11.2 7.5 11.7 8.2 11.7h1.6c.7 0 1.2-.5 1.2-1.2V9M2 17h10c1.1 0 2-.9 2-2V9" />
+        <circle cx="7" cy="17" r="2" /><circle cx="17" cy="17" r="2" />
+      </svg>
+    ),
+    transit: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="3" width="16" height="16" rx="2" ry="2" /><path d="M6 6h12v4H6ZM6 14h2v2H6ZM16 14h2v2h-2ZM8 19v2M16 19v2" />
+      </svg>
+    ),
+    clock: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
+      </svg>
+    ),
+    leaf: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+        <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+      </svg>
+    ),
+    filter: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+      </svg>
+    ),
+    trash: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="3 6 5 6 21 6" />
+        <path d="M19 6l-1 14H6L5 6" />
+        <path d="M10 11v6M14 11v6" />
+        <path d="M9 6V4h6v2" />
+      </svg>
+    ),
+    download: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="7 10 12 15 17 10" />
+        <line x1="12" y1="15" x2="12" y2="3" />
+      </svg>
+    ),
+    mapPin: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+        <circle cx="12" cy="10" r="3" />
+      </svg>
+    ),
   };
+  return icons[name] || null;
+};
 
-  useEffect(() => { loadTrips(); }, []);
+const MODE_META = {
+  walking: { label: 'Walking', icon: 'walking', badge: 'Zero Emission' },
+  cycling: { label: 'Cycling', icon: 'cycling', badge: 'Eco Commute' },
+  driving: { label: 'Driving', icon: 'driving', badge: 'Vehicle Trip' },
+  transit: { label: 'Transit', icon: 'transit', badge: 'Public Transit' },
+};
+
+const TripHistory = ({ user }) => {
+  const cachedTrips = getCachedData('trips', []);
+  const [trips, setTrips] = useState(cachedTrips);
+  const [loading, setLoading] = useState(cachedTrips.length === 0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [selectedTripDetails, setSelectedTripDetails] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    loadTrips();
+  }, []);
 
   const loadTrips = async () => {
-    let serverTrips = [];
     try {
       const { data } = await axios.get('/api/history');
-      if (Array.isArray(data)) serverTrips = data;
+      if (Array.isArray(data)) {
+        setTrips(data);
+        setCachedData('trips', data);
+      }
     } catch (e) {
-      console.warn('Trip history server fetch offline/unauthenticated, using local history');
+      console.warn('History fetch error:', e);
+    } finally {
+      setLoading(false);
     }
-
-    const localTrips = JSON.parse(localStorage.getItem('gr_trip_history') || '[]');
-    const map = new Map();
-    [...serverTrips, ...localTrips].forEach(t => {
-      const key = t._id || `${t.date}_${t.originName}_${t.destinationName}`;
-      if (!map.has(key)) map.set(key, t);
-    });
-    const merged = Array.from(map.values()).sort((a, b) => new Date(b.date) - new Date(a.date));
-    setTrips(merged);
-    setLoading(false);
   };
 
-  const handleCopy = (trip) => {
-    const id = trip._id || trip.date;
-    const text = `${trip.originName} → ${trip.destinationName} | ${getMeta(trip.mode).label} | ${fmt.dist(trip.distance)}km | ${fmt.dur(trip.duration)} | ${fmt.co2(trip.co2Saved)}kg CO₂ saved`;
-    navigator.clipboard.writeText(text).then(() => {
-      setCopiedId(id);
-      setTimeout(() => setCopiedId(null), 2000);
-    });
-  };
-
-  const handleClear = async () => {
-    setClearing(true);
-    localStorage.removeItem('gr_trip_history');
+  const handleClearHistory = async () => {
+    if (!window.confirm('Are you sure you want to clear your trip history?')) return;
     try {
       await axios.delete('/api/history');
-    } catch {}
-    setTrips([]);
-    setShowConfirm(false);
-    showToast('All trips cleared!', 'success');
-    setClearing(false);
+      setTrips([]);
+    } catch (e) {
+      console.error('Clear history error:', e);
+    }
   };
 
   const exportCSV = () => {
     if (!trips.length) return;
     const rows = [
-      ['Date', 'From', 'To', 'Mode', 'Distance (km)', 'Duration (min)', 'CO₂ Saved (kg)', 'Calories'],
+      ['Date', 'Origin', 'Destination', 'Mode', 'Distance (km)', 'Duration (min)', 'CO2 Saved (kg)', 'Calories'],
       ...trips.map(t => [
         new Date(t.date).toLocaleDateString(),
-        t.originName, t.destinationName, t.mode,
-        t.distance, t.duration, t.co2Saved, t.calories || 0
-      ])
-    ].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
-    const blob = new Blob([rows], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `greenroute-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click(); URL.revokeObjectURL(url);
-    showToast('CSV exported!');
+        t.originName,
+        t.destinationName,
+        t.mode,
+        t.distance,
+        t.duration,
+        t.co2Saved,
+        t.calories || 0,
+      ]),
+    ];
+    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const encoded = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encoded);
+    link.setAttribute('download', `greenroute-impact-history-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  /* ── Filtering + sorting ── */
-  const filtered = (() => {
-    let out = [...trips];
-    if (modeFilter !== 'all') out = out.filter(t => t.mode?.toLowerCase() === modeFilter);
-    if (timeFilter !== 'all') {
-      const cut = new Date();
-      if (timeFilter === 'today') { cut.setHours(0, 0, 0, 0); }
-      if (timeFilter === 'week') { cut.setDate(cut.getDate() - 7); }
-      if (timeFilter === 'month') { cut.setMonth(cut.getMonth() - 1); }
-      out = out.filter(t => new Date(t.date) >= cut);
+  // Aggregated Stats
+  const stats = useMemo(() => {
+    const totalCount = trips.length;
+    const totalCO2 = trips.reduce((sum, t) => sum + (parseFloat(t.co2Saved) || 0), 0);
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+    const startOfCurrentMonth = new Date(currentYear, currentMonth, 1);
+    const startOfLastMonth = new Date(currentYear, currentMonth - 1, 1);
+    const endOfLastMonth = new Date(currentYear, currentMonth, 0, 23, 59, 59, 999);
+
+    let thisMonthCO2 = 0;
+    let lastMonthCO2 = 0;
+    let thisMonthTrips = 0;
+
+    const modeCounts = {};
+
+    trips.forEach(t => {
+      const co2 = parseFloat(t.co2Saved) || 0;
+      const d = t.date ? new Date(t.date) : (t.createdAt ? new Date(t.createdAt) : null);
+
+      if (d && !isNaN(d.getTime())) {
+        if (d >= startOfCurrentMonth && d <= now) {
+          thisMonthCO2 += co2;
+          thisMonthTrips += 1;
+        } else if (d >= startOfLastMonth && d <= endOfLastMonth) {
+          lastMonthCO2 += co2;
+        }
+      }
+
+      const m = (t.mode || 'cycling').toLowerCase();
+      modeCounts[m] = (modeCounts[m] || 0) + 1;
+    });
+
+    // Calculate month-over-month trend
+    let co2BadgeText = '0 kg this month';
+    let co2BadgeType = 'neutral';
+
+    if (lastMonthCO2 > 0) {
+      const diffPct = Math.round(((thisMonthCO2 - lastMonthCO2) / lastMonthCO2) * 100);
+      if (diffPct > 0) {
+        co2BadgeText = `+${diffPct}% this month`;
+        co2BadgeType = 'green';
+      } else if (diffPct < 0) {
+        co2BadgeText = `${diffPct}% this month`;
+        co2BadgeType = 'neutral';
+      } else {
+        co2BadgeText = '0% change this month';
+        co2BadgeType = 'neutral';
+      }
+    } else if (thisMonthCO2 > 0) {
+      co2BadgeText = `+${thisMonthCO2.toFixed(1)} kg this month`;
+      co2BadgeType = 'green';
     }
-    if (sortBy === 'co2') out.sort((a, b) => parseFloat(b.co2Saved) - parseFloat(a.co2Saved));
-    if (sortBy === 'dist') out.sort((a, b) => parseFloat(b.distance) - parseFloat(a.distance));
-    return out;
-  })();
 
-  const stats = calcStats(trips);
-  const filtStats = calcStats(filtered);
+    // Determine primary mode
+    let primaryMode = 'None';
+    let primaryPct = 0;
 
-  /* ─── Render ─── */
+    if (totalCount > 0) {
+      const sortedModes = Object.keys(modeCounts).sort((a, b) => modeCounts[b] - modeCounts[a]);
+      const topMode = sortedModes[0];
+      if (topMode) {
+        primaryMode = topMode.charAt(0).toUpperCase() + topMode.slice(1);
+        primaryPct = Math.round((modeCounts[topMode] / totalCount) * 100);
+      }
+    }
+
+    return {
+      totalCO2: totalCO2.toFixed(1),
+      totalCount,
+      thisMonthTrips,
+      co2BadgeText,
+      co2BadgeType,
+      primaryMode,
+      primaryPct,
+    };
+  }, [trips]);
+
+  // Filtered trips
+  const filteredTrips = useMemo(() => {
+    return trips.filter(t => {
+      const mode = (t.mode || '').toLowerCase();
+      if (activeFilter !== 'all' && mode !== activeFilter) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const origin = (t.originName || '').toLowerCase();
+        const dest = (t.destinationName || '').toLowerCase();
+        return origin.includes(q) || dest.includes(q);
+      }
+      return true;
+    });
+  }, [trips, activeFilter, searchQuery]);
+
+  const formatDate = (dateStr) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffDays = Math.floor((now - d) / 86400000);
+    const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    if (diffDays === 0) return `Today, ${timeStr}`;
+    if (diffDays === 1) return `Yesterday, ${timeStr}`;
+    return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })}, ${timeStr}`;
+  };
+
+  const handleRepeatTrip = (trip) => {
+    const params = new URLSearchParams();
+    if (trip.originName) params.set('from', trip.originName);
+    if (trip.destinationName) params.set('to', trip.destinationName);
+    if (trip.originCoords?.lat && trip.originCoords?.lng) {
+      params.set('from_coords', `${trip.originCoords.lng},${trip.originCoords.lat}`);
+    }
+    if (trip.destinationCoords?.lat && trip.destinationCoords?.lng) {
+      params.set('to_coords', `${trip.destinationCoords.lng},${trip.destinationCoords.lat}`);
+    }
+    if (trip.mode) params.set('mode', trip.mode);
+    navigate(`/?${params.toString()}`);
+  };
+
   return (
-    <div style={S.page}>
-      {/* Toast */}
-      {toast && (
-        <div style={{
-          position: 'fixed', top: 20, right: 20, zIndex: 9999,
-          background: toast.type === 'error' ? '#fee2e2' : '#ecfdf5',
-          color: toast.type === 'error' ? '#dc2626' : '#065f46',
-          border: `1.5px solid ${toast.type === 'error' ? '#fca5a5' : '#6ee7b7'}`,
-          borderRadius: 14, padding: '0.75rem 1.25rem',
-          fontWeight: 700, fontSize: '0.88rem', boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-          animation: 'toastIn 0.3s cubic-bezier(0.16,1,0.3,1)',
-        }}>
-          {toast.msg}
-        </div>
-      )}
-
-      {/* Confirm modal */}
-      {showConfirm && (
-        <div style={S.overlay}>
-          <div style={S.modal}>
-            <div style={{ width: 56, height: 56, borderRadius: 16, background: 'linear-gradient(135deg,#ef4444,#dc2626)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6l-1 14H6L5 6" />
-                <path d="M10 11v6M14 11v6" />
-                <path d="M9 6V4h6v2" />
-              </svg>
-            </div>
-            <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.15rem', fontWeight: 800, textAlign: 'center', color: 'var(--text-primary)' }}>
-              Clear all history?
-            </h3>
-            <p style={{ margin: '0 0 1.5rem', color: 'var(--text-secondary, #64748b)', fontSize: '0.88rem', textAlign: 'center', lineHeight: 1.5 }}>
-              This will permanently delete all {trips.length} trips. This cannot be undone.
-            </p>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button onClick={() => setShowConfirm(false)} style={{ ...S.actionBtn, flex: 1, padding: '0.75rem', background: 'var(--bg-primary, #f1f5f9)', color: 'var(--text-secondary, #475569)', border: '1px solid var(--border-color, #e2e8f0)', borderRadius: 12, fontFamily: 'inherit', fontWeight: 700, cursor: 'pointer' }}>
-                Cancel
-              </button>
-              <button onClick={handleClear} disabled={clearing} style={{ ...S.actionBtn, flex: 1, padding: '0.75rem', background: 'linear-gradient(135deg,#ef4444,#dc2626)', color: 'white', borderRadius: 12, border: 'none', fontFamily: 'inherit', fontWeight: 700, cursor: 'pointer' }}>
-                {clearing ? 'Clearing…' : 'Yes, delete all'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Glassmorphic Header ── */}
-      <div style={{
-        position: 'relative',
-        background: 'linear-gradient(135deg, var(--bg-secondary, #ffffff) 0%, rgba(16,185,129,0.06) 100%)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        border: '1.5px solid var(--border-color, rgba(16,185,129,0.2))',
-        borderRadius: 24,
-        padding: '22px 28px',
-        marginBottom: '1.75rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '16px',
-        boxShadow: '0 12px 32px rgba(15,23,42,0.04)',
-        overflow: 'hidden',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', position: 'relative', zIndex: 1 }}>
-          <div style={{
-            width: 48, height: 48, borderRadius: 16,
-            background: 'linear-gradient(135deg, rgba(16,185,129,0.18), rgba(16,185,129,0.05))',
-            border: '1.5px solid rgba(16,185,129,0.3)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'var(--primary, #10b981)', flexShrink: 0,
-            boxShadow: '0 4px 14px rgba(16,185,129,0.15)'
-          }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="12 8 12 12 14 14"/><path d="M3.05 11a9 9 0 1 0 .5-4.5"/><polyline points="3 3 3 9 9 9"/>
+    <div className="impact-page-wrapper">
+      {/* ── Top Header & Breadcrumb ── */}
+      <div className="impact-top-bar">
+        <div className="impact-top-title">Trip History</div>
+        <div className="impact-top-actions">
+          <div className="impact-search-input-wrap">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}>
+              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
+            <input
+              type="text"
+              placeholder="Search trips..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="impact-search-input"
+            />
           </div>
-          <div>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)',
-              color: 'var(--primary, #059669)', fontSize: '0.72rem', fontWeight: 800,
-              padding: '3px 10px', borderRadius: 999, letterSpacing: '0.06em',
-              textTransform: 'uppercase', marginBottom: 4
-            }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
-              Eco Telemetry Logs
-            </div>
-            <h2 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 900, fontFamily: "'Outfit', sans-serif", letterSpacing: '-0.03em', color: 'var(--text-primary, #0f172a)' }}>
-              Trip History
-            </h2>
-            <p style={{ margin: '3px 0 0', fontSize: '0.9rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500 }}>
-              {trips.length > 0 ? `${trips.length} eco-friendly trips recorded` : 'Your green journey starts here'}
-            </p>
-          </div>
-        </div>
-
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 10 }}>
           {trips.length > 0 && (
             <>
-              <button onClick={exportCSV} style={{
-                padding: '8px 16px', borderRadius: 12, border: '1.5px solid var(--border-color, #e2e8f0)',
-                background: 'var(--bg-secondary, #fff)', color: 'var(--text-primary, #0f172a)',
-                fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
-                display: 'flex', alignItems: 'center', gap: 6, boxShadow: 'var(--shadow-xs)'
-              }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Export CSV
+              <button onClick={exportCSV} className="impact-action-btn" title="Export CSV">
+                <Icon name="download" size={16} />
               </button>
-              <button onClick={() => setShowConfirm(true)} style={{
-                padding: '8px 14px', borderRadius: 12, border: '1px solid rgba(239,68,68,0.3)',
-                background: 'rgba(239,68,68,0.08)', color: '#ef4444',
-                fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit'
-              }}>
-                Clear All
+              <button onClick={handleClearHistory} className="impact-action-btn danger" title="Clear History">
+                <Icon name="trash" size={16} />
               </button>
             </>
           )}
         </div>
       </div>
 
-      {/* ── Stats grid ── */}
-      {loading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
-          {[1, 2, 3, 4].map(i => <SkeletonCard key={i} />)}
+      <div className="impact-container">
+        {/* ── Headline Section ── */}
+        <div className="impact-hero-header">
+          <h1 className="impact-main-title">Your Impact Journey</h1>
+          <p className="impact-subtitle">
+            Review your past travels and the positive trace you've left behind.
+          </p>
         </div>
-      ) : trips.length > 0 ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
-          <StatCard icon="co2" value={stats.totalCO2} sub=" kg" label="Total CO₂ Saved" color="#10b981" bg="#f0fdf4" />
-          <StatCard icon="trip" value={stats.totalTrips} sub="" label="Eco-Friendly Trips" color="#3b82f6" bg="#eff6ff" />
-          <StatCard icon="dist" value={stats.totalDistance} sub=" km" label="Green Distance" color="#8b5cf6" bg="#f5f3ff" />
-          <StatCard icon="cal" value={stats.totalCalories} sub="" label="Calories Burned" color="#f59e0b" bg="#fffbeb" />
-        </div>
-      ) : null}
 
-      {/* ── Impact + mode split (only if trips exist) ── */}
-      {!loading && trips.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
-          {/* CO2 impact card */}
-          <div style={{ ...S.card, background: 'linear-gradient(135deg,#064e3b,#065f46)', color: 'white', overflow: 'hidden', position: 'relative' }}>
-            <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', bottom: -20, left: -10, width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.04)', pointerEvents: 'none' }} />
-            <div style={{ position: 'relative', zIndex: 1 }}>
-              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'rgba(167,243,208,0.7)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>Environmental Impact</div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, marginBottom: 12 }}>
-                <div style={{ fontSize: '2.5rem', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1 }}>{stats.totalCO2.toFixed(1)}</div>
-                <div style={{ fontSize: '1rem', fontWeight: 600, opacity: 0.7, marginBottom: 4 }}>kg CO₂ saved</div>
+        {/* ── 3 High-Impact KPI Stat Cards ── */}
+        <div className="impact-stats-grid">
+          {/* Card 1: Total CO2 Saved */}
+          <div className="impact-stat-card">
+            <div className="stat-card-top">
+              <div className="stat-icon-emblem green">
+                <Icon name="tree" size={22} />
               </div>
-              <div style={{ display: 'flex', gap: '1.25rem' }}>
-                {[
-                  { icon: '🌲', val: `${Math.max(1, (stats.totalCO2 / 21.7).toFixed(1))}`, lbl: 'trees/year equiv.' },
-                  { icon: '⛽', val: `${(stats.totalDistance * 0.08).toFixed(0)}L`, lbl: 'fuel saved' },
-                ].map((s, i) => (
-                  <div key={i}>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#4ade80' }}>{s.icon} {s.val}</div>
-                    <div style={{ fontSize: '0.7rem', opacity: 0.6, marginTop: 2 }}>{s.lbl}</div>
-                  </div>
-                ))}
+              <span className={`stat-badge-pill ${stats.co2BadgeType}`}>{stats.co2BadgeText}</span>
+            </div>
+            <div className="stat-card-body">
+              <div className="stat-label-text">TOTAL CO2 SAVED</div>
+              <div className="stat-number-display green">
+                {stats.totalCO2} <span className="stat-unit">kg</span>
               </div>
             </div>
           </div>
 
-          {/* Mode breakdown */}
-          <div style={S.card}>
-            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted, #94a3b8)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Mode Breakdown</div>
-            <ModeDonut modeCount={stats.modeCount} total={stats.totalTrips} />
-          </div>
-        </div>
-      )}
-
-      {/* ── Filters bar ── */}
-      {trips.length > 0 && (
-        <div style={S.filtersBar}>
-          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', flex: 1 }}>
-            {[
-              { key: 'all', label: 'All', color: '#10b981' },
-              { key: 'walking', label: 'Walk', color: getMeta('walking').color },
-              { key: 'cycling', label: 'Cycle', color: getMeta('cycling').color },
-              { key: 'driving', label: 'Drive', color: getMeta('driving').color },
-              { key: 'transit', label: 'Transit', color: getMeta('transit').color },
-            ].map(({ key, label, color }) => (
-              <Pill
-                key={key}
-                label={label}
-                icon={null}
-                active={modeFilter === key}
-                color={color}
-                onClick={() => setModeFilter(key)}
-              />
-            ))}
+          {/* Card 2: Total Journeys */}
+          <div className="impact-stat-card">
+            <div className="stat-card-top">
+              <div className="stat-icon-emblem amber">
+                <Icon name="compass" size={22} />
+              </div>
+              <span className="stat-badge-pill neutral">{stats.totalCount > 0 ? `${stats.thisMonthTrips} this month` : '0 this month'}</span>
+            </div>
+            <div className="stat-card-body">
+              <div className="stat-label-text">TOTAL JOURNEYS</div>
+              <div className="stat-number-display">
+                {stats.totalCount}
+              </div>
+            </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
-            <select value={timeFilter} onChange={e => setTimeFilter(e.target.value)} style={S.select}>
-              <option value="all">All time</option>
-              <option value="today">Today</option>
-              <option value="week">This week</option>
-              <option value="month">This month</option>
-            </select>
-            <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={S.select}>
-              <option value="date">Newest first</option>
-              <option value="co2">Most CO₂ saved</option>
-              <option value="dist">Longest trip</option>
-            </select>
+          {/* Card 3: Primary Mode */}
+          <div className="impact-stat-card">
+            <div className="stat-card-top">
+              <div className="stat-icon-emblem blue">
+                <Icon name={stats.primaryMode.toLowerCase() === 'walking' ? 'walking' : 'cycling'} size={22} />
+              </div>
+              <span className="stat-badge-pill neutral">{stats.totalCount > 0 ? `${stats.primaryPct}% of trips` : '0 trips'}</span>
+            </div>
+            <div className="stat-card-body">
+              <div className="stat-label-text">PRIMARY MODE</div>
+              <div className="stat-mode-display">
+                {stats.primaryMode}
+              </div>
+            </div>
           </div>
         </div>
-      )}
 
-      {/* ── Trip list ── */}
-      {loading ? (
-        <div style={S.grid}>
-          {[1, 2, 3, 4, 5, 6].map(i => <SkeletonCard key={i} />)}
-        </div>
-      ) : filtered.length === 0 ? (
-        <div style={S.emptyState}>
-          <div style={{
-            width: 64, height: 64, borderRadius: 18, marginBottom: '1rem',
-            background: trips.length === 0
-              ? 'linear-gradient(135deg,#10b981,#34d399)'
-              : 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              {trips.length === 0
-                ? <><path d="M3 12h18M3 6h18M3 18h18" /></>
-                : <><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></>
-              }
-            </svg>
-          </div>
-          <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            {trips.length === 0 ? 'No trips yet' : 'No trips match your filters'}
-          </h3>
-          <p style={{ margin: '0 0 1.5rem', color: 'var(--text-secondary, #64748b)', maxWidth: 340, lineHeight: 1.6 }}>
-            {trips.length === 0
-              ? 'Plan your first eco-friendly route and start tracking your positive impact on the planet!'
-              : 'Try changing the mode or time filters to find your trips.'}
-          </p>
-          <a href="/" style={{
-            display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
-            padding: '0.75rem 1.5rem', borderRadius: 14,
-            background: 'linear-gradient(135deg,#10b981,#059669)',
-            color: 'white', fontWeight: 700, fontSize: '0.9rem', textDecoration: 'none',
-            boxShadow: '0 4px 14px rgba(16,185,129,0.35)',
-          }}>
-            {trips.length === 0 ? 'Plan First Route' : 'Plan New Route'}
-          </a>
-        </div>
-      ) : (
-        <>
-          {/* Result count bar */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary, #64748b)' }}>
-              Showing <strong style={{ color: 'var(--text-primary)' }}>{filtered.length}</strong> of {trips.length} trips
-              {(modeFilter !== 'all' || timeFilter !== 'all') && (
-                <button onClick={() => { setModeFilter('all'); setTimeFilter('all'); }} style={{
-                  marginLeft: 8, background: 'none', border: 'none', color: '#10b981', fontWeight: 700,
-                  cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'inherit',
-                }}>
-                  Clear filters ×
+        {/* ── Recent Journeys Section ── */}
+        <div className="recent-journeys-section">
+          <div className="recent-journeys-header">
+            <h2 className="recent-title">Recent Journeys</h2>
+
+            {/* Filter Pills */}
+            <div className="mode-filter-pills">
+              {['all', 'walking', 'cycling', 'driving', 'transit'].map((mode) => (
+                <button
+                  key={mode}
+                  className={`filter-pill-btn ${activeFilter === mode ? 'active' : ''}`}
+                  onClick={() => setActiveFilter(mode)}
+                >
+                  {mode === 'all' ? 'All Modes' : MODE_META[mode]?.label || mode}
                 </button>
-              )}
-            </span>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500 }}>
-              {filtStats.totalCO2.toFixed(1)} kg CO₂ · {filtStats.totalDistance.toFixed(0)} km
-            </span>
+              ))}
+            </div>
           </div>
 
-          <div style={S.grid}>
-            {filtered.map((trip, i) => (
-              <TripCard
-                key={trip._id || i}
-                trip={trip}
-                onCopy={handleCopy}
-                copiedId={copiedId}
-              />
-            ))}
-          </div>
-        </>
-      )}
+          {/* Trip Cards List */}
+          {loading ? (
+            <div className="impact-loading-skeleton">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="skeleton-trip-card" />
+              ))}
+            </div>
+          ) : filteredTrips.length === 0 ? (
+            <div className="impact-empty-card">
+              <div className="empty-icon-wrap">
+                <Icon name="leaf" size={32} />
+              </div>
+              <h3 className="empty-title">No Journeys Recorded Yet</h3>
+              <p className="empty-desc">
+                Plan your first eco-friendly journey to begin tracking your positive carbon offset.
+              </p>
+              <button onClick={() => navigate('/')} className="empty-cta-btn">
+                Plan a Route
+              </button>
+            </div>
+          ) : (
+            <div className="journey-cards-list">
+              {filteredTrips.map((trip, idx) => {
+                const modeMeta = MODE_META[trip.mode?.toLowerCase()] || MODE_META.cycling;
+                const tripTitle = `${trip.originName?.split(',')[0]} to ${trip.destinationName?.split(',')[0]}`;
+
+                return (
+                  <div key={trip._id || idx} className="journey-card">
+                    {/* Left snapshot thumbnail / map tile preview */}
+                    <div className="journey-map-thumbnail">
+                      <div className="thumb-map-pattern">
+                        <Icon name="mapPin" size={24} />
+                      </div>
+                      <div className="thumb-mode-badge">
+                        <Icon name={modeMeta.icon} size={14} />
+                      </div>
+                    </div>
+
+                    {/* Middle Details */}
+                    <div className="journey-content">
+                      <div className="journey-meta-row">
+                        <div className="journey-timestamp">
+                          <span className="dot-indicator" />
+                          <span>{formatDate(trip.date)}</span>
+                        </div>
+                        <span className="journey-eco-tag">{modeMeta.badge}</span>
+                      </div>
+
+                      <h3 className="journey-title">{tripTitle}</h3>
+
+                      <div className="journey-waypoints">
+                        <span className="waypoint-origin">{trip.originName?.split(',')[0]}</span>
+                        <span className="waypoint-sep">···</span>
+                        <span className="waypoint-dest">{trip.destinationName?.split(',')[0]}</span>
+                      </div>
+
+                      <div className="journey-telemetry">
+                        <div className="telemetry-item">
+                          <Icon name="clock" size={15} />
+                          <span>{trip.duration ? `${trip.duration} min` : (trip.durationSeconds ? `${Math.max(1, Math.round(trip.durationSeconds / 60))} min` : '1 min')}</span>
+                        </div>
+                        <div className="telemetry-item eco">
+                          <Icon name="leaf" size={15} />
+                          <span>{parseFloat(trip.co2Saved) > 0 ? `-${parseFloat(trip.co2Saved).toFixed(2)} kg CO2` : '0.0 kg CO2'}</span>
+                        </div>
+                        {trip.distance ? (
+                          <div className="telemetry-item">
+                            <span>{parseFloat(trip.distance).toFixed(1)} km</span>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {/* Right Action Button */}
+                    <div className="journey-actions">
+                      <button
+                        onClick={() => handleRepeatTrip(trip)}
+                        className="view-details-btn"
+                        title="Repeat or View Details"
+                      >
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
 
       <style>{`
-        @keyframes toastIn {
-          from { opacity:0; transform:translateY(-12px) scale(0.95); }
-          to   { opacity:1; transform:translateY(0) scale(1); }
+        .impact-page-wrapper {
+          min-height: 100vh;
+          background: var(--bg-primary, #FBF9F4);
+          color: var(--text-primary, #1C281F);
+          padding: 1.5rem 2.5rem 3rem;
+          box-sizing: border-box;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        /* ── Top Bar ── */
+        .impact-top-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 2rem;
+          padding-bottom: 1.25rem;
+          border-bottom: 1.5px solid var(--border-color, #EAE4DA);
+        }
+
+        .impact-top-title {
+          font-family: 'Newsreader', Georgia, serif;
+          font-size: 1.25rem;
+          font-weight: 700;
+          color: var(--primary, #4A7C59);
+        }
+
+        .impact-top-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .impact-search-input-wrap {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          background: var(--bg-secondary, #FFFFFF);
+          border: 1.5px solid var(--border-color, #EAE4DA);
+          border-radius: 9999px;
+          padding: 0.45rem 1rem;
+          width: 240px;
+          transition: border-color 0.2s ease;
+        }
+
+        .impact-search-input-wrap:focus-within {
+          border-color: var(--primary, #4A7C59);
+        }
+
+        .impact-search-input {
+          background: transparent;
+          border: none;
+          outline: none;
+          font-family: inherit;
+          font-size: 0.85rem;
+          color: var(--text-primary, #1C281F);
+          width: 100%;
+        }
+
+        .impact-action-btn {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          border: 1.5px solid var(--border-color, #EAE4DA);
+          background: var(--bg-secondary, #FFFFFF);
+          color: var(--text-secondary, #5F7163);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .impact-action-btn:hover {
+          border-color: var(--primary, #4A7C59);
+          color: var(--primary, #4A7C59);
+          background: var(--primary-soft, #E8EFE9);
+        }
+
+        .impact-action-btn.danger:hover {
+          border-color: #EF4444;
+          color: #EF4444;
+          background: #FEE2E2;
+        }
+
+        /* ── Container ── */
+        .impact-container {
+          max-width: 1120px;
+          margin: 0 auto;
+          display: flex;
+          flex-direction: column;
+          gap: 2.25rem;
+        }
+
+        .impact-hero-header {
+          display: flex;
+          flex-direction: column;
+          gap: 0.4rem;
+        }
+
+        .impact-main-title {
+          font-family: 'Newsreader', Georgia, serif;
+          font-size: 2.5rem;
+          font-weight: 700;
+          color: var(--text-primary, #1C281F);
+          letter-spacing: -0.02em;
+          margin: 0;
+        }
+
+        .impact-subtitle {
+          font-size: 1rem;
+          color: var(--text-secondary, #5F7163);
+          margin: 0;
+        }
+
+        /* ── Stat Cards Grid ── */
+        .impact-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 1.5rem;
+        }
+
+        .impact-stat-card {
+          background: var(--bg-secondary, #FFFFFF);
+          border: 1.5px solid var(--border-color, #EAE4DA);
+          border-radius: 20px;
+          padding: 1.5rem;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          min-height: 140px;
+          box-shadow: 0 4px 16px rgba(28, 40, 31, 0.03);
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .impact-stat-card:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 24px rgba(28, 40, 31, 0.06);
+        }
+
+        .stat-card-top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 1.25rem;
+        }
+
+        .stat-icon-emblem {
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .stat-icon-emblem.green {
+          background: #EAF1EB;
+          color: #4A7C59;
+        }
+
+        .stat-icon-emblem.amber {
+          background: #FEF3C7;
+          color: #D97706;
+        }
+
+        .stat-icon-emblem.blue {
+          background: #EFF6FF;
+          color: #2563EB;
+        }
+
+        .stat-badge-pill {
+          font-size: 0.75rem;
+          font-weight: 700;
+          padding: 0.25rem 0.65rem;
+          border-radius: 9999px;
+        }
+
+        .stat-badge-pill.green {
+          background: #EAF1EB;
+          color: #2D5334;
+        }
+
+        .stat-badge-pill.neutral {
+          background: var(--bg-input, #F3EFE8);
+          color: var(--text-secondary, #5F7163);
+        }
+
+        .stat-label-text {
+          font-size: 0.72rem;
+          font-weight: 800;
+          color: var(--text-secondary, #5F7163);
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          margin-bottom: 0.35rem;
+        }
+
+        .stat-number-display {
+          font-family: 'Newsreader', Georgia, serif;
+          font-size: 2.2rem;
+          font-weight: 700;
+          color: var(--text-primary, #1C281F);
+          line-height: 1;
+        }
+
+        .stat-number-display.green {
+          color: var(--primary, #4A7C59);
+        }
+
+        .stat-unit {
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 1.1rem;
+          font-weight: 600;
+          color: var(--text-secondary, #5F7163);
+        }
+
+        .stat-mode-display {
+          font-family: 'Newsreader', Georgia, serif;
+          font-size: 2.1rem;
+          font-weight: 700;
+          color: var(--text-primary, #1C281F);
+          line-height: 1;
+        }
+
+        /* ── Recent Journeys ── */
+        .recent-journeys-section {
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+        }
+
+        .recent-journeys-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+
+        .recent-title {
+          font-family: 'Newsreader', Georgia, serif;
+          font-size: 1.6rem;
+          font-weight: 700;
+          color: var(--text-primary, #1C281F);
+          margin: 0;
+        }
+
+        .mode-filter-pills {
+          display: flex;
+          gap: 0.5rem;
+          overflow-x: auto;
+        }
+
+        .filter-pill-btn {
+          padding: 0.4rem 0.9rem;
+          border-radius: 9999px;
+          border: 1.5px solid var(--border-color, #EAE4DA);
+          background: var(--bg-secondary, #FFFFFF);
+          color: var(--text-secondary, #5F7163);
+          font-family: inherit;
+          font-size: 0.82rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          white-space: nowrap;
+        }
+
+        .filter-pill-btn:hover {
+          border-color: var(--primary, #4A7C59);
+          color: var(--primary, #4A7C59);
+        }
+
+        .filter-pill-btn.active {
+          background: var(--primary, #4A7C59);
+          color: #FFFFFF;
+          border-color: var(--primary, #4A7C59);
+          box-shadow: 0 2px 8px var(--primary-glow);
+        }
+
+        /* ── Journey Cards ── */
+        .journey-cards-list {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .journey-card {
+          background: var(--bg-secondary, #FFFFFF);
+          border: 1.5px solid var(--border-color, #EAE4DA);
+          border-radius: 20px;
+          padding: 1.25rem 1.5rem;
+          display: flex;
+          align-items: center;
+          gap: 1.5rem;
+          box-shadow: 0 4px 14px rgba(28, 40, 31, 0.03);
+          transition: all 0.2s ease;
+        }
+
+        .journey-card:hover {
+          border-color: var(--primary, #4A7C59);
+          box-shadow: 0 6px 20px rgba(74, 124, 89, 0.08);
+          transform: translateY(-1px);
+        }
+
+        .journey-map-thumbnail {
+          width: 72px;
+          height: 72px;
+          border-radius: 16px;
+          background: #EAF1EB;
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          color: #7DAF87;
+          border: 1px solid var(--border-color, #EAE4DA);
+          overflow: hidden;
+        }
+
+        .thumb-mode-badge {
+          position: absolute;
+          bottom: 4px;
+          right: 4px;
+          width: 22px;
+          height: 22px;
+          border-radius: 50%;
+          background: #FFFFFF;
+          color: var(--primary, #4A7C59);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .journey-content {
+          flex: 1;
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+        }
+
+        .journey-meta-row {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .journey-timestamp {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: var(--text-secondary, #5F7163);
+        }
+
+        .dot-indicator {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: #4A7C59;
+        }
+
+        .journey-eco-tag {
+          font-size: 0.72rem;
+          font-weight: 700;
+          padding: 0.15rem 0.55rem;
+          border-radius: 9999px;
+          background: #EAF1EB;
+          color: #2D5334;
+        }
+
+        .journey-title {
+          font-size: 1.1rem;
+          font-weight: 700;
+          color: var(--text-primary, #1C281F);
+          margin: 0;
+        }
+
+        .journey-waypoints {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.85rem;
+          color: var(--text-secondary, #5F7163);
+        }
+
+        .waypoint-sep {
+          letter-spacing: 0.1em;
+          color: var(--text-muted, #95A599);
+        }
+
+        .journey-telemetry {
+          display: flex;
+          align-items: center;
+          gap: 1.25rem;
+          margin-top: 0.25rem;
+        }
+
+        .telemetry-item {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: var(--text-secondary, #5F7163);
+        }
+
+        .telemetry-item.eco {
+          color: var(--primary, #4A7C59);
+          font-weight: 700;
+        }
+
+        .journey-actions {
+          flex-shrink: 0;
+        }
+
+        .view-details-btn {
+          height: 38px;
+          padding: 0 1.25rem;
+          border-radius: 9999px;
+          border: 1.5px solid var(--border-color, #EAE4DA);
+          background: var(--bg-input, #F3EFE8);
+          color: var(--text-primary, #1C281F);
+          font-family: inherit;
+          font-size: 0.85rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .view-details-btn:hover {
+          background: var(--primary, #4A7C59);
+          color: #FFFFFF;
+          border-color: var(--primary, #4A7C59);
+          box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .impact-empty-card {
+          background: var(--bg-secondary, #FFFFFF);
+          border: 1.5px solid var(--border-color, #EAE4DA);
+          border-radius: 20px;
+          padding: 3.5rem 2rem;
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .empty-icon-wrap {
+          width: 64px;
+          height: 64px;
+          border-radius: 50%;
+          background: #EAF1EB;
+          color: #4A7C59;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 0.5rem;
+        }
+
+        .empty-title {
+          font-family: 'Newsreader', Georgia, serif;
+          font-size: 1.4rem;
+          font-weight: 700;
+          margin: 0;
+        }
+
+        .empty-desc {
+          font-size: 0.92rem;
+          color: var(--text-secondary, #5F7163);
+          max-width: 380px;
+          margin: 0;
+        }
+
+        .empty-cta-btn {
+          margin-top: 0.75rem;
+          height: 42px;
+          padding: 0 1.5rem;
+          border-radius: 9999px;
+          border: none;
+          background: var(--primary, #4A7C59);
+          color: #FFFFFF;
+          font-family: inherit;
+          font-size: 0.9rem;
+          font-weight: 700;
+          cursor: pointer;
+          box-shadow: 0 4px 14px var(--primary-glow);
+          transition: all 0.2s ease;
+        }
+
+        .empty-cta-btn:hover {
+          background: var(--primary-hover, #3B6647);
+          transform: translateY(-1px);
+        }
+
+        @media (max-width: 900px) {
+          .impact-page-wrapper {
+            padding: 1.25rem 1rem;
+          }
+          .impact-stats-grid {
+            grid-template-columns: 1fr;
+          }
+          .journey-card {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .journey-actions {
+            width: 100%;
+          }
+          .view-details-btn {
+            width: 100%;
+          }
         }
       `}</style>
     </div>
   );
-};
-
-/* ─── Styles ─────────────────────────────────────────────────────────────────── */
-const S = {
-  page: {
-    width: '100%',
-    maxWidth: 1400,
-    margin: '0 auto',
-    fontFamily: 'inherit',
-    paddingBottom: '3rem',
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: '1rem',
-    marginBottom: '1.5rem',
-    flexWrap: 'wrap',
-  },
-  headerBtn: {
-    padding: '0.55rem 1.1rem',
-    borderRadius: 12,
-    border: '1.5px solid var(--border-color, #e2e8f0)',
-    background: 'var(--bg-primary, #f8fafc)',
-    color: 'var(--text-secondary, #374151)',
-    fontWeight: 700,
-    fontSize: '0.82rem',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    transition: 'all 0.15s ease',
-  },
-  card: {
-    background: 'var(--bg-secondary, #fff)',
-    borderRadius: 20,
-    padding: '1.25rem',
-    border: '1px solid var(--border-color, #f1f5f9)',
-    boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
-  },
-  statCard: {
-    borderRadius: 18,
-    padding: '1.1rem 1.25rem',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.9rem',
-    boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-    background: 'var(--bg-secondary, #fff)',
-    border: '1.5px solid var(--border-color, #f1f5f9)',
-  },
-  statIconBg: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  filtersBar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.75rem',
-    marginBottom: '1.25rem',
-    flexWrap: 'wrap',
-    background: 'var(--bg-secondary, #fff)',
-    borderRadius: 16,
-    padding: '0.75rem 1rem',
-    border: '1px solid var(--border-color, #f1f5f9)',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-  },
-  select: {
-    padding: '0.45rem 0.75rem',
-    borderRadius: 10,
-    border: '1.5px solid var(--border-color, #e2e8f0)',
-    background: 'var(--bg-primary, #f8fafc)',
-    color: 'var(--text-secondary, #374151)',
-    fontWeight: 600,
-    fontSize: '0.8rem',
-    cursor: 'pointer',
-    fontFamily: 'inherit',
-    outline: 'none',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-    gap: '0.85rem',
-  },
-  tripCard: {
-    position: 'relative',
-    background: 'var(--bg-secondary, #fff)',
-    borderRadius: 18,
-    padding: '1.1rem 1.1rem 1.1rem 1.4rem',
-    border: '1px solid var(--border-color, #f1f5f9)',
-    boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
-    transition: 'box-shadow 0.2s ease, transform 0.2s ease',
-    overflow: 'hidden',
-  },
-  actionBtn: {
-    padding: '0.5rem 0.75rem',
-    borderRadius: 10,
-    border: 'none',
-    cursor: 'pointer',
-    fontWeight: 700,
-    fontSize: '0.78rem',
-    fontFamily: 'inherit',
-    transition: 'all 0.15s ease',
-  },
-  emptyState: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    textAlign: 'center',
-    padding: '4rem 2rem',
-    background: 'var(--bg-secondary, #fff)',
-    borderRadius: 24,
-    border: '1px solid var(--border-color, #f1f5f9)',
-    boxShadow: '0 2px 12px rgba(0,0,0,0.05)',
-  },
-  overlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(15,23,42,0.6)',
-    backdropFilter: 'blur(8px)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 9000,
-    padding: '1rem',
-  },
-  modal: {
-    background: 'var(--bg-secondary, #fff)',
-    border: '1px solid var(--border-color, #e2e8f0)',
-    color: 'var(--text-primary)',
-    borderRadius: 24,
-    padding: '2rem',
-    maxWidth: 380,
-    width: '100%',
-    boxShadow: '0 24px 60px rgba(0,0,0,0.2)',
-  },
 };
 
 export default TripHistory;

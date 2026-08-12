@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { getCachedData, setCachedData } from '../utils/cache';
 
 /* ── SVG medal icons ── */
 const Medal = ({ rank }) => {
   const colors = {
     1: { fill: '#fbbf24', text: '#78350f', label: '1st' }, // Gold
     2: { fill: '#94a3b8', text: '#1e293b', label: '2nd' }, // Silver
-    3: { fill: '#b45309', text: '#fff',    label: '3rd' }, // Bronze
+    3: { fill: '#b45309', text: '#fff', label: '3rd' }, // Bronze
   };
   const c = colors[rank];
   if (!c) return null;
@@ -28,19 +29,19 @@ const Medal = ({ rank }) => {
 const TrophyIcon = ({ size = 40, color = '#fbbf24' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color}
     strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', margin: '0 auto 0.5rem' }}>
-    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
-    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
-    <path d="M4 22h16"/>
-    <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34"/>
-    <path d="M12 2a5 5 0 0 0-5 5v5c0 2.21 2.24 4 5 4s5-1.79 5-4V7a5 5 0 0 0-5-5z"/>
+    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+    <path d="M4 22h16" />
+    <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34" />
+    <path d="M12 2a5 5 0 0 0-5 5v5c0 2.21 2.24 4 5 4s5-1.79 5-4V7a5 5 0 0 0-5-5z" />
   </svg>
 );
 
 const SearchIcon = () => (
   <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor"
     strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.6 }}>
-    <circle cx="11" cy="11" r="8"/>
-    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
   </svg>
 );
 
@@ -72,25 +73,32 @@ const Leaderboard = ({ user }) => {
   const [activeTab, setActiveTab] = useState('green'); // 'green' or 'territory'
   const [sortBy, setSortBy] = useState('empireScore'); // sorting inside territory tab
 
+  // Cached data retrieval
+  const cachedGreen = getCachedData('leaderboard_green', { list: [], user: null });
+  const cachedTerritory = getCachedData('leaderboard_territory', { list: [], user: null, active: [], aggressive: [] });
+
   // Green Tab Data
-  const [greenList, setGreenList] = useState([]);
-  const [currentGreenUser, setCurrentGreenUser] = useState(null);
+  const [greenList, setGreenList] = useState(cachedGreen.list);
+  const [currentGreenUser, setCurrentGreenUser] = useState(cachedGreen.user);
 
   // Territory Tab Data
-  const [territoryList, setTerritoryList] = useState([]);
-  const [currentTerritoryUser, setCurrentTerritoryUser] = useState(null);
-  const [mostActiveToday, setMostActiveToday] = useState([]);
-  const [mostAggressive, setMostAggressive] = useState([]);
+  const [territoryList, setTerritoryList] = useState(cachedTerritory.list);
+  const [currentTerritoryUser, setCurrentTerritoryUser] = useState(cachedTerritory.user);
+  const [mostActiveToday, setMostActiveToday] = useState(cachedTerritory.active || []);
+  const [mostAggressive, setMostAggressive] = useState(cachedTerritory.aggressive || []);
 
   const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(cachedGreen.list.length === 0 && cachedTerritory.list.length === 0);
 
   // Fetch travel/carbon leaderboard
   const fetchGreenLeaderboard = useCallback(async () => {
     try {
       const { data } = await axios.get('/api/leaderboard');
-      setGreenList(data.leaderboard || []);
-      setCurrentGreenUser(data.currentUser || null);
+      const list = data.leaderboard || [];
+      const curUser = data.currentUser || null;
+      setGreenList(list);
+      setCurrentGreenUser(curUser);
+      setCachedData('leaderboard_green', { list, user: curUser });
     } catch (err) {
       console.error('Green leaderboard fetch error:', err);
     }
@@ -104,10 +112,15 @@ const Leaderboard = ({ user }) => {
         axios.get('/api/territory/leaderboard/active'),
         axios.get('/api/territory/leaderboard/aggressive')
       ]);
-      setTerritoryList(leaderboardRes.data.leaderboard || []);
-      setCurrentTerritoryUser(leaderboardRes.data.currentUser || null);
-      setMostActiveToday(activeRes.data || []);
-      setMostAggressive(aggressiveRes.data || []);
+      const list = leaderboardRes.data.leaderboard || [];
+      const curUser = leaderboardRes.data.currentUser || null;
+      const active = activeRes.data || [];
+      const aggressive = aggressiveRes.data || [];
+      setTerritoryList(list);
+      setCurrentTerritoryUser(curUser);
+      setMostActiveToday(active);
+      setMostAggressive(aggressive);
+      setCachedData('leaderboard_territory', { list, user: curUser, active, aggressive });
     } catch (err) {
       console.error('Territory leaderboard fetch error:', err);
     }
@@ -115,14 +128,15 @@ const Leaderboard = ({ user }) => {
 
   // Combined fetch handler
   const loadData = useCallback(async () => {
-    setLoading(true);
     if (activeTab === 'green') {
+      if (greenList.length === 0) setLoading(true);
       await fetchGreenLeaderboard();
     } else {
+      if (territoryList.length === 0) setLoading(true);
       await fetchTerritoryLeaderboard();
     }
     setLoading(false);
-  }, [activeTab, fetchGreenLeaderboard, fetchTerritoryLeaderboard]);
+  }, [activeTab, greenList.length, territoryList.length, fetchGreenLeaderboard, fetchTerritoryLeaderboard]);
 
   useEffect(() => {
     loadData();
@@ -132,7 +146,7 @@ const Leaderboard = ({ user }) => {
   const getFilteredList = () => {
     const list = activeTab === 'green' ? greenList : territoryList;
     if (!query.trim()) return list;
-    return list.filter(u => 
+    return list.filter(u =>
       (u.displayName || u.ownerName || '').toLowerCase().includes(query.toLowerCase())
     );
   };
@@ -164,7 +178,7 @@ const Leaderboard = ({ user }) => {
 
   return (
     <div style={{ width: '100%', maxWidth: 1400, margin: '0 auto', fontFamily: 'inherit', paddingBottom: '3.5rem' }}>
-      
+
       {/* ── Glassmorphic Header ── */}
       <div style={{
         position: 'relative',
@@ -187,28 +201,28 @@ const Leaderboard = ({ user }) => {
           <div style={{
             width: 48, height: 48, borderRadius: 16,
             background: 'linear-gradient(135deg, rgba(16,185,129,0.18), rgba(16,185,129,0.05))',
-            border: '1.5px solid rgba(16,185,129,0.3)',
+            border: '1.5px solid var(--border-color, #EAE4DA)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: 'var(--primary, #10b981)', flexShrink: 0,
-            boxShadow: '0 4px 14px rgba(16,185,129,0.15)'
+            color: 'var(--primary, #4A7C59)', flexShrink: 0,
+            boxShadow: '0 4px 14px var(--primary-glow)'
           }}>
-            <TrophyIcon size={24} />
+            <TrophyIcon size={24} color="#4A7C59" />
           </div>
           <div>
             <div style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)',
-              color: 'var(--primary, #059669)', fontSize: '0.72rem', fontWeight: 800,
+              background: 'var(--primary-soft, #E8EFE9)', border: '1px solid var(--border-color, #EAE4DA)',
+              color: 'var(--primary, #4A7C59)', fontSize: '0.72rem', fontWeight: 800,
               padding: '3px 10px', borderRadius: 999, letterSpacing: '0.06em',
               textTransform: 'uppercase', marginBottom: 4
             }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4A7C59' }} />
               Global Rankings
             </div>
-            <h2 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 900, fontFamily: "'Outfit', sans-serif", letterSpacing: '-0.03em', color: 'var(--text-primary, #0f172a)' }}>
+            <h2 style={{ margin: 0, fontSize: '2.1rem', fontWeight: 700, fontFamily: "'Newsreader', Georgia, serif", letterSpacing: '-0.02em', color: 'var(--text-primary, #1C281F)' }}>
               Leaderboards
             </h2>
-            <p style={{ margin: '3px 0 0', fontSize: '0.9rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500 }}>
+            <p style={{ margin: '3px 0 0', fontSize: '0.9rem', color: 'var(--text-secondary, #5F7163)', fontWeight: 500 }}>
               Compete for the highest green impact or dominate the map.
             </p>
           </div>
@@ -218,22 +232,22 @@ const Leaderboard = ({ user }) => {
         <div style={{
           display: 'flex',
           background: 'var(--bg-secondary, #fff)',
-          border: '1.5px solid var(--border-color, #e2e8f0)',
-          borderRadius: '14px',
+          border: '1.5px solid var(--border-color, #EAE4DA)',
+          borderRadius: '9999px',
           padding: '4px',
           position: 'relative', zIndex: 1
         }}>
           <button
             onClick={() => { setActiveTab('green'); setQuery(''); }}
             style={{
-              padding: '8px 16px',
-              borderRadius: '10px',
+              padding: '8px 18px',
+              borderRadius: '9999px',
               border: 'none',
               fontWeight: 700,
-              fontSize: '0.88rem',
+              fontSize: '0.85rem',
               cursor: 'pointer',
-              background: activeTab === 'green' ? 'var(--primary, #10b981)' : 'transparent',
-              color: activeTab === 'green' ? '#fff' : 'var(--text-secondary, #64748b)',
+              background: activeTab === 'green' ? 'var(--primary, #4A7C59)' : 'transparent',
+              color: activeTab === 'green' ? '#fff' : 'var(--text-secondary, #5F7163)',
               transition: 'all 0.2s',
               fontFamily: 'inherit'
             }}
@@ -243,14 +257,14 @@ const Leaderboard = ({ user }) => {
           <button
             onClick={() => { setActiveTab('territory'); setQuery(''); }}
             style={{
-              padding: '8px 16px',
-              borderRadius: '10px',
+              padding: '8px 18px',
+              borderRadius: '9999px',
               border: 'none',
               fontWeight: 700,
-              fontSize: '0.88rem',
+              fontSize: '0.85rem',
               cursor: 'pointer',
-              background: activeTab === 'territory' ? 'var(--primary, #10b981)' : 'transparent',
-              color: activeTab === 'territory' ? '#fff' : 'var(--text-secondary, #64748b)',
+              background: activeTab === 'territory' ? 'var(--primary, #4A7C59)' : 'transparent',
+              color: activeTab === 'territory' ? '#fff' : 'var(--text-secondary, #5F7163)',
               transition: 'all 0.2s',
               fontFamily: 'inherit'
             }}
@@ -258,7 +272,7 @@ const Leaderboard = ({ user }) => {
             Territory Empire
           </button>
         </div>
-        
+
         {/* Pinned Your Stats summary */}
         {activeTab === 'green' && currentGreenUser && (
           <div style={{
@@ -396,7 +410,7 @@ const Leaderboard = ({ user }) => {
           gap: '1.25rem', marginBottom: '2.5rem',
           alignItems: 'end',
         }}>
-          
+
           {/* Rank 2 (Silver - Left) */}
           {second && (
             <div style={{

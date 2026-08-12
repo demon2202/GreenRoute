@@ -12,39 +12,62 @@ mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_API_KEY;
 ═══════════════════════════════════════════════════════════ */
 const MODE_META = {
   walking: {
-    color:'#10b981',
+    color:'#4A7C59',
     label:'Walk',
     desc:'Zero emissions',
-    bg:'#ecfdf5',
+    bg:'#EAF1EB',
     co2PerKm:0,
-    icon: '🚶',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="4" r="2"/>
+        <path d="m15 7-3 4-2-2-4 3"/>
+        <path d="m6 16 3-2 3 5 4-3"/>
+      </svg>
+    ),
     mapIcon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2"/><path d="m14 12-1-2-3-1-3 3M4 18l4-2v-4M9 13v-3h3l2.5 3M12 16v5M15 21v-4l-2-2"/></svg>`
   },
   cycling: {
-    color:'#3b82f6',
+    color:'#2563EB',
     label:'Cycle',
     desc:'Fast & green',
-    bg:'#eff6ff',
+    bg:'#EFF6FF',
     co2PerKm:0.021,
-    icon: '🚲',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="18.5" cy="17.5" r="3.5"/>
+        <circle cx="5.5" cy="17.5" r="3.5"/>
+        <circle cx="15" cy="5" r="1"/>
+        <path d="M12 17.5V14l-3-3 4-3 2 3h2"/>
+      </svg>
+    ),
     mapIcon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="2.5"/><circle cx="18.5" cy="17.5" r="2.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm-3 11.5 1-4.5 2-2.5h3.5M12 17.5 8 13.5l3-3.5 1 2"/></svg>`
   },
   driving: {
-    color:'#f59e0b',
+    color:'#D97706',
     label:'Drive',
     desc:'Door to door',
-    bg:'#fffbeb',
+    bg:'#FEF3C7',
     co2PerKm:0.21,
-    icon: '🚗',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3C13 6.8 11.8 6 10.5 6H8.2C7.5 6 7 6.5 7 7.2v3.3C7 11.2 7.5 11.7 8.2 11.7h1.6c.7 0 1.2-.5 1.2-1.2V9M2 17h10c1.1 0 2-.9 2-2V9"/>
+        <circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>
+      </svg>
+    ),
     mapIcon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3C13 6.8 11.8 6 10.5 6H8.2C7.5 6 7 6.5 7 7.2v3.3C7 11.2 7.5 11.7 8.2 11.7h1.6c.7 0 1.2-.5 1.2-1.2V9M2 17h10c1.1 0 2-.9 2-2V9"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>`
   },
   transit: {
-    color:'#8b5cf6',
+    color:'#7C3AED',
     label:'Transit',
     desc:'Shared & affordable',
-    bg:'#f5f3ff',
+    bg:'#F5F3FF',
     co2PerKm:0.089,
-    icon: '🚌',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="3" width="16" height="16" rx="2" ry="2"/>
+        <path d="M6 6h12v4H6ZM6 14h2v2H6ZM16 14h2v2h-2ZM8 19v2M16 19v2"/>
+      </svg>
+    ),
     mapIcon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="16" rx="2" ry="2"/><path d="M6 6h12v4H6ZM6 14h2v2H6ZM16 14h2v2h-2ZM8 19v2M16 19v2"/></svg>`
   },
 };
@@ -310,131 +333,334 @@ const AQIBanner = ({ aqi }) => {
   );
 };
 
-/* Nav Strip — Google Maps style bottom bar */
-const NavStrip = ({ route, progress, isNavigating, onStop, activeStep }) => {
+/* Nav Strip — Apple & Google Maps style floating bottom island */
+const NavStrip = ({ route, progress, isNavigating, onStop, activeStep, onRecenter, voiceOn, onToggleVoice }) => {
   if (!isNavigating || !route) return null;
   const totalSec   = (route.duration || 0) * 60;
   const remaining  = Math.max(totalSec * (1 - progress), 0);
   const eta        = new Date(Date.now() + remaining * 1000);
   const distKm     = parseFloat(route.distance) || 0;
   const distLeft   = Math.max(distKm * (1 - progress), 0);
-  const m          = MODE_META[route.mode] || {};
   const remMin     = Math.round(remaining / 60);
+
+  const formattedEta = remMin < 60 
+    ? `${remMin} min` 
+    : `${Math.floor(remMin / 60)}h ${remMin % 60 < 10 ? '0' : ''}${remMin % 60}m`;
+
+  const formattedDist = distLeft < 1 
+    ? `${Math.round(distLeft * 1000)} m` 
+    : `${distLeft.toFixed(1)} km`;
 
   return (
     <div style={{
-      position:'absolute', bottom:0, left:0, right:0,
-      background:'linear-gradient(135deg,#0f172a 0%,#1e293b 100%)',
-      color:'#fff', padding:'16px 20px 20px',
-      display:'flex', alignItems:'center', gap:16,
-      zIndex:200,
-      boxShadow:'0 -6px 32px rgba(0,0,0,0.4)',
-      borderTop:'1px solid rgba(255,255,255,0.08)',
+      position: 'absolute',
+      bottom: 18,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      width: 'calc(100% - 24px)',
+      maxWidth: 580,
+      zIndex: 200,
+      animation: 'navStripIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
     }}>
-      {/* ETA */}
-      <div style={{textAlign:'center', minWidth:56}}>
-        <div style={{fontSize:'1.9rem', fontWeight:800, letterSpacing:'-0.04em', lineHeight:1, color:'#fff'}}>
-          {formatTime(eta)}
+      <style>{`
+        @keyframes navStripIn {
+          from { opacity: 0; transform: translateX(-50%) translateY(24px) scale(0.96); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+        }
+        .nav-hud-card {
+          background: rgba(18, 33, 24, 0.96);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          border: 1.5px solid rgba(74, 222, 128, 0.35);
+          border-radius: 24px;
+          padding: 10px 14px;
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(74, 124, 89, 0.25);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          color: #FFFFFF;
+          box-sizing: border-box;
+          width: 100%;
+        }
+        .nav-hud-left {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          flex-shrink: 0;
+        }
+        .nav-hud-eta {
+          font-size: 1.45rem;
+          font-weight: 800;
+          color: #34D399;
+          letter-spacing: -0.03em;
+          font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+          white-space: nowrap;
+          line-height: 1.1;
+        }
+        .nav-hud-dist {
+          font-size: 0.78rem;
+          color: rgba(255, 255, 255, 0.7);
+          font-weight: 600;
+          white-space: nowrap;
+          margin-top: 2px;
+        }
+        .nav-hud-center {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          background: rgba(255, 255, 255, 0.09);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          padding: 4px 10px;
+          border-radius: 12px;
+          flex-shrink: 0;
+        }
+        .nav-hud-arr-lbl {
+          font-size: 0.62rem;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: rgba(255, 255, 255, 0.6);
+          font-weight: 800;
+          line-height: 1;
+        }
+        .nav-hud-arr-val {
+          font-size: 0.9rem;
+          font-weight: 800;
+          color: #FFFFFF;
+          white-space: nowrap;
+          line-height: 1.2;
+          margin-top: 1px;
+        }
+        .nav-hud-actions {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
+        }
+        .nav-btn-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          color: #FFFFFF;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          flex-shrink: 0;
+        }
+        .nav-btn-icon:hover {
+          background: rgba(255, 255, 255, 0.2);
+          transform: scale(1.05);
+        }
+        .nav-btn-end {
+          padding: 7px 14px;
+          border-radius: 999px;
+          background: #DC2626;
+          border: 1.5px solid rgba(255, 255, 255, 0.25);
+          color: #FFFFFF;
+          font-weight: 800;
+          font-size: 0.82rem;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          cursor: pointer;
+          box-shadow: 0 4px 14px rgba(220, 38, 38, 0.45);
+          transition: all 0.15s ease;
+          font-family: inherit;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .nav-btn-end:hover {
+          background: #B91C1C;
+          transform: scale(1.03);
+        }
+      `}</style>
+      
+      {/* Outer Shell (Double-Bezel) */}
+      <div className="nav-hud-card">
+        {/* Left: ETA and Time */}
+        <div className="nav-hud-left">
+          <span className="nav-hud-eta">{formattedEta}</span>
+          <span className="nav-hud-dist">({formattedDist})</span>
         </div>
-        <div style={{fontSize:10, opacity:.55, textTransform:'uppercase', letterSpacing:'0.08em', marginTop:3}}>arrive</div>
+
+        {/* Center: Arrival Clock */}
+        <div className="nav-hud-center">
+          <span className="nav-hud-arr-lbl">Arrival</span>
+          <span className="nav-hud-arr-val">{formatTime(eta)}</span>
+        </div>
+
+        {/* Right Actions */}
+        <div className="nav-hud-actions">
+          {/* Recenter Button */}
+          <button
+            onClick={onRecenter}
+            title="Recenter Camera on Location"
+            className="nav-btn-icon"
+          >
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+            </svg>
+          </button>
+
+          {/* Voice Mute/Unmute */}
+          <button
+            onClick={onToggleVoice}
+            title={voiceOn ? "Mute Voice Guidance" : "Unmute Voice Guidance"}
+            className="nav-btn-icon"
+            style={{
+              background: voiceOn ? 'rgba(74, 222, 128, 0.25)' : 'rgba(255, 255, 255, 0.1)',
+              borderColor: voiceOn ? 'rgba(74, 222, 128, 0.5)' : 'rgba(255, 255, 255, 0.15)',
+              color: voiceOn ? '#4ADE80' : 'rgba(255, 255, 255, 0.7)'
+            }}
+          >
+            {voiceOn ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+              </svg>
+            )}
+          </button>
+
+          {/* End Trip Button */}
+          <button
+            onClick={onStop}
+            title="End Navigation"
+            className="nav-btn-end"
+          >
+            <span style={{ display: 'inline-block', width: 7, height: 7, background: '#FFFFFF', borderRadius: 2 }} />
+            <span>End</span>
+          </button>
+        </div>
       </div>
-
-      <div style={{width:1, height:36, background:'rgba(255,255,255,0.12)'}} />
-
-      {/* Time left */}
-      <div style={{textAlign:'center', minWidth:48}}>
-        <div style={{fontSize:'1.5rem', fontWeight:800, letterSpacing:'-0.03em', lineHeight:1, color:'#4ade80'}}>
-          {remMin < 60 ? `${remMin}` : `${Math.floor(remMin/60)}h${remMin%60}`}
-        </div>
-        <div style={{fontSize:10, opacity:.55, textTransform:'uppercase', letterSpacing:'0.08em', marginTop:3}}>
-          {remMin < 60 ? 'min left' : 'h left'}
-        </div>
-      </div>
-
-      <div style={{width:1, height:36, background:'rgba(255,255,255,0.12)'}} />
-
-      {/* Distance left */}
-      <div style={{textAlign:'center', flex:1}}>
-        <div style={{fontSize:'1.5rem', fontWeight:800, letterSpacing:'-0.03em', lineHeight:1}}>
-          {distLeft < 1 ? `${Math.round(distLeft*1000)}m` : `${distLeft.toFixed(1)}km`}
-        </div>
-        <div style={{fontSize:10, opacity:.55, textTransform:'uppercase', letterSpacing:'0.08em', marginTop:3}}>remaining</div>
-      </div>
-
-      <div style={{width:1, height:36, background:'rgba(255,255,255,0.12)'}} />
-
-      {/* CO2 saved so far */}
-      <div style={{textAlign:'center', minWidth:52}}>
-        <div style={{fontSize:'1.3rem', fontWeight:800, letterSpacing:'-0.03em', lineHeight:1, color:'#34d399'}}>
-          {(parseFloat(route.co2Saved||0) * progress).toFixed(2)}
-        </div>
-        <div style={{fontSize:10, opacity:.55, textTransform:'uppercase', letterSpacing:'0.08em', marginTop:3}}>kg saved</div>
-      </div>
-
-      {/* Stop button */}
-      <button onClick={onStop} style={{
-        width:44, height:44, borderRadius:'50%',
-        background:'#ef4444', border:'2px solid rgba(255,255,255,0.15)',
-        color:'#fff', cursor:'pointer', display:'flex',
-        alignItems:'center', justifyContent:'center',
-        boxShadow:'0 2px 12px rgba(239,68,68,0.5)',
-        transition:'all 0.15s', flexShrink:0, marginLeft:4,
-      }}>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <rect x="4" y="4" width="16" height="16" rx="2"/>
-        </svg>
-      </button>
     </div>
   );
 };
 
 /* Floating turn card — shown on map during navigation */
-const NavTurnCard = ({ step, nextStep, isNavigating, progress, totalSteps }) => {
+const NavTurnCard = ({ step, nextStep, isNavigating, progress, totalSteps, voiceOn, onToggleVoice }) => {
   if (!isNavigating || !step) return null;
   const stepNum = Math.round(progress * totalSteps);
   return (
     <div style={{
-      position:'absolute', top:16, left:'50%', transform:'translateX(-50%)',
-      zIndex:180,
-      background:'rgba(15,23,42,0.96)',
-      backdropFilter:'blur(12px)',
-      borderRadius:20,
-      padding:'14px 20px',
-      color:'#fff',
-      display:'flex', alignItems:'center', gap:16,
-      minWidth:280, maxWidth:440,
-      boxShadow:'0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08)',
-      animation:'navCardIn 0.25s cubic-bezier(0.16,1,0.3,1)',
+      position: 'absolute',
+      top: 14,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      zIndex: 190,
+      width: 'calc(100% - 24px)',
+      maxWidth: 520,
+      animation: 'navCardIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
     }}>
       <style>{`
         @keyframes navCardIn {
-          from { opacity:0; transform:translateX(-50%) translateY(-8px) scale(0.95); }
-          to   { opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+          from { opacity: 0; transform: translateX(-50%) translateY(-16px) scale(0.96); }
+          to   { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+        }
+        .nav-turn-outer {
+          background: rgba(18, 33, 24, 0.96);
+          backdrop-filter: blur(24px);
+          -webkit-backdrop-filter: blur(24px);
+          border-radius: 20px;
+          border: 1.5px solid rgba(74, 222, 128, 0.35);
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(52, 211, 153, 0.15);
+          padding: 12px 16px;
+          color: '#FFFFFF';
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          box-sizing: border-box;
+          width: 100%;
+        }
+        .nav-turn-ico-box {
+          width: 48px;
+          height: 48px;
+          border-radius: 14px;
+          flex-shrink: 0;
+          background: linear-gradient(135deg, rgba(74, 222, 128, 0.25) 0%, rgba(16, 185, 129, 0.1) 100%);
+          border: 1.5px solid rgba(74, 222, 128, 0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 16px rgba(74, 222, 128, 0.2);
+        }
+        .nav-turn-info {
+          flex: 1;
+          min-width: 0;
+        }
+        .nav-turn-dist {
+          font-size: 0.78rem;
+          font-weight: 800;
+          color: #4ADE80;
+          text-transform: uppercase;
+          letter-spacing: 0.06em;
+          margin-bottom: 2px;
+          line-height: 1;
+        }
+        .nav-turn-inst {
+          font-size: 1.05rem;
+          font-weight: 800;
+          line-height: 1.25;
+          color: #FFFFFF;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .nav-turn-next {
+          font-size: 0.75rem;
+          color: rgba(255, 255, 255, 0.65);
+          font-weight: 500;
+          margin-top: 3px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .nav-turn-step-pill {
+          flex-shrink: 0;
+          padding: 3px 8px;
+          border-radius: 999px;
+          background: rgba(255, 255, 255, 0.1);
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: rgba(255, 255, 255, 0.8);
         }
       `}</style>
-      {/* Direction arrow */}
-      <div style={{
-        width:52, height:52, borderRadius:14, flexShrink:0,
-        background:'rgba(255,255,255,0.1)',
-        border:'1px solid rgba(255,255,255,0.15)',
-        display:'flex', alignItems:'center', justifyContent:'center',
-      }}>
-        <DirectionArrow type={step.type} modifier={step.modifier} size={28} color="#4ade80" />
-      </div>
-      {/* Instruction */}
-      <div style={{flex:1, minWidth:0}}>
-        <div style={{fontSize:15, fontWeight:700, lineHeight:1.3, color:'#fff', marginBottom:4}}>
-          {step.instruction}
+      
+      {/* Outer Shell */}
+      <div className="nav-turn-outer">
+        {/* Large Turn Arrow Box */}
+        <div className="nav-turn-ico-box">
+          <DirectionArrow type={step.type} modifier={step.modifier} size={28} color="#4ADE80" />
         </div>
-        {step.distance > 0 && (
-          <div style={{fontSize:12, color:'rgba(255,255,255,0.55)', fontWeight:500}}>
-            {formatDist(step.distance)}{nextStep ? ` · then ${nextStep.instruction?.split(' ').slice(0,3).join(' ')}…` : ''}
+
+        {/* Step Maneuver Text */}
+        <div className="nav-turn-info">
+          {step.distance > 0 && (
+            <div className="nav-turn-dist">
+              In {formatDist(step.distance)}
+            </div>
+          )}
+          <div className="nav-turn-inst">
+            {step.instruction}
           </div>
-        )}
-      </div>
-      {/* Step counter */}
-      <div style={{flexShrink:0, textAlign:'center'}}>
-        <div style={{fontSize:11, color:'rgba(255,255,255,0.4)', fontWeight:600}}>
+          {nextStep && (
+            <div className="nav-turn-next">
+              Then: {nextStep.instruction}
+            </div>
+          )}
+        </div>
+
+        {/* Step Progress Pill */}
+        <div className="nav-turn-step-pill">
           {stepNum + 1}/{totalSteps}
         </div>
       </div>
@@ -633,145 +859,36 @@ const ShortcutsModal = ({ onClose }) => (
   </div>
 );
 
-/* Playback controls */
-const PlaybackControls = ({ isPlaying, progress, onPlayPause, onSeek, onSpeedChange, speed }) => (
-  <div style={{
-    margin:'8px 12px',background:'var(--bg-primary, #f8fafc)',
-    border:'1px solid var(--border-color, #e2e8f0)',borderRadius:14,
-    padding:'10px 14px',flexShrink:0,
-  }}>
-    <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
-      <button onClick={onPlayPause} style={{
-        width:34,height:34,borderRadius:'50%',border:'none',
-        background:'linear-gradient(135deg,#10b981,#059669)',
-        color:'#fff',cursor:'pointer',
-        display:'flex',alignItems:'center',justifyContent:'center',
-        boxShadow:'0 2px 8px rgba(16,185,129,0.3)',flexShrink:0,
-      }}>
-        {isPlaying
-          ? <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
-          : <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        }
-      </button>
-      <input
-        type="range" min={0} max={100} value={Math.round(progress*100)}
-        onChange={e=>onSeek(e.target.value/100)}
-        style={{flex:1,accentColor:'#10b981',cursor:'pointer'}}
-      />
-      <span style={{fontSize:11,color:'var(--text-secondary, #64748b)',fontWeight:600,minWidth:32,textAlign:'right'}}>
-        {Math.round(progress*100)}%
-      </span>
-    </div>
-    <div style={{display:'flex',alignItems:'center',gap:6}}>
-      <span style={{fontSize:11,color:'var(--text-muted, #94a3b8)'}}>Speed</span>
-      {[0.5,1,2,4].map(s=>(
-        <button key={s} onClick={()=>onSpeedChange(s)} style={{
-          padding:'2px 8px',borderRadius:20,border:'none',
-          background:speed===s?'#10b981':'var(--border-color, #e2e8f0)',
-          color:speed===s?'#fff':'var(--text-secondary, #64748b)',
-          fontSize:11,fontWeight:700,cursor:'pointer',
-        }}>{s}×</button>
-      ))}
-    </div>
-  </div>
-);
-
-/* Saved Places Quick Chips */
-const SavedPlaces = ({ onSelectOrigin, onSelectDest }) => {
-  const [places, setPlaces] = useState(() => {
-    try {
-      const data = localStorage.getItem(SAVED_PLACES_KEY);
-      if (!data) {
-        return [];
-      }
-      return JSON.parse(data);
-    }
-    catch { return []; }
-  });
-
-  const remove = (i) => {
-    const n = [...places];
-    n.splice(i, 1);
-    setPlaces(n);
-    localStorage.setItem(SAVED_PLACES_KEY, JSON.stringify(n));
-  };
-
-  // Removed: adding, setAdding, newName, setNewName — they were unused
-
-  if (!places.length) return null; // ← removed '&& !adding' since adding no longer exists
-
-  return (
-    <div style={{ padding: '8px 14px 0', flexShrink: 0 }}>
-      <div style={{
-        fontSize: 10.5, fontWeight: 700, color: 'var(--text-muted, #94a3b8)',
-        textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6,
-      }}>
-        Saved Places
-      </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {places.map((p, i) => (
-          <div key={i} style={{
-            display: 'flex', alignItems: 'center', gap: 0,
-            background: 'var(--bg-tag, #f0fdf4)', border: '1px solid var(--border-color, #bbf7d0)',
-            borderRadius: 20, overflow: 'hidden',
-          }}>
-            <button
-              onClick={() => onSelectOrigin(p)}
-              style={{
-                padding: '5px 10px', border: 'none', background: 'transparent',
-                color: 'var(--text-secondary, #065f46)', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              }}
-              title={`Set "${p.name}" as origin`}
-            >
-              {p.icon} {p.name}
-            </button>
-            <button
-              onClick={() => onSelectDest(p)}
-              style={{
-                padding: '5px 7px', border: 'none', background: 'transparent',
-                color: 'var(--text-secondary, #065f46)', fontSize: 11, cursor: 'pointer',
-                borderLeft: '1px solid var(--border-color, #bbf7d0)',
-              }}
-              title={`Set "${p.name}" as destination`}
-            >
-              →
-            </button>
-            <button
-              onClick={() => remove(i)}
-              style={{
-                padding: '5px 7px', border: 'none', background: 'transparent',
-                color: 'var(--text-muted, #94a3b8)', fontSize: 10, cursor: 'pointer',
-              }}
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 /* Recent Routes */
 const RecentRoutes = ({ onSelect }) => {
   const [recent] = useState(()=>{
     try { return JSON.parse(localStorage.getItem(RECENT_ROUTES_KEY)||'[]'); } catch { return []; }
   });
-  if (!recent.length) return null;
+  if (!recent.length) {
+    return (
+      <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+        <div style={{ fontSize: '1.6rem', marginBottom: 8, opacity: 0.6 }}>🕒</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>No recent journeys</div>
+        <div style={{ fontSize: 11.5, color: 'var(--text-muted, #94a3b8)', marginTop: 4 }}>
+          Planned routes will automatically appear here for quick access.
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{padding:'8px 14px 0',flexShrink:0}}>
       <div style={{fontSize:10.5,fontWeight:700,color:'var(--text-muted, #94a3b8)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:6}}>
-        Recent
+        Recent Journeys
       </div>
       <div style={{display:'flex',flexDirection:'column',gap:4}}>
-        {recent.slice(0,3).map((r,i)=>(
+        {recent.slice(0, 8).map((r,i)=>(
           <button key={i} onClick={()=>onSelect(r)} style={{
             display:'flex',alignItems:'center',gap:8,padding:'8px 10px',
             background:'var(--bg-primary, #f8fafc)',border:'1px solid var(--border-color, #e2e8f0)',borderRadius:11,
             cursor:'pointer',fontFamily:'inherit',textAlign:'left',
             transition:'all 0.15s',
           }}
-          onMouseEnter={e=>e.currentTarget.style.borderColor='#10b981'}
+          onMouseEnter={e=>e.currentTarget.style.borderColor='var(--primary, #4A7C59)'}
           onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border-color, #e2e8f0)'}
           >
             <span style={{fontSize:14}}>{MODE_META[r.mode]?.icon||'🗺️'}</span>
@@ -841,7 +958,7 @@ const RoutePlanner = ({ user }) => {
   const [aqi,           setAqi]           = useState(null);
   const [carbon,        setCarbon]        = useState({ today:0,month:0,goal:60,pct:0 });
   const [history,       setHistory]       = useState([]);
-  const [modes,         setModes]         = useState(['walking','cycling','driving']);
+  const [modes,         setModes]         = useState(['walking','cycling','transit','driving']);
   const [showModal,     setShowModal]     = useState(false);
   const [panel,         setPanel]         = useState('search');
   const [activeStep,    setActiveStep]    = useState(null);
@@ -866,12 +983,17 @@ const RoutePlanner = ({ user }) => {
   const [sidebarWidth, setSidebarWidth] = useState(440);
   const isResizing = useRef(false);
 
-  /* ── GPS and Arrival Detection state ── */
+  /* ── GPS and Real Movement Verification state ── */
   const [useGPS, setUseGPS] = useState(true);
   const [distToDest, setDistToDest] = useState(null);
   const [showArrivalModal, setShowArrivalModal] = useState(false);
   const [completedTrip, setCompletedTrip] = useState(null);
+  const [is3D, setIs3D] = useState(false);
+  const userLiveLocation = useRef(null);
   const watchIdRef = useRef(null);
+  const physicalTraveledKmRef = useRef(0);
+  const lastGPSCoordRef = useRef(null);
+  const isTripVerifiedRef = useRef(false);
 
   const activeStepRef = useRef(activeStep);
   useEffect(() => { activeStepRef.current = activeStep; }, [activeStep]);
@@ -884,6 +1006,78 @@ const RoutePlanner = ({ user }) => {
   const departureTimeRef = useRef(departureTime);
   useEffect(() => { departureTimeRef.current = departureTime; }, [departureTime]);
   const lastRecalculateTime = useRef(0);
+
+  const handleLocateMe = useCallback(() => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const coords = [longitude, latitude];
+        userLiveLocation.current = coords;
+        if (map.current) {
+          map.current.flyTo({
+            center: coords,
+            zoom: 16.5,
+            pitch: is3D ? 55 : 0,
+            speed: 1.4,
+            curve: 1.2
+          });
+        }
+      },
+      (err) => {
+        console.warn('Geolocation error:', err);
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
+  }, [is3D]);
+
+  const toggle3D = useCallback(() => {
+    if (!map.current) return;
+    const next = !is3D;
+    setIs3D(next);
+    map.current.easeTo({
+      pitch: next ? 55 : 0,
+      duration: 800,
+      easing: easeInOutCubic
+    });
+  }, [is3D]);
+
+  const recenterCamera = useCallback(() => {
+    if (!map.current) return;
+    if (userLiveLocation.current) {
+      map.current.easeTo({
+        center: userLiveLocation.current,
+        zoom: 17,
+        pitch: 55,
+        duration: 800
+      });
+    } else if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const coords = [pos.coords.longitude, pos.coords.latitude];
+          userLiveLocation.current = coords;
+          map.current.easeTo({
+            center: coords,
+            zoom: 17,
+            pitch: 55,
+            duration: 800
+          });
+        },
+        null,
+        { enableHighAccuracy: true }
+      );
+    }
+  }, []);
+
+  const handleZoomIn = () => {
+    if (map.current) map.current.zoomIn({ duration: 250 });
+  };
+  const handleZoomOut = () => {
+    if (map.current) map.current.zoomOut({ duration: 250 });
+  };
 
   useEffect(() => {
     return () => {
@@ -901,14 +1095,46 @@ const RoutePlanner = ({ user }) => {
     }
   }, [isNavigating]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (map.current) {
+        try { map.current.resize(); } catch {}
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const fetchCarbon = async()=>{
     try{
       const[h,p]=await Promise.all([axios.get('/api/history'),axios.get('/api/preferences')]);
-      const goal=p.data.monthlyGoal||60, now=new Date(), som=new Date(now.getFullYear(),now.getMonth(),1);
+      const goal=p.data?.monthlyGoal||60, now=new Date(), som=new Date(now.getFullYear(),now.getMonth(),1);
       let today=0,month=0;
-      h.data.forEach(t=>{const d=new Date(t.date),c=parseFloat(t.co2Saved)||0;if(d.toDateString()===now.toDateString())today+=c;if(d>=som)month+=c;});
+      (h.data || []).forEach(t=>{const d=new Date(t.date),c=parseFloat(t.co2Saved)||0;if(d.toDateString()===now.toDateString())today+=c;if(d>=som)month+=c;});
       setCarbon({today,month,goal,pct:Math.min((month/goal)*100,100)});
-    }catch{}
+
+      // Synchronize transport modes from user saved preferences
+      if (p.data && Array.isArray(p.data.transportModes) && p.data.transportModes.length > 0) {
+        const mappedModes = [];
+        p.data.transportModes.forEach(tm => {
+          const lower = (tm || '').toLowerCase();
+          if (lower.includes('walk') && !mappedModes.includes('walking')) mappedModes.push('walking');
+          if (lower.includes('cycl') && !mappedModes.includes('cycling')) mappedModes.push('cycling');
+          if ((lower.includes('transit') || lower.includes('bus') || lower.includes('train') || lower.includes('public')) && !mappedModes.includes('transit')) mappedModes.push('transit');
+          if (lower.includes('driv') && !mappedModes.includes('driving')) mappedModes.push('driving');
+          if (lower.includes('mixed')) {
+            if (!mappedModes.includes('walking')) mappedModes.push('walking');
+            if (!mappedModes.includes('cycling')) mappedModes.push('cycling');
+            if (!mappedModes.includes('transit')) mappedModes.push('transit');
+          }
+        });
+        if (mappedModes.length > 0) {
+          setModes(mappedModes);
+        }
+      }
+    }catch(err){
+      console.warn("Preferences/carbon sync warning:", err);
+    }
   };
   const fetchHistory = async()=>{
     try{const r=await axios.get('/api/history');setHistory(r.data||[]);}catch{}
@@ -1041,6 +1267,26 @@ const RoutePlanner = ({ user }) => {
         }
       }
 
+      // Check quick destination from Saved Places
+      const quickDestStr = sessionStorage.getItem('gr_quick_destination');
+      if (quickDestStr) {
+        try {
+          const qd = JSON.parse(quickDestStr);
+          sessionStorage.removeItem('gr_quick_destination');
+          if (qd && qd.coordinates) {
+            setDestination(qd);
+            placePin('dest', qd.coordinates);
+            setTimeout(() => {
+              const el = document.querySelector('#geocoder-dest input');
+              if (el) el.value = qd.name || '';
+            }, 300);
+            if (map.current) {
+              map.current.easeTo({ center: qd.coordinates, zoom: 14, duration: 900 });
+            }
+          }
+        } catch {}
+      }
+
       if (map.current) {
         if (resolvedOrigin && resolvedDest) {
           const bounds = new mapboxgl.LngLatBounds();
@@ -1059,14 +1305,6 @@ const RoutePlanner = ({ user }) => {
         cancelAnim();
         if(travMarker.current){travMarker.current.remove();travMarker.current=null;}
 
-        const MSGS=['Finding routes…','Calculating CO₂…','Comparing modes…','Optimising…'];
-        let pct=0;
-        const tick=setInterval(()=>{
-          pct=Math.min(pct+Math.random()*12,88);
-          setLoadingPct(pct);
-          setLoadingStep(Math.floor(pct/25)%MSGS.length);
-        },300);
-
         try {
           const reqModes = modeParam ? [modeParam.toLowerCase()] : modes;
           const res = await axios.post('/api/route', {
@@ -1075,7 +1313,6 @@ const RoutePlanner = ({ user }) => {
             transportModes: reqModes,
             departureTime: departureTime || undefined,
           });
-          clearInterval(tick); setLoadingPct(100);
 
           const recentEntry={
             originName:resolvedOrigin.name, destName:resolvedDest.name,
@@ -1085,21 +1322,19 @@ const RoutePlanner = ({ user }) => {
           const prev=JSON.parse(localStorage.getItem(RECENT_ROUTES_KEY)||'[]');
           localStorage.setItem(RECENT_ROUTES_KEY,JSON.stringify([recentEntry,...prev.slice(0,4)]));
 
-          setTimeout(()=>{
-            setLoading(false); setLoadingPct(0);
-            const data=res.data||[];
-            if(data.length){
-              setRoutes(data); setPanel('routes');
-              const first=data[0];
-              setSelectedRoute(first);
-              displayAllRoutes(data,first);
-              fetchWeather(resolvedDest.coordinates[1],resolvedDest.coordinates[0]);
-              fetchAqi(resolvedDest.coordinates[1],resolvedDest.coordinates[0]);
-            } else { alert('No routes found. Try different locations.'); }
-          },500);
+          const data=res.data||[];
+          if(data.length){
+            setRoutes(data); setPanel('routes');
+            const first=data[0];
+            setSelectedRoute(first);
+            displayAllRoutes(data,first);
+            fetchWeather(resolvedDest.coordinates[1],resolvedDest.coordinates[0]);
+            fetchAqi(resolvedDest.coordinates[1],resolvedDest.coordinates[0]);
+          }
         } catch (err) {
-          clearInterval(tick); setLoading(false); setLoadingPct(0);
           console.error("Failed to fetch route for query params:", err);
+        } finally {
+          setLoading(false);
         }
       }
     };
@@ -1157,17 +1392,22 @@ const RoutePlanner = ({ user }) => {
     return () => cancelAnim();
   }, []);
 
-  /* ── Geocoders ── */
+  /* ── Geocoders (Global & Dynamic Proximity) ── */
   const initGeocoders = useCallback(() => {
     ['geocoder-origin','geocoder-dest'].forEach(id=>{
       const el=document.getElementById(id); if(el) el.innerHTML='';
     });
+
+    const center = map.current ? map.current.getCenter() : { lng: 77.2090, lat: 28.6139 };
+
     const opts = {
-      accessToken: mapboxgl.accessToken, mapboxgl,
-      marker:false, flyTo:false,
-      proximity:{longitude:77.2090,latitude:28.6139},
-      language:'en',
-      types:'place,address,poi,district,locality,neighborhood',
+      accessToken: mapboxgl.accessToken,
+      mapboxgl,
+      marker: false,
+      flyTo: false,
+      proximity: { longitude: center.lng, latitude: center.lat },
+      language: 'en',
+      types: 'country,region,postcode,district,place,locality,neighborhood,address,poi',
       minLength: 0
     };
 
@@ -1196,10 +1436,13 @@ const RoutePlanner = ({ user }) => {
 
     const oGeo=new MapboxGeocoder({
       ...opts,
-      placeholder:'Search start location',
+      placeholder:'Search start location or place...',
       localGeocoder: localGeocoderCurrentLocation
     });
-    const dGeo=new MapboxGeocoder({...opts,placeholder:'Search destination'});
+    const dGeo=new MapboxGeocoder({
+      ...opts,
+      placeholder:'Search destination or landmark...'
+    });
     originGeoRef.current=oGeo; destGeoRef.current=dGeo;
     const oEl=document.getElementById('geocoder-origin');
     const dEl=document.getElementById('geocoder-dest');
@@ -1224,10 +1467,10 @@ const RoutePlanner = ({ user }) => {
             setOrigin({ coordinates: coords, name: 'Current Location' });
             placePin('origin', coords);
             
-            map.current.easeTo({ center: coords, zoom: 15, duration: 1200 });
+            map.current.easeTo({ center: coords, zoom: 15.5, duration: 1200 });
             setMapSelectDestMode(true);
             
-            setSaveMsg('Current location set! Click on map to set destination.');
+            setSaveMsg('Current location set! Click map or search destination.');
             setTimeout(() => setSaveMsg(''), 3500);
           },
           (err) => {
@@ -1251,7 +1494,7 @@ const RoutePlanner = ({ user }) => {
         const c=e.result.center;
         setOrigin({coordinates:c,name:e.result.place_name});
         placePin('origin',c);
-        map.current.easeTo({center:c,zoom:13,duration:900});
+        map.current.easeTo({center:c,zoom:14,duration:900});
       }
     });
     oGeo.on('clear',()=>{ 
@@ -1264,7 +1507,7 @@ const RoutePlanner = ({ user }) => {
       const c=e.result.center;
       setDestination({coordinates:c,name:e.result.place_name});
       placePin('dest',c);
-      map.current.easeTo({center:c,zoom:13,duration:900});
+      map.current.easeTo({center:c,zoom:14,duration:900});
     });
     dGeo.on('clear',()=>{ setDestination(null); if(destMarker.current){destMarker.current.remove();destMarker.current=null;} });
   },[]);
@@ -1282,14 +1525,23 @@ const RoutePlanner = ({ user }) => {
 
   const reverseGeocode = async (lng, lat) => {
     try {
-      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}&limit=1`;
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}&types=poi,address,neighborhood,locality,place,district&limit=1`;
       const res = await axios.get(url);
       const feature = res.data.features?.[0];
-      if (feature) {
+      if (feature && feature.place_name) {
         return feature.place_name;
       }
     } catch (err) {
-      console.error("Reverse geocoding failed:", err);
+      console.warn("Mapbox reverse geocode fallback:", err);
+    }
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lon=${lng}&lat=${lat}&zoom=18&addressdetails=1`);
+      const data = await res.json();
+      if (data && data.display_name) {
+        return data.display_name;
+      }
+    } catch (err) {
+      console.warn("Nominatim reverse geocode fallback:", err);
     }
     return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
   };
@@ -1330,7 +1582,7 @@ const RoutePlanner = ({ user }) => {
     };
   }, [mapSelectDestMode, placePin]);
 
-  /* ── Traveller ── */
+  /* ── Traveller (Google Maps Navigation Puck) ── */
   const cancelAnim = () => {
     if(animFrame.current) cancelAnimationFrame(animFrame.current);
     if(dashAnimFrame.current) cancelAnimationFrame(dashAnimFrame.current);
@@ -1340,18 +1592,24 @@ const RoutePlanner = ({ user }) => {
   const spawnTraveller = useCallback((coords,modeIcon,color) => {
     if(travMarker.current) travMarker.current.remove();
     const el=document.createElement('div');
-    el.className='gm-traveller';
+    el.className='gm-traveller-puck';
     el.innerHTML=`
-      <div class="gm-pulse" style="--tc:${color}"></div>
-      <div class="gm-dot" style="background:${color};border-color:${color}">
-        <span class="gm-icon">${modeIcon}</span>
+      <div class="gm-puck-halo"></div>
+      <div class="gm-puck-cone"></div>
+      <div class="gm-puck-core">
+        <div class="gm-puck-inner"></div>
       </div>
     `;
-    travMarker.current=new mapboxgl.Marker({element:el,anchor:'center',rotationAlignment:'map',pitchAlignment:'map'})
+    travMarker.current=new mapboxgl.Marker({
+      element:el,
+      anchor:'center',
+      rotationAlignment:'map',
+      pitchAlignment:'map'
+    })
       .setLngLat(coords).addTo(map.current);
   },[]);
 
-  const handleTripCompletion = useCallback(async (route) => {
+  const handleTripCompletion = useCallback(async (route, isVerifiedPhysicalTravel = true) => {
     if(!route||!origin||!destination) return;
     setIsNavigating(false);
     setActiveStep(null);
@@ -1371,6 +1629,12 @@ const RoutePlanner = ({ user }) => {
         travMarker.current.remove();
         travMarker.current = null;
       }
+    }
+
+    if (!isVerifiedPhysicalTravel) {
+      setSaveMsg("Simulation preview ended. Real GPS travel is required to earn carbon points.");
+      setTimeout(() => setSaveMsg(''), 4500);
+      return;
     }
 
     const newTrip = {
@@ -1466,9 +1730,7 @@ const RoutePlanner = ({ user }) => {
       if(raw<1){
         animFrame.current=requestAnimationFrame(tick);
       } else {
-        if(navMode) {
-          handleTripCompletion(selectedRoute);
-        } else if(loop){
+        if(loop){
           animStart.current=null;
           animFrame.current=requestAnimationFrame(tick);
         }
@@ -1728,14 +1990,6 @@ const RoutePlanner = ({ user }) => {
     cancelAnim();
     if(travMarker.current){travMarker.current.remove();travMarker.current=null;}
 
-    const MSGS=['Finding routes…','Calculating CO₂…','Comparing modes…','Optimising…'];
-    let pct=0;
-    const tick=setInterval(()=>{
-      pct=Math.min(pct+Math.random()*12,88);
-      setLoadingPct(pct);
-      setLoadingStep(Math.floor(pct/25)%MSGS.length);
-    },300);
-
     try {
       const res=await axios.post('/api/route',{
         origin:{coordinates:origin.coordinates,name:origin.name},
@@ -1743,7 +1997,6 @@ const RoutePlanner = ({ user }) => {
         transportModes:modes,
         departureTime:departureTime||undefined,
       });
-      clearInterval(tick); setLoadingPct(100);
 
       /* Save to recent */
       const recentEntry={
@@ -1754,22 +2007,20 @@ const RoutePlanner = ({ user }) => {
       const prev=JSON.parse(localStorage.getItem(RECENT_ROUTES_KEY)||'[]');
       localStorage.setItem(RECENT_ROUTES_KEY,JSON.stringify([recentEntry,...prev.slice(0,4)]));
 
-      setTimeout(()=>{
-        setLoading(false); setLoadingPct(0);
-        const data=res.data||[];
-        if(data.length){
-          setRoutes(data); setPanel('routes'); setSearchCollapsed(true);
-          const first=data[0];
-          setSelectedRoute(first);
-          displayAllRoutes(data,first);
-          fetchWeather(destination.coordinates[1],destination.coordinates[0]);
-          fetchAqi(destination.coordinates[1],destination.coordinates[0]);
-          fetchElevation(first.geometry?.coordinates||[]);
-        } else { alert('No routes found. Try different locations.'); }
-      },400);
+      const data=res.data||[];
+      if(data.length){
+        setRoutes(data); setPanel('routes'); setSearchCollapsed(true);
+        const first=data[0];
+        setSelectedRoute(first);
+        displayAllRoutes(data,first);
+        fetchWeather(destination.coordinates[1],destination.coordinates[0]);
+        fetchAqi(destination.coordinates[1],destination.coordinates[0]);
+        fetchElevation(first.geometry?.coordinates||[]);
+      } else { alert('No routes found. Try different locations.'); }
     } catch(err){
-      clearInterval(tick); setLoading(false); setLoadingPct(0);
       alert(err.response?.data?.error||'Failed to plan route.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1844,6 +2095,10 @@ const RoutePlanner = ({ user }) => {
         return;
       }
       
+      physicalTraveledKmRef.current = 0;
+      lastGPSCoordRef.current = null;
+      isTripVerifiedRef.current = false;
+      
       spawnTraveller(coords[0] || origin.coordinates, meta.mapIcon, meta.color);
       
       const geoOptions = {
@@ -1865,6 +2120,18 @@ const RoutePlanner = ({ user }) => {
             map.current.easeTo({ center: currentPos, zoom: 17, pitch: 55, duration: 800 });
           }
           
+          if (lastGPSCoordRef.current) {
+            const stepKm = getOrthoDistance(
+              lastGPSCoordRef.current[1], lastGPSCoordRef.current[0],
+              latitude, longitude
+            ) / 1000;
+            // Filter stationary jitter (< 2m) and impossible teleportation (> 1km per ping)
+            if (stepKm >= 0.002 && stepKm <= 1.0) {
+              physicalTraveledKmRef.current += stepKm;
+            }
+          }
+          lastGPSCoordRef.current = [longitude, latitude];
+          
           const dist = getOrthoDistance(
             latitude, longitude,
             destinationRef.current.coordinates[1], destinationRef.current.coordinates[0]
@@ -1872,8 +2139,19 @@ const RoutePlanner = ({ user }) => {
           setDistToDest(dist);
           
           if (dist <= 50) {
-            if (voiceOnRef.current) speak("Destination reached. Trip completed.");
-            handleTripCompletion(selectedRouteRef.current);
+            const totalDistanceKm = parseFloat(selectedRouteRef.current?.distance) || 1;
+            const minRequiredKm = Math.min(totalDistanceKm * 0.6, 0.15);
+            
+            if (physicalTraveledKmRef.current >= minRequiredKm || totalDistanceKm < 0.2) {
+              isTripVerifiedRef.current = true;
+              if (voiceOnRef.current) speak("Destination reached. Trip completed.");
+              handleTripCompletion(selectedRouteRef.current, true);
+            } else {
+              if (voiceOnRef.current) speak("Destination reached, but insufficient travel was detected.");
+              setSaveMsg("Physical travel is required to earn carbon score and ranking.");
+              setTimeout(() => setSaveMsg(''), 4500);
+              stopNav();
+            }
             return;
           }
 
@@ -1936,7 +2214,7 @@ const RoutePlanner = ({ user }) => {
       if(voiceOnRef.current) speak(`Starting live GPS navigation. ${route.duration} minutes to destination.`);
     } else {
       if(coords.length) startRouteAnimation(coords,meta.mapIcon,meta.color,false,true);
-      if(voiceOnRef.current) speak(`Starting navigation simulation. ${route.duration} minutes to destination.`);
+      if(voiceOnRef.current) speak(`Starting navigation preview. ${route.duration} minutes to destination.`);
     }
     
     map.current.easeTo({center:origin?.coordinates,bearing:0,pitch:55,zoom:17,duration:1600,easing:easeInOutCubic});
@@ -1952,6 +2230,11 @@ const RoutePlanner = ({ user }) => {
       watchIdRef.current = null;
     }
     setDistToDest(null);
+
+    if (!isTripVerifiedRef.current && physicalTraveledKmRef.current < 0.1) {
+      setSaveMsg("Trip ended. Real physical travel to destination is required to earn points.");
+      setTimeout(() => setSaveMsg(''), 4000);
+    }
 
     map.current.easeTo({pitch:0,bearing:0,zoom:12,duration:1200,easing:easeInOutCubic});
     if(selectedRoute?.geometry?.coordinates){
@@ -2301,11 +2584,20 @@ const fetchAqi = async (lat, lon) => {
         /* Map */
         .rp-map-area{flex:1;position:relative;overflow:hidden;}
         .rp-map{width:100%;height:100%;}
-        .rp-map-ctrl{position:absolute;bottom:110px;right:14px;display:flex;flex-direction:column;gap:8px;z-index:10;}
-        .rp-map-btn{width:44px;height:44px;border-radius:12px;border:none;background:var(--bg-secondary);color:var(--text-primary);font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,0.14);transition:all 0.15s;}
-        .rp-map-btn:hover{transform:scale(1.06);box-shadow:0 4px 18px rgba(0,0,0,0.2);}
-        .rp-map-btn.on{background:#ecfdf5;color:#10b981;}
-        .rp-map-btn.night{background:#1e293b;color:#fbbf24;}
+        .rp-map-ctrl{position:absolute;bottom:100px;right:18px;display:flex;flex-direction:column;gap:8px;z-index:10;}
+        .rp-map-btn{width:44px;height:44px;border-radius:14px;border:1.5px solid var(--border-color);background:var(--bg-secondary);color:var(--text-primary);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(0,0,0,0.08);transition:all 0.18s cubic-bezier(0.16,1,0.3,1);}
+        .rp-map-btn:hover{transform:scale(1.06);box-shadow:0 6px 20px rgba(0,0,0,0.14);border-color:var(--primary);}
+        .rp-map-btn:active{transform:scale(0.96);}
+        .rp-map-btn.on{background:var(--green-100,#eaf1eb);color:var(--primary,#4A7C59);border-color:var(--primary,#4A7C59);}
+        .rp-map-btn.night{background:#1e293b;color:#fbbf24;border-color:rgba(255,255,255,0.15);}
+
+        /* Google Maps Navigation Location Puck */
+        .gm-traveller-puck{position:relative;width:26px;height:26px;pointer-events:none;}
+        .gm-puck-halo{position:absolute;inset:-12px;border-radius:50%;background:rgba(37,99,235,0.25);animation:puckPulse 2.4s cubic-bezier(0.16,1,0.3,1) infinite;}
+        .gm-puck-cone{position:absolute;top:-28px;left:-11px;width:48px;height:48px;background:radial-gradient(circle at 50% 100%,rgba(59,130,246,0.55) 0%,rgba(59,130,246,0) 72%);clip-path:polygon(50% 0%,14% 100%,86% 100%);transform-origin:50% 100%;transition:transform 0.12s linear;}
+        .gm-puck-core{position:absolute;inset:0;border-radius:50%;background:#ffffff;box-shadow:0 4px 14px rgba(37,99,235,0.6),0 1px 3px rgba(0,0,0,0.25);display:flex;align-items:center;justify-content:center;border:3px solid #ffffff;}
+        .gm-puck-inner{width:14px;height:14px;border-radius:50%;background:#2563eb;}
+        @keyframes puckPulse{0%{transform:scale(0.85);opacity:0.85;}50%{transform:scale(1.4);opacity:0.3;}100%{transform:scale(1.8);opacity:0;}}
 
         /* Loading */
         .rp-loading{position:absolute;inset:0;background:rgba(15,25,40,0.9);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:500;animation:fadeIn 0.25s ease;}
@@ -2357,12 +2649,7 @@ const fetchAqi = async (lat, lon) => {
         .gm-pin-wrap:hover{transform:scale(1.15);}
         .gm-pin-wrap svg{display:block;overflow:visible;}
 
-        /* Traveller */
-        .gm-traveller{position:relative;width:40px;height:40px;pointer-events:none;}
-        .gm-pulse{position:absolute;inset:-10px;border-radius:50%;background:color-mix(in srgb,var(--tc,#10b981) 22%,transparent);animation:travPulse 2s ease-out infinite;}
-        @keyframes travPulse{0%{transform:scale(0.7);opacity:1}100%{transform:scale(2);opacity:0}}
-        .gm-dot{position:absolute;inset:4px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,0.28);transition:transform 0.1s linear;z-index:1;}
-        .gm-icon{font-size:14px;line-height:1;display:block;}
+
 
         /* Toast */
         .rp-toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:12px 22px;border-radius:50px;font-size:13.5px;font-weight:600;display:flex;align-items:center;gap:8px;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,0.25);animation:fadeIn 0.25s ease;white-space:nowrap;}
@@ -2382,18 +2669,30 @@ const fetchAqi = async (lat, lon) => {
         .rp-tl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
 
         @media(max-width:900px){
-          .rp-shell{flex-direction:column;}
-          .rp-sidebar{width:100%!important;min-width:unset;height:auto;max-height:42vh;border-right:none;border-bottom:1px solid var(--border-color);}
-          .rp-sidebar.dir-mode{max-height:58vh;}
-          .rp-map-area{flex:1;min-height:42vh;}
-          .rp-map-ctrl{bottom:${isNavigating?'90px':'14px'};}
+          .rp-shell{flex-direction:column;height:calc(100vh - 60px);width:100%;position:relative;overflow:hidden;}
+          .rp-sidebar{width:100%!important;min-width:unset;height:auto!important;max-height:56vh;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;border-right:none;border-bottom:1.5px solid var(--border-color);box-shadow:0 4px 16px rgba(0,0,0,0.06);flex-shrink:0;background:var(--bg-primary, #FBF9F4);}
+          .rp-sidebar.dir-mode{max-height:68vh;}
+          .rp-logo{display:none;}
+          .rp-header{display:none;}
+          .rp-carbon{display:none;}
+          .rp-empty{display:none;}
+          .rp-departure-wrap{display:none;}
+          .rp-search{margin:6px 10px 6px;border-radius:16px;background:var(--bg-secondary, #FFFFFF);box-shadow:0 2px 10px rgba(0,0,0,0.04);}
+          .rp-srow{min-height:40px;padding:0 10px;}
+          .rp-geo-wrap .mapboxgl-ctrl-geocoder--input{height:38px!important;font-size:13px!important;}
+          .rp-chips{padding:4px 10px 0;gap:5px;}
+          .rp-chip{padding:4px 8px;font-size:11.5px;}
+          .rp-cards{padding:6px 10px 12px;gap:6px;}
+          .rp-map-area{flex:1;min-height:0;height:100%;width:100%;position:relative;}
+          .rp-map-ctrl{bottom:${isNavigating?'90px':'16px'};right:12px;gap:6px;z-index:20;}
+          .rp-map-btn{width:38px;height:38px;border-radius:12px;}
           .rp-resizer{display:none;}
-          .rp-dir-head{padding:10px 12px 8px;}
-          .rp-dir-top-bar{margin-bottom:8px;}
-          .rp-step{padding:11px 10px;gap:12px;}
-          .rp-step-ico{width:32px;height:32px;}
-          .rp-step-inst{font-size:13px;}
-          .rp-dir-title{font-size:12.5px;}
+          .rp-dir-head{padding:8px 10px 6px;}
+          .rp-dir-top-bar{margin-bottom:6px;}
+          .rp-step{padding:8px 10px;gap:8px;}
+          .rp-step-ico{width:28px;height:28px;}
+          .rp-step-inst{font-size:12px;}
+          .rp-dir-title{font-size:12px;}
         }
       `}</style>
 
@@ -2406,36 +2705,39 @@ const fetchAqi = async (lat, lon) => {
           {/* Header */}
           <div className="rp-header">
             <div className="rp-hrow">
-            <div className="rp-logo">
-                <div className="rp-logo-mark" />
-                <span className="rp-logo-name">Green<span>Route</span></span>
+              <div className="rp-logo">
+                <span className="rp-logo-name" style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '1.3rem', color: 'var(--text-primary, #1C281F)' }}>
+                  GreenRoute
+                </span>
               </div>
-              {/* Controls — SVG icons, no emoji */}
+              {/* Controls with sleek SVG icons */}
               <button className={`rp-hbtn ${traffic?'on':''}`} onClick={toggleTraffic} title="Toggle traffic (T)">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <rect x="5" y="2" width="14" height="20" rx="3"/>
-                  <circle cx="12" cy="7" r="1.5" fill="currentColor"/>
-                  <circle cx="12" cy="12" r="1.5" fill="#f59e0b"/>
-                  <circle cx="12" cy="17" r="1.5" fill="currentColor"/>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+                  <line x1="4" y1="22" x2="4" y2="15" />
                 </svg>
               </button>
               <button className={`rp-hbtn ${voiceOn?'on':''}`} onClick={()=>setVoiceOn(v=>!v)} title="Toggle voice (V)">
                 {voiceOn
-                  ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                  : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                  ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                  : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
                 }
               </button>
               <button className={`rp-hbtn ${nightMode?'night':''}`} onClick={toggleNightMode} title="Toggle night mode">
                 {nightMode
-                  ? <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-                  : <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                  ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                  : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                 }
               </button>
               <button className="rp-hbtn" onClick={()=>setShowReport(true)} title="Eco report">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>
+                </svg>
               </button>
               <button className="rp-hbtn" onClick={()=>setShowShortcuts(true)} title="Keyboard shortcuts (?)">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="4" width="20" height="16" rx="4"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M9 16h6"/>
+                </svg>
               </button>
             </div>
             <div className="rp-carbon">
@@ -2452,7 +2754,6 @@ const fetchAqi = async (lat, lon) => {
               <div style={{ display: 'flex', background: 'var(--bg-primary)', border: '1px solid var(--border-color)', borderRadius: 14, padding: 3, margin: '10px 14px 2px' }}>
                 {[
                   { id: 'search', label: 'Route Engine' },
-                  { id: 'saved',  label: 'Saved Places' },
                   { id: 'recent', label: 'Recent' },
                 ].map(t => (
                   <button
@@ -2467,7 +2768,7 @@ const fetchAqi = async (lat, lon) => {
                       fontWeight: 800,
                       cursor: 'pointer',
                       background: sidebarTab === t.id ? 'var(--bg-secondary, #fff)' : 'transparent',
-                      color: sidebarTab === t.id ? 'var(--primary, #10b981)' : 'var(--text-secondary, #64748b)',
+                      color: sidebarTab === t.id ? 'var(--primary, #4A7C59)' : 'var(--text-secondary, #64748b)',
                       boxShadow: sidebarTab === t.id ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
                       transition: 'all 0.15s ease',
                       fontFamily: 'inherit'
@@ -2510,14 +2811,13 @@ const fetchAqi = async (lat, lon) => {
                     border: '1.5px solid var(--border-color)',
                     background: 'var(--bg-primary)',
                     color: 'var(--text-primary)',
-                    fontSize: '0.78rem',
+                    fontSize: '0.75rem',
                     fontWeight: 700,
                     cursor: 'pointer',
-                    whiteSpace: 'nowrap',
                     fontFamily: 'inherit'
                   }}
                 >
-                  Edit Search
+                  Edit
                 </button>
               </div>
             </div>
@@ -2526,12 +2826,22 @@ const fetchAqi = async (lat, lon) => {
               {/* TAB 1: Route Engine */}
               {sidebarTab === 'search' && (
                 <>
-                  <DepartureTime value={departureTime} onChange={setDepartureTime}/>
+                  <div className="rp-departure-wrap">
+                    <DepartureTime value={departureTime} onChange={setDepartureTime}/>
+                  </div>
 
                   <div style={{padding:'0 0 4px',flexShrink:0}}>
                     <div className="rp-search">
+                      {/* Section Title */}
+                      <div style={{ padding: '12px 14px 6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontFamily: "'Newsreader', Georgia, serif", fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                          Plan Your Route
+                        </span>
+                      </div>
+
+                      {/* Origin input */}
                       <div className="rp-srow">
-                        <div className="rp-sdot rp-dot-a"/>
+                        <div className="rp-sdot" style={{ background: '#4A7C59', boxShadow: '0 0 0 3px rgba(74, 124, 89, 0.2)' }}/>
                         <div className="rp-geo-wrap" id="geocoder-origin"/>
                         <button
                           className="rp-gps-btn"
@@ -2550,23 +2860,136 @@ const fetchAqi = async (lat, lon) => {
                         </button>
                         <div className="rp-connector"/>
                       </div>
+
+                      {/* Destination input */}
                       <div className="rp-srow">
-                        <div className="rp-sdot rp-dot-b"/>
+                        <div className="rp-sdot" style={{ background: '#A16207', boxShadow: '0 0 0 3px rgba(161, 98, 7, 0.2)' }}/>
                         <div className="rp-geo-wrap" id="geocoder-dest"/>
                       </div>
+
+                      {/* Mode Selector with Cool Modern Vector SVGs */}
+                      <div style={{ display: 'flex', gap: 6, padding: '10px 14px 4px', overflowX: 'auto' }}>
+                        {[
+                          {
+                            id: 'walking',
+                            label: 'Walk',
+                            icon: (
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="4" r="2"/>
+                                <path d="m15 7-3 4-2-2-4 3"/>
+                                <path d="m6 16 3-2 3 5 4-3"/>
+                              </svg>
+                            )
+                          },
+                          {
+                            id: 'cycling',
+                            label: 'Bike',
+                            icon: (
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="18.5" cy="17.5" r="3.5"/>
+                                <circle cx="5.5" cy="17.5" r="3.5"/>
+                                <circle cx="15" cy="5" r="1"/>
+                                <path d="M12 17.5V14l-3-3 4-3 2 3h2"/>
+                              </svg>
+                            )
+                          },
+                          {
+                            id: 'driving',
+                            label: 'Drive',
+                            icon: (
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3C13 6.8 11.8 6 10.5 6H8.2C7.5 6 7 6.5 7 7.2v3.3C7 11.2 7.5 11.7 8.2 11.7h1.6c.7 0 1.2-.5 1.2-1.2V9M2 17h10c1.1 0 2-.9 2-2V9"/>
+                                <circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>
+                              </svg>
+                            )
+                          },
+                          {
+                            id: 'transit',
+                            label: 'Transit',
+                            icon: (
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                <rect x="4" y="3" width="16" height="16" rx="2" ry="2"/>
+                                <path d="M6 6h12v4H6ZM6 14h2v2H6ZM16 14h2v2h-2ZM8 19v2M16 19v2"/>
+                              </svg>
+                            )
+                          },
+                        ].map(m => {
+                          const isSelected = modes.includes(m.id);
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => {
+                                setModes(prev => {
+                                  if (prev.includes(m.id)) {
+                                    if (prev.length === 1) return prev;
+                                    return prev.filter(x => x !== m.id);
+                                  } else {
+                                    return [...prev, m.id];
+                                  }
+                                });
+                              }}
+                              style={{
+                                flex: 1,
+                                minWidth: 64,
+                                height: 36,
+                                borderRadius: 9999,
+                                border: 'none',
+                                background: isSelected ? 'var(--primary, #4A7C59)' : 'var(--bg-input, #F3EFE8)',
+                                color: isSelected ? '#FFFFFF' : 'var(--text-secondary, #5F7163)',
+                                fontSize: '0.82rem',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 6,
+                                cursor: 'pointer',
+                                transition: 'all 0.18s ease',
+                                boxShadow: isSelected ? '0 2px 8px var(--primary-glow)' : 'none'
+                              }}
+                            >
+                              <span style={{ display: 'flex', alignItems: 'center' }}>{m.icon}</span>
+                              <span>{m.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
                       <div className="rp-sfoot">
-                        <button className="rp-swap" onClick={swap} disabled={!origin&&!destination} title="Swap">⇅</button>
-                        {(origin||destination)&&<button className="rp-clear" onClick={clearAll}>✕</button>}
+                        <button className="rp-swap" onClick={swap} disabled={!origin&&!destination} title="Swap Locations">
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" />
+                          </svg>
+                        </button>
+                        {(origin||destination)&&(
+                          <button className="rp-clear" onClick={clearAll} title="Clear Inputs">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          </button>
+                        )}
                         <button
                           className="rp-find"
-                          onClick={()=>(origin&&destination)?setShowModal(true):alert('Set start and destination first.')}
+                          onClick={() => {
+                            if (origin && destination) {
+                              planRoute();
+                            } else {
+                              alert('Please set both origin and destination.');
+                            }
+                          }}
                           disabled={loading}
+                          style={{
+                            background: 'var(--primary, #4A7C59)',
+                            boxShadow: '0 4px 14px var(--primary-glow)'
+                          }}
                         >
                           {loading
-                            ? <><span className="rp-spin"/>{LOAD_MSGS[loadingStep]}</>
+                            ? <><span className="rp-spin"/>Calculating...</>
                             : <>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                                Find Routes
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                                  <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+                                </svg>
+                                Find Eco Route
                               </>
                           }
                         </button>
@@ -2576,31 +2999,7 @@ const fetchAqi = async (lat, lon) => {
                 </>
               )}
 
-              {/* TAB 2: Saved Places */}
-              {sidebarTab === 'saved' && !routes.length && (
-                <SavedPlaces
-                  onSelectOrigin={(p)=>{
-                    const coords = p.coordinates || (p.lng !== undefined && p.lat !== undefined ? [p.lng, p.lat] : p.center);
-                    if (!coords) return;
-                    setOrigin({coordinates:coords,name:p.name});
-                    placePin('origin',coords);
-                    const i=document.querySelector('#geocoder-origin input');
-                    if(i) i.value=p.name;
-                    setSidebarTab('search');
-                  }}
-                  onSelectDest={(p)=>{
-                    const coords = p.coordinates || (p.lng !== undefined && p.lat !== undefined ? [p.lng, p.lat] : p.center);
-                    if (!coords) return;
-                    setDestination({coordinates:coords,name:p.name});
-                    placePin('dest',coords);
-                    const i=document.querySelector('#geocoder-dest input');
-                    if(i) i.value=p.name;
-                    setSidebarTab('search');
-                  }}
-                />
-              )}
-
-              {/* TAB 3: Recent Journeys */}
+              {/* TAB 2: Recent Journeys */}
               {sidebarTab === 'recent' && !routes.length && (
                 <RecentRoutes onSelect={(r) => {
                   handleRecentSelect(r);
@@ -2778,18 +3177,6 @@ const fetchAqi = async (lat, lon) => {
                   );
                 })}
               </div>
-            )}
-
-            {/* Playback controls */}
-            {routes.length>0&&panel!=='directions'&&selectedRoute&&(
-              <PlaybackControls
-                isPlaying={isPlaying}
-                progress={animProgress}
-                onPlayPause={handlePlayPause}
-                onSeek={handleSeek}
-                onSpeedChange={s=>{setAnimSpeed(s);}}
-                speed={animSpeed}
-              />
             )}
 
             {/* AQI banner */}
@@ -2987,6 +3374,8 @@ const fetchAqi = async (lat, lon) => {
             isNavigating={isNavigating}
             progress={animProgress}
             totalSteps={selectedRoute?.steps?.length ?? 0}
+            voiceOn={voiceOn}
+            onToggleVoice={() => setVoiceOn(v => !v)}
           />
 
           {/* Nav strip — bottom bar */}
@@ -2996,33 +3385,10 @@ const fetchAqi = async (lat, lon) => {
             isNavigating={isNavigating}
             onStop={stopNav}
             activeStep={activeStep}
+            onRecenter={recenterCamera}
+            voiceOn={voiceOn}
+            onToggleVoice={() => setVoiceOn(v => !v)}
           />
-
-          {/* Loading */}
-          {loading&&(
-            <div className="rp-loading">
-              <div className="rp-loading-card">
-                <div style={{position:'relative',width:120,height:120,margin:'0 auto 18px'}}>
-                  <svg className="rp-ring" viewBox="0 0 100 100">
-                    <defs>
-                      <linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stopColor="#34d399"/>
-                        <stop offset="100%" stopColor="#10b981"/>
-                      </linearGradient>
-                    </defs>
-                    <circle cx="50" cy="50" r="42" className="rp-ring-bg"/>
-                    <circle cx="50" cy="50" r="42" className="rp-ring-fill" style={{strokeDasharray:`${loadingPct*2.638} 263.8`}}/>
-                  </svg>
-                  <div className="rp-loading-leaf">🌱</div>
-                </div>
-                <div className="rp-loading-pct">{Math.round(loadingPct)}%</div>
-                <div className="rp-loading-msg">{LOAD_MSGS[loadingStep]}</div>
-                <div className="rp-dots">
-                  <div className="rp-dot"/><div className="rp-dot"/><div className="rp-dot"/>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Traffic legend */}
           {traffic&&(
@@ -3039,32 +3405,52 @@ const fetchAqi = async (lat, lon) => {
 
           {/* Map controls */}
           <div className="rp-map-ctrl">
-            <button className={`rp-map-btn ${mapStyle==='satellite-streets-v12'?'on':''}`} onClick={toggleStyle} title="Toggle satellite (S)">
+            {/* Locate Me FAB */}
+            <button className="rp-map-btn" onClick={handleLocateMe} title="My live location">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="7"/>
+                <line x1="12" y1="1" x2="12" y2="4"/>
+                <line x1="12" y1="20" x2="12" y2="23"/>
+                <line x1="1" y1="12" x2="4" y2="12"/>
+                <line x1="20" y1="12" x2="23" y2="12"/>
+              </svg>
+            </button>
+
+            {/* 3D / 2D Perspective Toggle */}
+            <button className={`rp-map-btn ${is3D ? 'on' : ''}`} onClick={toggle3D} title={is3D ? "Switch to 2D view" : "Switch to 3D perspective"}>
+              <span style={{ fontSize: '0.78rem', fontWeight: 800 }}>{is3D ? '2D' : '3D'}</span>
+            </button>
+
+            {/* Map style toggle */}
+            <button className={`rp-map-btn ${mapStyle==='satellite-streets-v12'?'on':''}`} onClick={toggleStyle} title="Toggle satellite layer">
               {mapStyle==='satellite-streets-v12'
                 ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>
                 : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
               }
             </button>
-            <button className={`rp-map-btn ${traffic?'on':''}`} onClick={toggleTraffic} title="Toggle traffic (T)">
+
+            {/* Traffic layer toggle */}
+            <button className={`rp-map-btn ${traffic?'on':''}`} onClick={toggleTraffic} title="Toggle real-time traffic">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="2" width="14" height="20" rx="3"/><circle cx="12" cy="7" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="17" r="1.5" fill="currentColor"/></svg>
             </button>
+
+            {/* Night mode toggle */}
             <button className={`rp-map-btn ${nightMode?'night':''}`} onClick={toggleNightMode} title="Toggle night mode">
               {nightMode
                 ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>
                 : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
               }
             </button>
-            {selectedRoute&&(
-              <button className="rp-map-btn" title="Fit route" onClick={()=>{
-                if(origin&&destination){
-                  const b=new mapboxgl.LngLatBounds();
-                  routes.forEach(r=>r.geometry?.coordinates?.forEach(c=>b.extend(c)));
-                  map.current.fitBounds(b,{padding:80,duration:1200,easing:easeInOutCubic});
-                }
-              }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+
+            {/* Zoom Controls */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4, paddingTop: 6, borderTop: '1px solid var(--border-color)' }}>
+              <button className="rp-map-btn" onClick={handleZoomIn} title="Zoom in">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               </button>
-            )}
+              <button className="rp-map-btn" onClick={handleZoomOut} title="Zoom out">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+            </div>
           </div>
         </main>
       </div>

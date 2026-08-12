@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import axios from 'axios';
 import Login from './components/Login';
@@ -16,34 +16,21 @@ import './index.css';
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || (isLocal ? 'http://localhost:5000' : 'https://greenroute-backend-syxi.onrender.com');
 axios.defaults.withCredentials = true;
-// Generous timeout so the cold-start doesn't fail mid-request
-axios.defaults.timeout = 60000;
+axios.defaults.timeout = 25000;
 
 function App() {
-  // Phase 1: waiting for the backend to be alive (Render cold-start)
-  const [serverReady, setServerReady] = useState(false);
-  // Phase 2: checking if there's an existing session
-  const [authChecked, setAuthChecked] = useState(false);
-
+  const [initialized, setInitialized] = useState(false);
   const [user, setUser] = useState(null);
   const [theme, setTheme] = useState('light');
 
-  /* ── Called by StartupLoader once the /health ping succeeds ── */
-  const handleServerReady = useCallback(async () => {
-    setServerReady(true);
-    // Now check if the user already has a session
-    try {
-      const { data } = await axios.get('/api/auth/current_user');
-      setUser(data);
-      if (data?.theme) setTheme(data.theme);
-    } catch {
-      // Not logged in — that's fine
-    } finally {
-      setAuthChecked(true);
+  const handleInitComplete = useCallback((userData) => {
+    if (userData) {
+      setUser(userData);
+      if (userData.theme) setTheme(userData.theme);
     }
+    setInitialized(true);
   }, []);
 
-  /* ── Auth handlers ── */
   const handleLogin = (userData) => {
     setUser(userData);
     if (userData?.theme) setTheme(userData.theme);
@@ -66,24 +53,17 @@ function App() {
     }
   };
 
-  /* ─── Phase 1: show animated loader until backend is warm ─── */
-  if (!serverReady) {
-    return <StartupLoader onReady={handleServerReady} />;
+  if (!initialized) {
+    return <StartupLoader onComplete={handleInitComplete} />;
   }
 
-  /* ─── Phase 2: keep showing the loader while we confirm session ─── */
-  if (!authChecked) {
-    return <StartupLoader onReady={() => { }} />;
-  }
-
-  /* ─── Phase 3: normal app ─── */
   return (
     <div className={theme}>
       <Router>
         <Routes>
           <Route
             path="/login"
-            element={user ? <Navigate to="/" /> : <Login onLogin={handleLogin} />}
+            element={user ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />}
           />
           <Route
             path="/*"
@@ -103,10 +83,11 @@ function App() {
                     <Route path="/preferences" element={<Preferences user={user} />} />
                     <Route path="/saved" element={<SavedPlaces user={user} />} />
                     <Route path="/settings" element={<Settings user={user} theme={theme} onThemeChange={updateTheme} />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Layout>
               ) : (
-                <Navigate to="/login" />
+                <Navigate to="/login" replace />
               )
             }
           />

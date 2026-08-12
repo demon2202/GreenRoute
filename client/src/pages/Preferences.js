@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
+import { getCachedData, setCachedData } from '../utils/cache';
 import './Preferences.css';
 
 // ─── SVG Icon Components ───────────────────────────────────────────────────────
@@ -440,9 +441,10 @@ const DEFAULT_PREFERENCES = {
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 const Preferences = ({ user }) => {
-  const [preferences, setPreferences] = useState(DEFAULT_PREFERENCES);
-  const [originalPreferences, setOriginalPreferences] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const cachedPrefs = getCachedData('user_preferences', DEFAULT_PREFERENCES);
+  const [preferences, setPreferences] = useState(cachedPrefs);
+  const [originalPreferences, setOriginalPreferences] = useState(cachedPrefs);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
@@ -482,10 +484,13 @@ const Preferences = ({ user }) => {
         const merged = { ...DEFAULT_PREFERENCES, ...data };
         setPreferences(merged);
         setOriginalPreferences(merged);
+        setCachedData('user_preferences', merged);
       } catch (error) {
         console.error('Failed to fetch preferences:', error);
-        showToast('Unable to load preferences. Using defaults.', 'error');
-        setOriginalPreferences(DEFAULT_PREFERENCES);
+        if (!cachedPrefs) {
+          showToast('Unable to load preferences. Using defaults.', 'error');
+          setOriginalPreferences(DEFAULT_PREFERENCES);
+        }
       } finally {
         setLoading(false);
       }

@@ -84,6 +84,17 @@ const UserSchema = new mongoose.Schema({
             default: Date.now 
         }
     }],
+    savedPlaces: [{
+        name: { type: String, required: true },
+        category: { type: String, default: 'Custom' },
+        coordinates: {
+            lat: { type: Number, required: true },
+            lng: { type: Number, required: true }
+        },
+        address: { type: String, default: '' },
+        preferredMode: { type: String, default: 'cycling' },
+        savedAt: { type: Date, default: Date.now }
+    }],
     stats: {
         totalCo2Saved: { type: Number, default: 0 },
         totalTrips: { type: Number, default: 0 },
