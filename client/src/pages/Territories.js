@@ -76,6 +76,39 @@ const isPointInPolygon = (point, polygon) => {
   return inside;
 };
 
+// Web Audio synthesizer for conquest celebration chime
+const playConquestChime = () => {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6 triumphant ascending arpeggio
+    notes.forEach((freq, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.08);
+      gain.gain.setValueAtTime(0, ctx.currentTime + idx * 0.08);
+      gain.gain.linearRampToValueAtTime(0.28, ctx.currentTime + idx * 0.08 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.08 + 0.26);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + idx * 0.08);
+      osc.stop(ctx.currentTime + idx * 0.08 + 0.28);
+    });
+  } catch (err) {
+    console.warn('Audio chime failed:', err);
+  }
+};
+
+const triggerHapticFeedback = () => {
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    try {
+      navigator.vibrate([150, 80, 150, 80, 350]);
+    } catch {}
+  }
+};
+
 const Territories = ({ user, theme }) => {
   const mapContainer = useRef(null);
   const map = useRef(null);
@@ -84,6 +117,13 @@ const Territories = ({ user, theme }) => {
   const userMarkerRef = useRef(null);
   const territoryMarkersRef = useRef({});
 
+  // Background execution & screen wake lock refs
+  const wakeLockRef = useRef(null);
+  const audioKeepAliveRef = useRef(null);
+  const lastGpsTimeRef = useRef(Date.now());
+  const watchdogIntervalRef = useRef(null);
+
+  const [wakeLockActive, setWakeLockActive] = useState(false);
   const [mobileExpanded, setMobileExpanded] = useState(false);
 
   // Grid and capture states
@@ -107,6 +147,64 @@ const Territories = ({ user, theme }) => {
 
   // Dynamic user territoryStats tracking
   const [userStats, setUserStats] = useState(user?.territoryStats || { areaOwned: 0, empireScore: 0 });
+
+  // Screen Wake Lock API handler
+  const requestWakeLock = useCallback(async () => {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLockRef.current = await navigator.wakeLock.request('screen');
+        setWakeLockActive(true);
+        wakeLockRef.current.addEventListener('release', () => {
+          setWakeLockActive(false);
+        });
+      }
+    } catch (err) {
+      console.warn('Wake Lock request failed:', err);
+      setWakeLockActive(false);
+    }
+  }, []);
+
+  const releaseWakeLock = useCallback(async () => {
+    if (wakeLockRef.current) {
+      try {
+        await wakeLockRef.current.release();
+      } catch {}
+      wakeLockRef.current = null;
+      setWakeLockActive(false);
+    }
+  }, []);
+
+  // Silent Audio Loop for keeping background execution active on locked phones
+  const startSilentAudio = useCallback(() => {
+    try {
+      if (!audioKeepAliveRef.current) {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (AudioCtx) {
+          const ctx = new AudioCtx();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          gain.gain.value = 0.0001; // Virtually inaudible, keeps media pipeline alive
+          osc.frequency.value = 30; // 30Hz sub-bass
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          audioKeepAliveRef.current = { ctx, osc };
+        }
+      }
+    } catch (err) {
+      console.warn('Silent audio keep-alive setup error:', err);
+    }
+  }, []);
+
+  const stopSilentAudio = useCallback(() => {
+    if (audioKeepAliveRef.current) {
+      try {
+        audioKeepAliveRef.current.osc.stop();
+        audioKeepAliveRef.current.ctx.close();
+      } catch {}
+      audioKeepAliveRef.current = null;
+    }
+  }, []);
 
   const fetchUserStats = useCallback(async () => {
     try {
@@ -165,6 +263,16 @@ const Territories = ({ user, theme }) => {
       fetchActivities();
     }, 300);
   }, [fetchVisibleCells, fetchActivities]);
+
+  // Recenter map camera on user's current live location
+  const recenterMap = useCallback(() => {
+    if (!map.current || !currentCoords) return;
+    map.current.easeTo({
+      center: [currentCoords.lng, currentCoords.lat],
+      zoom: 17.8,
+      duration: 1000
+    });
+  }, [currentCoords]);
 
   // Update active walked path drawing on the map
   useEffect(() => {
@@ -374,13 +482,15 @@ const Territories = ({ user, theme }) => {
       });
 
       if (data.wasCaptured) {
-        setSuccessMsg(`Successfully captured new territory!`);
+        playConquestChime();
+        triggerHapticFeedback();
+        setSuccessMsg(`✨ Successfully captured new territory!`);
         setActivePath([]);
         fetchUserStats();
       } else {
         setSuccessMsg(data.message);
       }
-      setTimeout(() => setSuccessMsg(''), 3000);
+      setTimeout(() => setSuccessMsg(''), 3500);
       fetchVisibleCells();
       fetchActivities();
     } catch (err) {
@@ -402,7 +512,9 @@ const Territories = ({ user, theme }) => {
       });
 
       if (data.wasCaptured) {
-        setSuccessMsg('🏆 Territory Conquered!');
+        playConquestChime();
+        triggerHapticFeedback();
+        setSuccessMsg('⭐ Territory Conquered!');
         setCurrentAttackCell(null);
         setAttackCheckpoints([]);
         setAttackVisitedCheckpoints([]);
@@ -410,6 +522,7 @@ const Territories = ({ user, theme }) => {
         setActivePath([]);
         fetchUserStats();
       } else {
+        triggerHapticFeedback();
         setSuccessMsg(`Lap completed! Laps: ${lapCount} / ${territory.defenseLevel}`);
         setAttackLapsCompleted(lapCount);
         // Reset checkpoints visited state for the next lap
@@ -444,7 +557,8 @@ const Territories = ({ user, theme }) => {
         setAttackCheckpoints(pts);
         setAttackVisitedCheckpoints(Array(pts.length).fill(false));
         setAttackLapsCompleted(0);
-        setSuccessMsg(`⚠️ Border aligned! Attack started around the perimeter...`);
+        triggerHapticFeedback();
+        setSuccessMsg(`Border aligned! Attack started around the perimeter...`);
         setTimeout(() => setSuccessMsg(''), 3000);
       }
     } else {
@@ -497,6 +611,7 @@ const Territories = ({ user, theme }) => {
 
   // Unified client track updater
   const handleLocationUpdate = useCallback(async (lat, lng, isSim = false) => {
+    lastGpsTimeRef.current = Date.now();
     const coord = [lng, lat];
 
     // Report location update to backend track log
@@ -545,7 +660,7 @@ const Territories = ({ user, theme }) => {
     });
   }, [currentAttackCell, handleAttackMovement, submitClaim]);
 
-  // WebSocket listeners for remote updates
+  // WebSocket listeners for remote updates with mobile token auth
   const handleRemoteClaim = useCallback(() => { fetchVisibleCells(); }, [fetchVisibleCells]);
   const handleRemoteActivity = useCallback((newActivity) => {
     if (!map.current) return;
@@ -562,6 +677,7 @@ const Territories = ({ user, theme }) => {
 
   const handleStolenAlert = useCallback((data) => {
     if (data.targetUserId === userRef.current?._id) {
+      triggerHapticFeedback();
       setErrorMsg(data.message);
       setTimeout(() => setErrorMsg(''), 5000);
     }
@@ -569,7 +685,11 @@ const Territories = ({ user, theme }) => {
 
   useEffect(() => {
     const socketUrl = axios.defaults.baseURL || 'https://greenroute-backend-syxi.onrender.com';
-    socket.current = io(socketUrl, { withCredentials: true });
+    const token = typeof localStorage !== 'undefined' ? localStorage.getItem('gr_token') : null;
+    socket.current = io(socketUrl, { 
+      withCredentials: true,
+      auth: { token }
+    });
 
     socket.current.on('cellCaptured', handleRemoteClaim);
     socket.current.on('activityCreated', handleRemoteActivity);
@@ -612,8 +732,6 @@ const Territories = ({ user, theme }) => {
   const onMapClick = async (e) => {
     const { lng, lat } = e.lngLat;
 
-
-
     // Perform point-in-polygon inspections on map click
     const clickedCell = cells.find(cell => {
       if (cell.boundary) {
@@ -636,13 +754,23 @@ const Territories = ({ user, theme }) => {
     setInspectedCell(null);
   };
 
-  // Toggle Map Geolocation tracking
+  // Toggle Map Geolocation tracking with WakeLock & Audio Keep-Alive
   const toggleTracking = () => {
     if (isTracking) {
+      // 1. Stop geolocation watch
       if (watchIdRef.current !== null) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
       }
+      // 2. Clear watchdog interval
+      if (watchdogIntervalRef.current) {
+        clearInterval(watchdogIntervalRef.current);
+        watchdogIntervalRef.current = null;
+      }
+      // 3. Release wake lock & stop audio keep-alive
+      releaseWakeLock();
+      stopSilentAudio();
+
       setIsTracking(false);
       setActivePath([]);
       setCurrentAttackCell(null);
@@ -650,13 +778,18 @@ const Territories = ({ user, theme }) => {
       setAttackVisitedCheckpoints([]);
     } else {
       if (!navigator.geolocation) {
-        setErrorMsg('Geolocation is not supported by your browser. Try Chrome or Firefox.');
+        setErrorMsg('Geolocation is not supported by your browser. Try Chrome or Safari.');
         return;
       }
 
       setErrorMsg('');
       setIsTracking(true);
       setActivePath([]);
+
+      // Start screen wake lock & silent audio keep-alive for background running
+      requestWakeLock();
+      startSilentAudio();
+      lastGpsTimeRef.current = Date.now();
 
       const handleGpsError = (err) => {
         console.warn('GPS position error:', err);
@@ -666,7 +799,7 @@ const Territories = ({ user, theme }) => {
         } else if (err.code === 2) {
           setErrorMsg('GPS signal unavailable. Make sure your device GPS is enabled and try again.');
         } else if (err.code === 3) {
-          // Timeout — don't stop tracking, try again with lower accuracy
+          // Timeout — don't stop tracking, retry with lower accuracy
           console.warn('GPS timeout, retrying with lower accuracy...');
           if (watchIdRef.current !== null) {
             navigator.geolocation.clearWatch(watchIdRef.current);
@@ -674,6 +807,7 @@ const Territories = ({ user, theme }) => {
           watchIdRef.current = navigator.geolocation.watchPosition(
             (pos) => {
               setErrorMsg('');
+              lastGpsTimeRef.current = Date.now();
               const { latitude, longitude } = pos.coords;
               setCurrentCoords({ lat: latitude, lng: longitude });
               updateOrCreateUserMarker(latitude, longitude);
@@ -686,17 +820,22 @@ const Territories = ({ user, theme }) => {
               console.warn('GPS retry failed:', retryErr);
               setErrorMsg('Could not get GPS signal. Check your device settings and try again.');
               setIsTracking(false);
+              releaseWakeLock();
+              stopSilentAudio();
             },
             { enableHighAccuracy: false, timeout: 30000, maximumAge: 30000 }
           );
-          return; // don't stop tracking yet
+          return;
         }
         setIsTracking(false);
+        releaseWakeLock();
+        stopSilentAudio();
       };
 
       watchIdRef.current = navigator.geolocation.watchPosition(
         (pos) => {
           setErrorMsg('');
+          lastGpsTimeRef.current = Date.now();
           const { latitude, longitude } = pos.coords;
           setCurrentCoords({ lat: latitude, lng: longitude });
           updateOrCreateUserMarker(latitude, longitude);
@@ -709,8 +848,71 @@ const Territories = ({ user, theme }) => {
         handleGpsError,
         { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
       );
+
+      // Setup watchdog heartbeat: if position hasn't been received in 12s, trigger getCurrentPosition
+      if (watchdogIntervalRef.current) clearInterval(watchdogIntervalRef.current);
+      watchdogIntervalRef.current = setInterval(() => {
+        if (Date.now() - lastGpsTimeRef.current > 12000) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              lastGpsTimeRef.current = Date.now();
+              const { latitude, longitude } = pos.coords;
+              setCurrentCoords({ lat: latitude, lng: longitude });
+              updateOrCreateUserMarker(latitude, longitude);
+              handleLocationUpdate(latitude, longitude, false);
+            },
+            (err) => console.warn('Watchdog GPS poll fallback:', err),
+            { enableHighAccuracy: true, timeout: 6000 }
+          );
+        }
+      }, 10000);
     }
   };
+
+  // Visibility change listener: re-acquire wake lock & catch up on location when phone is unlocked
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        if (isTracking) {
+          requestWakeLock();
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                lastGpsTimeRef.current = Date.now();
+                const { latitude, longitude } = pos.coords;
+                setCurrentCoords({ lat: latitude, lng: longitude });
+                updateOrCreateUserMarker(latitude, longitude);
+                handleLocationUpdate(latitude, longitude, false);
+              },
+              (err) => console.warn('Visibility resume GPS error:', err),
+              { enableHighAccuracy: true, timeout: 6000 }
+            );
+          }
+        }
+        fetchVisibleCells();
+        fetchUserStats();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isTracking, requestWakeLock, handleLocationUpdate, updateOrCreateUserMarker, fetchVisibleCells, fetchUserStats]);
+
+  // Clean up timers, wake locks, and audio on unmount
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+      if (watchdogIntervalRef.current) {
+        clearInterval(watchdogIntervalRef.current);
+      }
+      releaseWakeLock();
+      stopSilentAudio();
+    };
+  }, [releaseWakeLock, stopSilentAudio]);
 
 
 
@@ -911,57 +1113,122 @@ const Territories = ({ user, theme }) => {
 
   return (
     <div className="territory-page">
+      {/* ── FLOATING MOBILE ACTION BAR (High-visibility, 1-tap GPS & Recenter controls) ── */}
+      <div className="territory-floating-mobile-bar">
+        {/* Main GPS Toggle */}
+        <button
+          type="button"
+          className={`floating-gps-btn ${isTracking ? 'tracking-active' : ''}`}
+          onClick={toggleTracking}
+        >
+          {isTracking ? (
+            <div className="gps-btn-labels">
+              <span className="gps-btn-main">Stop GPS</span>
+              <span className="gps-btn-sub">
+                {activePath.length > 0 ? `${activePath.length} pts logged` : (wakeLockActive ? 'Awake • Live' : 'Active')}
+              </span>
+            </div>
+          ) : (
+            <div className="gps-btn-labels">
+              <span className="gps-btn-main">Start GPS</span>
+              <span className="gps-btn-sub">Conquer Loop</span>
+            </div>
+          )}
+        </button>
+
+        {/* Recenter Location Button */}
+        <button
+          type="button"
+          className="floating-tool-btn"
+          onClick={recenterMap}
+          title="Recenter Map on Your Location"
+        >
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="7" />
+            <line x1="12" y1="1" x2="12" y2="5" />
+            <line x1="12" y1="19" x2="12" y2="23" />
+            <line x1="1" y1="12" x2="5" y2="12" />
+            <line x1="19" y1="12" x2="23" y2="12" />
+          </svg>
+        </button>
+
+        {/* Stats Drawer Toggle Button */}
+        <button
+          type="button"
+          className={`floating-tool-btn ${mobileExpanded ? 'active' : ''}`}
+          onClick={() => setMobileExpanded(!mobileExpanded)}
+          title="Toggle Territory Stats Drawer"
+        >
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="9" rx="2" />
+            <rect x="14" y="3" width="7" height="5" rx="2" />
+            <rect x="14" y="12" width="7" height="9" rx="2" />
+            <rect x="3" y="16" width="7" height="5" rx="2" />
+          </svg>
+        </button>
+      </div>
+
       <div className={`territory-sidebar ${mobileExpanded ? 'mobile-expanded' : ''}`}>
         {/* Drag Handle */}
         <div className="territory-sidebar-handle" onClick={() => setMobileExpanded(!mobileExpanded)} title="Toggle panel" />
 
         {/* ── MOBILE QUICK-BAR (always visible when collapsed) ── */}
-        <div className="territory-mobile-quickbar">
+        <div className="territory-mobile-quickbar" onClick={() => setMobileExpanded(!mobileExpanded)}>
           {/* GPS badge or status */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
             {isTracking ? (
-              <div className="header-badge" style={{ marginBottom: 0 }}>
-                <span className="badge-pulse"></span>
-                TRACKING
+              <div style={{ fontSize: '0.72rem', fontWeight: 800, color: 'var(--primary, #059669)', background: 'var(--primary-soft, #E8EFE9)', padding: '3px 8px', borderRadius: 8, letterSpacing: '0.04em' }}>
+                LIVE GPS
               </div>
             ) : (
-              <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary, #64748b)' }}>
-                🗺️ Territory Map
+              <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-secondary, #64748b)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+                  <line x1="9" y1="3" x2="9" y2="18" />
+                  <line x1="15" y1="6" x2="15" y2="21" />
+                </svg>
+                <span>Territory</span>
+              </div>
+            )}
+            {wakeLockActive && isTracking && (
+              <div style={{ fontSize: '0.66rem', fontWeight: 800, color: 'var(--primary, #10b981)', background: 'var(--primary-soft, rgba(16,185,129,0.12))', padding: '2px 8px', borderRadius: 8 }}>
+                AWAKE
               </div>
             )}
             {currentAttackCell && (
-              <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#ef4444', background: 'rgba(239,68,68,0.1)', padding: '3px 8px', borderRadius: 999, border: '1px solid rgba(239,68,68,0.2)' }}>
-                ⚔️ {attackLapsCompleted}/{currentAttackCell.defenseLevel} Laps
+              <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#ef4444', background: 'rgba(239,68,68,0.1)', padding: '2px 8px', borderRadius: 8, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/></svg>
+                {attackLapsCompleted}/{currentAttackCell.defenseLevel} Laps
               </div>
             )}
           </div>
 
           {/* Quick stats pill */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(16,185,129,0.08)', borderRadius: 12, padding: '5px 10px', border: '1px solid rgba(16,185,129,0.15)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(16,185,129,0.08)', borderRadius: 12, padding: '4px 8px', border: '1px solid rgba(16,185,129,0.15)', flexShrink: 0 }}>
             <span style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--primary, #10b981)' }}>
               {(userStats.areaOwned || 0).toFixed(2)}
             </span>
-            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-secondary, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>km²</span>
+            <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-secondary, #64748b)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>km²</span>
           </div>
 
           {/* Tracking toggle button */}
           <button
             onClick={(e) => { e.stopPropagation(); toggleTracking(); }}
             style={{
-              height: 38,
-              padding: '0 14px',
+              height: 36,
+              padding: '0 12px',
               borderRadius: 12,
               border: 'none',
               background: isTracking
                 ? 'linear-gradient(135deg, #ef4444, #dc2626)'
                 : 'linear-gradient(135deg, #10b981, #059669)',
               color: 'white',
-              fontSize: '0.82rem',
+              fontSize: '0.8rem',
               fontWeight: 800,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: 6,
+              gap: 5,
               boxShadow: isTracking
                 ? '0 4px 14px rgba(239,68,68,0.3)'
                 : '0 4px 14px rgba(16,185,129,0.3)',
@@ -979,17 +1246,7 @@ const Territories = ({ user, theme }) => {
           {/* Desktop Header */}
           <div className="territory-header-row" style={{ marginBottom: 18 }}>
             <div className="territory-header">
-              <div className="header-badge" style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)',
-                color: 'var(--primary, #059669)', fontSize: '0.72rem', fontWeight: 800,
-                padding: '3px 10px', borderRadius: 999, letterSpacing: '0.06em',
-                textTransform: 'uppercase'
-              }}>
-                <span className="badge-pulse" style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
-                Spatial Conquest Radar
-              </div>
-              <h2 style={{ margin: '6px 0 2px', fontSize: '1.75rem', fontWeight: 900, fontFamily: "'Outfit', sans-serif", letterSpacing: '-0.03em', color: 'var(--text-primary, #0f172a)' }}>
+              <h2 style={{ margin: '0 0 4px', fontSize: '1.75rem', fontWeight: 900, fontFamily: "'Outfit', sans-serif", letterSpacing: '-0.03em', color: 'var(--text-primary, #0f172a)' }}>
                 Territory Empire
               </h2>
               <p className="subtitle" style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500 }}>
@@ -1000,6 +1257,41 @@ const Territories = ({ user, theme }) => {
 
           {errorMsg && <div className="alert-box error">{errorMsg}</div>}
           {successMsg && <div className="alert-box success">{successMsg}</div>}
+
+          {/* Background Running Mode Status Banner */}
+          {isTracking && (
+            <div style={{
+              background: 'linear-gradient(135deg, rgba(16,185,129,0.12), rgba(14,165,233,0.06))',
+              border: '1.5px solid rgba(16,185,129,0.3)',
+              borderRadius: 18,
+              padding: '12px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 16,
+              boxShadow: '0 4px 14px rgba(16,185,129,0.08)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(16,185,129,0.15)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="currentColor" fillOpacity="0.3" />
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                    Background GPS Tracking Active
+                  </div>
+                  <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+                    {wakeLockActive ? 'Running Mode • Screen Kept Awake' : 'Running in background'}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(16,185,129,0.2)', color: 'var(--primary)', padding: '3px 8px', borderRadius: 999, fontSize: '0.72rem', fontWeight: 800 }}>
+                {activePath.length} pts
+              </div>
+            </div>
+          )}
 
           {/* Empire Telemetry Dashboard Cards */}
           <div className="info-widgets" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 20 }}>
@@ -1163,7 +1455,7 @@ const Territories = ({ user, theme }) => {
             </div>
           )}
 
-          {/* Empty State Banner matching Reference Image 5 */}
+          {/* Empty State Banner */}
           {(!userStats || userStats.areaOwned === 0) && (
             <div style={{
               background: 'var(--bg-input, #F3EFE8)',

@@ -161,6 +161,18 @@ const SvgIcon = ({ name, size = 24, color = 'currentColor' }) => {
         <line x1="18" y1="6" x2="6" y2="18" />
         <line x1="6" y1="6" x2="18" y2="18" />
       </svg>
+    ),
+    warning: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    ),
+    check: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
     )
   };
 
@@ -379,8 +391,9 @@ const Toast = ({ message, type, onClose }) => {
         animation: 'stSlideUp var(--dur-normal) var(--ease-smooth)'
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
-        {type === 'success' ? '🌱' : '⚠️'} {message}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: 1 }}>
+        <SvgIcon name={type === 'success' ? 'eco' : 'warning'} size={18} />
+        <span>{message}</span>
       </div>
       {onClose && (
         <button
@@ -602,20 +615,10 @@ const Preferences = ({ user }) => {
             </svg>
           </div>
           <div>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)',
-              color: 'var(--primary, #059669)', fontSize: '0.72rem', fontWeight: 800,
-              padding: '3px 10px', borderRadius: 999, letterSpacing: '0.06em',
-              textTransform: 'uppercase', marginBottom: 4
-            }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
-              Commute Rules & Goals
-            </div>
             <h2 style={{ margin: 0, fontSize: '1.75rem', fontWeight: 900, fontFamily: "'Outfit', sans-serif", letterSpacing: '-0.03em', color: 'var(--text-primary, #0f172a)' }}>
               Preferences
             </h2>
-            <p style={{ margin: '3px 0 0', fontSize: '0.9rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500 }}>
+            <p style={{ margin: '4px 0 0', fontSize: '0.9rem', color: 'var(--text-secondary, #64748b)', fontWeight: 500 }}>
               Customize travel options, route priority rules, goals, and locations
             </p>
           </div>
@@ -749,7 +752,7 @@ const Preferences = ({ user }) => {
                 </span>
                 <input
                   type="text"
-                  placeholder="Enter home address..."
+                  placeholder="    Enter home address..."
                   value={preferences.homeAddress}
                   onChange={(e) => updatePreference('homeAddress', e.target.value)}
                 />
@@ -771,7 +774,7 @@ const Preferences = ({ user }) => {
                 </span>
                 <input
                   type="text"
-                  placeholder="Enter office address..."
+                  placeholder="     Enter office address..."
                   value={preferences.workAddress}
                   onChange={(e) => updatePreference('workAddress', e.target.value)}
                 />

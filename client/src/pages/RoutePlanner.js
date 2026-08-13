@@ -98,7 +98,7 @@ function DirectionArrow({ type, modifier, size = 22, color = 'currentColor' }) {
 }
 
 const CARBON_EQUIVALENTS = [
-  { threshold:0.1, text:(kg)=>`⚡ ${Math.round(kg/0.008)}x phone charges`               },
+  { threshold:0.1, text:(kg)=>`🔋 ${Math.round(kg/0.008)}x phone charges`               },
   { threshold:0.5, text:(kg)=>`☕ ${Math.round(kg/0.021)} cups of coffee footprint`     },
   { threshold:1,   text:(kg)=>`🌳 ${(kg/21.7*365).toFixed(1)} days of tree absorption`  },
   { threshold:5,   text:(kg)=>`🏠 powering a home for ${Math.round(kg/0.9)} hrs`        },
@@ -867,7 +867,9 @@ const RecentRoutes = ({ onSelect }) => {
   if (!recent.length) {
     return (
       <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-        <div style={{ fontSize: '1.6rem', marginBottom: 8, opacity: 0.6 }}>🕒</div>
+        <div style={{ width: 38, height: 38, borderRadius: 12, background: 'var(--bg-input, rgba(148, 163, 184, 0.12))', color: 'var(--text-muted, #94a3b8)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 8px' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
         <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' }}>No recent journeys</div>
         <div style={{ fontSize: 11.5, color: 'var(--text-muted, #94a3b8)', marginTop: 4 }}>
           Planned routes will automatically appear here for quick access.
@@ -891,7 +893,13 @@ const RecentRoutes = ({ onSelect }) => {
           onMouseEnter={e=>e.currentTarget.style.borderColor='var(--primary, #4A7C59)'}
           onMouseLeave={e=>e.currentTarget.style.borderColor='var(--border-color, #e2e8f0)'}
           >
-            <span style={{fontSize:14}}>{MODE_META[r.mode]?.icon||'🗺️'}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 22, height: 22, borderRadius: 6, background: 'rgba(16,185,129,0.1)', color: 'var(--primary, #10b981)', flexShrink: 0 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+                <line x1="9" y1="3" x2="9" y2="18" />
+                <line x1="15" y1="6" x2="15" y2="21" />
+              </svg>
+            </span>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:12.5,fontWeight:600,color:'var(--text-primary, #0f172a)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
                 {r.originName?.split(',')[0]} → {r.destName?.split(',')[0]}
@@ -3066,13 +3074,15 @@ const fetchAqi = async (lat, lon) => {
                           <div className="rp-card-title" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                             <span className="rp-card-name" style={{ fontSize: '1.05rem', fontWeight: 800 }}>{m.label}</span>
                             {isGreenest && (
-                              <span style={{ background: 'rgba(16,185,129,0.15)', color: '#059669', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 20, padding: '2px 9px', fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.02em' }}>
-                                🌿 Best Eco Choice
+                              <span style={{ background: 'rgba(16,185,129,0.12)', color: 'var(--primary, #059669)', border: '1px solid rgba(16,185,129,0.25)', borderRadius: 20, padding: '2px 9px', fontSize: '0.72rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                                Best Eco Choice
                               </span>
                             )}
                             {i===0 && !isGreenest && (
-                              <span style={{ background: 'rgba(14,165,233,0.12)', color: '#0ea5e9', border: '1px solid rgba(14,165,233,0.25)', borderRadius: 20, padding: '2px 9px', fontSize: '0.72rem', fontWeight: 800 }}>
-                                ⚡ Fastest
+                              <span style={{ background: 'rgba(14,165,233,0.12)', color: '#0ea5e9', border: '1px solid rgba(14,165,233,0.25)', borderRadius: 20, padding: '2px 9px', fontSize: '0.72rem', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
+                                Fastest
                               </span>
                             )}
                           </div>

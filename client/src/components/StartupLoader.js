@@ -24,10 +24,12 @@ export default function StartupLoader({ onComplete }) {
           // If health check fails or in local dev, proceed to try auth check
         }
 
-        // Step 2: Auth session check
+        // Step 2: Auth session & token check
         if (!cancelled && !finishedRef.current) {
           try {
-            const { data } = await axios.get('/api/auth/current_user', { timeout: 3500 });
+            const token = localStorage.getItem('gr_token');
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+            const { data } = await axios.get('/api/auth/current_user', { timeout: 3500, headers });
             if (!cancelled && !finishedRef.current) {
               finishedRef.current = true;
               clearTimeout(maxTimer);

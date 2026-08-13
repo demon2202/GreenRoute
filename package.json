@@ -3,11 +3,11 @@
   "version": "2.0.0",
   "private": true,
   "description": "Advanced backend for GreenRoute",
-  "main": "server.js",
+  "main": "server/server.js",
   "scripts": {
     "dev": "concurrently \"npm start --prefix server\" \"npm start --prefix client\"",
     "install-all": "npm install --prefix client && npm install --prefix server",
-    "start": "node server.js"
+    "start": "node server/server.js"
   },
   "dependencies": {
     "@mapbox/mapbox-sdk": "^0.15.6",

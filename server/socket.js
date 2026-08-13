@@ -25,13 +25,29 @@ const setupSocket = (server) => {
         },
     });
 
-    // Middleware: reject unauthenticated socket connections
+    // Middleware: authenticate socket connections via session OR auth token
     io.use((socket, next) => {
         const session = socket.request?.session;
-        // Allow connection only if passport session has a user
+        // 1. Check Passport session cookie (desktop / same-origin)
         if (session && session.passport && session.passport.user) {
             return next();
         }
+
+        // 2. Check auth token in handshake (mobile / cross-origin)
+        const token = socket.handshake?.auth?.token ||
+            (socket.handshake?.headers?.authorization?.startsWith('Bearer ')
+                ? socket.handshake.headers.authorization.slice(7).trim()
+                : null);
+
+        if (token) {
+            const { verifyToken } = require('./utils/token');
+            const decoded = verifyToken(token);
+            if (decoded && decoded.id) {
+                socket.userId = decoded.id;
+                return next();
+            }
+        }
+
         // In development, allow all connections so local testing still works
         if (process.env.NODE_ENV !== 'production') {
             return next();

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const Login = ({ onLogin }) => {
@@ -9,6 +9,28 @@ const Login = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   const isSignup = mode === 'signup';
+
+  // Check if returning from Google OAuth redirect with ?token=...
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlToken = urlParams.get('token');
+      if (urlToken) {
+        localStorage.setItem('gr_token', urlToken);
+        axios.get('/api/auth/current_user', { headers: { Authorization: `Bearer ${urlToken}` } })
+          .then(res => {
+            if (res.data) {
+              onLogin(res.data);
+            }
+          })
+          .catch(err => {
+            console.error('Error validating token from Google OAuth redirect:', err);
+          });
+      }
+    } catch (err) {
+      console.warn('OAuth param error:', err);
+    }
+  }, [onLogin]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -36,7 +58,12 @@ const Login = ({ onLogin }) => {
     try {
       const endpoint = isSignup ? '/api/auth/register' : '/api/auth/login';
       const { data } = await axios.post(endpoint, form);
-      if (data) onLogin(data);
+      if (data) {
+        if (data.token) {
+          try { localStorage.setItem('gr_token', data.token); } catch {}
+        }
+        onLogin(data);
+      }
     } catch (err) {
       const message = err.response?.data?.message ||
         `${isSignup ? 'Registration' : 'Login'} failed. Please try again.`;

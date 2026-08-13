@@ -209,20 +209,10 @@ const Leaderboard = ({ user }) => {
             <TrophyIcon size={24} color="#4A7C59" />
           </div>
           <div>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: 'var(--primary-soft, #E8EFE9)', border: '1px solid var(--border-color, #EAE4DA)',
-              color: 'var(--primary, #4A7C59)', fontSize: '0.72rem', fontWeight: 800,
-              padding: '3px 10px', borderRadius: 999, letterSpacing: '0.06em',
-              textTransform: 'uppercase', marginBottom: 4
-            }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#4A7C59' }} />
-              Global Rankings
-            </div>
             <h2 style={{ margin: 0, fontSize: '2.1rem', fontWeight: 700, fontFamily: "'Newsreader', Georgia, serif", letterSpacing: '-0.02em', color: 'var(--text-primary, #1C281F)' }}>
               Leaderboards
             </h2>
-            <p style={{ margin: '3px 0 0', fontSize: '0.9rem', color: 'var(--text-secondary, #5F7163)', fontWeight: 500 }}>
+            <p style={{ margin: '4px 0 0', fontSize: '0.9rem', color: 'var(--text-secondary, #5F7163)', fontWeight: 500 }}>
               Compete for the highest green impact or dominate the map.
             </p>
           </div>

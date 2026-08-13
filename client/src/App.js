@@ -18,6 +18,34 @@ axios.defaults.baseURL = process.env.REACT_APP_API_URL || (isLocal ? 'http://loc
 axios.defaults.withCredentials = true;
 axios.defaults.timeout = 25000;
 
+// Setup global Axios request interceptor for Bearer token authorization
+axios.interceptors.request.use((config) => {
+  try {
+    const token = localStorage.getItem('gr_token');
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  } catch { /* ignore storage errors */ }
+  return config;
+}, (error) => Promise.reject(error));
+
+// Extract OAuth token from URL query params if returning from Google Auth
+if (typeof window !== 'undefined') {
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('token');
+    if (urlToken) {
+      localStorage.setItem('gr_token', urlToken);
+      urlParams.delete('token');
+      urlParams.delete('auth');
+      const cleanSearch = urlParams.toString();
+      const cleanUrl = window.location.pathname + (cleanSearch ? `?${cleanSearch}` : '') + window.location.hash;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  } catch { /* ignore url parsing issues */ }
+}
+
 function App() {
   const [initialized, setInitialized] = useState(false);
   const [user, setUser] = useState(null);
@@ -26,6 +54,9 @@ function App() {
   const handleInitComplete = useCallback((userData) => {
     if (userData) {
       setUser(userData);
+      if (userData.token) {
+        try { localStorage.setItem('gr_token', userData.token); } catch {}
+      }
       if (userData.theme) setTheme(userData.theme);
     }
     setInitialized(true);
@@ -33,6 +64,9 @@ function App() {
 
   const handleLogin = (userData) => {
     setUser(userData);
+    if (userData?.token) {
+      try { localStorage.setItem('gr_token', userData.token); } catch {}
+    }
     if (userData?.theme) setTheme(userData.theme);
   };
 
@@ -40,6 +74,9 @@ function App() {
     try {
       await axios.post('/api/auth/logout');
     } catch { /* ignore */ }
+    try {
+      localStorage.removeItem('gr_token');
+    } catch {}
     setUser(null);
     setTheme('light');
   };
