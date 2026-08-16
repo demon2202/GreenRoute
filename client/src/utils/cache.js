@@ -26,3 +26,17 @@ export const setCachedData = (key, data) => {
     /* ignore storage errors */
   }
 };
+
+/**
+ * Clear all cached data on logout.
+ * Prevents cross-account data leakage on shared devices (audit §5.8).
+ */
+export const clearAllCache = () => {
+  memoryStore.clear();
+  try {
+    const keysToRemove = Object.keys(localStorage).filter(k => k.startsWith('gr_cache_'));
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+  } catch {
+    /* ignore storage errors */
+  }
+};

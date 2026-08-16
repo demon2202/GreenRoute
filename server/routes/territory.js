@@ -433,6 +433,20 @@ router.post('/claim', ensureAuth, async (req, res) => {
             const turfStats = calculateAreaAndPerimeter(mergedBoundary);
             mergedArea = turfStats.area;
             mergedPerimeter = turfStats.perimeter;
+
+            // Re-validate merged shape against size limits (audit §3.2).
+            // Without this check, repeated adjacent claims can accumulate unlimited area
+            // because the per-claim validation only ran on the NEW polygon, not the union.
+            if (mergedArea > 0.5) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({ error: `Merged territory exceeds the 0.5 km² area limit (merged: ${mergedArea.toFixed(3)} km²).` });
+            }
+            if (mergedPerimeter > 5.0) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({ error: `Merged territory exceeds the 5.0 km perimeter limit (merged: ${mergedPerimeter.toFixed(2)} km).` });
+            }
         }
 
         // Calculate centroid of the merged boundary
@@ -530,15 +544,21 @@ router.post('/claim', ensureAuth, async (req, res) => {
 });
 
 // POST /api/territory/attack/lap - Attacker records a lap completion
+// SECURITY: The server is authoritative on lap counts. lapsCompleted from the
+// client body is intentionally ignored to prevent the instant-win cheat:
+//   POST /attack/lap { lapsCompleted: 99 }  →  would have instantly conquered any territory.
 router.post('/attack/lap', ensureAuth, async (req, res) => {
-    const { territoryId, lapsCompleted, checkpointsVisited, isSimulated } = req.body;
+    // NOTE: lapsCompleted is destructured only for legacy compat reading — it is NEVER
+    // used to set attack.lapsCompleted. Only the server's +1 increment is trusted.
+    const { territoryId, checkpointsVisited, isSimulated, lat, lng } = req.body;
 
     if (!territoryId) {
         return res.status(400).json({ error: 'Territory ID is required.' });
     }
 
-    if (process.env.NODE_ENV === 'production' && isSimulated) {
-        return res.status(403).json({ error: 'Simulation mode is disabled in production.' });
+    // Gate simulation via dedicated env var, not NODE_ENV (see Fix 4)
+    if (process.env.ALLOW_SIMULATION !== 'true' && isSimulated) {
+        return res.status(403).json({ error: 'Simulation mode is disabled.' });
     }
 
     const session = await mongoose.startSession();
@@ -559,6 +579,32 @@ router.post('/attack/lap', ensureAuth, async (req, res) => {
             return res.status(400).json({ error: 'Cannot attack your own territory. Visit it to maintain it.' });
         }
 
+        // ── Proximity check (non-simulated only) ─────────────────────────────────
+        // Require the attacker to report a GPS position near the territory boundary.
+        // This prevents trivially cheating by POSTing from a couch.
+        if (!isSimulated) {
+            const attackerLat = parseFloat(lat);
+            const attackerLng = parseFloat(lng);
+            if (isNaN(attackerLat) || isNaN(attackerLng)) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({ error: 'Attacker GPS position (lat, lng) is required.' });
+            }
+
+            // Check if attacker is within 500 m of any boundary vertex
+            const PROXIMITY_THRESHOLD_M = 500;
+            const isNearBoundary = territory.boundary.some(coord =>
+                getOrthoDistance(attackerLat, attackerLng, coord[1], coord[0]) <= PROXIMITY_THRESHOLD_M
+            );
+            if (!isNearBoundary) {
+                await session.abortTransaction();
+                session.endSession();
+                return res.status(400).json({
+                    error: `You must be within ${PROXIMITY_THRESHOLD_M} m of the territory boundary to record a lap.`
+                });
+            }
+        }
+
         // Get updated defense level (decays inside)
         updateCellDefenseAndDecay(territory);
 
@@ -573,11 +619,32 @@ router.post('/attack/lap', ensureAuth, async (req, res) => {
                 checkpointsVisited: checkpointsVisited || []
             });
         } else {
-            attack.lapsCompleted = lapsCompleted !== undefined ? lapsCompleted : attack.lapsCompleted;
+            // ── Minimum lap time check ────────────────────────────────────────────────
+            // A lap must take at least (perimeter_km / 10 km/h) minutes.
+            // This prevents a single user from registering laps faster than physically possible.
+            if (!isSimulated && attack.updatedAt) {
+                const perimeterKm = territory.perimeter || 0.5; // fallback 0.5 km if missing
+                const minLapMs = (perimeterKm / 10) * 60 * 60 * 1000; // 10 km/h walking pace
+                const msSinceLast = Date.now() - new Date(attack.updatedAt).getTime();
+                if (msSinceLast < minLapMs) {
+                    await session.abortTransaction();
+                    session.endSession();
+                    const waitSec = Math.ceil((minLapMs - msSinceLast) / 1000);
+                    return res.status(429).json({
+                        error: `Lap recorded too quickly. Please wait ${waitSec}s before submitting the next lap.`
+                    });
+                }
+            }
+
+            // Only update checkpoints — never accept client-reported lap count
             if (checkpointsVisited) {
                 attack.checkpointsVisited = checkpointsVisited;
             }
         }
+
+        // ── SERVER-AUTHORITATIVE lap increment ───────────────────────────────────
+        // Always +1, never trust req.body.lapsCompleted.
+        attack.lapsCompleted += 1;
 
         // Explicitly update updatedAt to refresh MongoDB 24h TTL
         attack.updatedAt = new Date();

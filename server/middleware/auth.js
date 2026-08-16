@@ -9,13 +9,13 @@ module.exports = {
         }
 
         // 2. Check Authorization Bearer token (mobile / cross-origin)
+        // Note: req.query.token is intentionally NOT supported.
+        // Tokens in URL query strings leak into access logs, browser history, and Referer headers.
         const authHeader = req.headers.authorization || req.headers.Authorization;
         let token = null;
 
         if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
             token = authHeader.slice(7).trim();
-        } else if (req.query && req.query.token) {
-            token = req.query.token;
         }
 
         if (token) {

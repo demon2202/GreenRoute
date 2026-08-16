@@ -3,8 +3,50 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { ensureAuth } = require('../middleware/auth');
+const rateLimit = require('express-rate-limit');
 
-// node-fetch v3 is ESM-only — use dynamic import
+/**
+ * Sanitize display name: strip < > and control chars, trim, cap at 50 chars.
+ * Mirrors auth.js sanitizeName to ensure consistent sanitization on all write paths.
+ */
+const sanitizeName = (s) =>
+    String(s).replace(/[<>\x00-\x1F\x7F]/g, '').trim().slice(0, 50);
+
+/* ─── Tighter per-route limiter for expensive proxy routes ──────────────────
+   /route, /weather, /aqi each call external paid APIs. Separate budget from
+   the global 200/15min limiter so a single user can't exhaust API quotas.
+   Fix 8 from GreenRoute_Security_Audit.md
+─────────────────────────────────────────────────────────────────────────── */
+const proxyRouteLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  keyGenerator: (req) => req.user?.id || req.ip,
+  message: { error: 'Too many route requests. Please wait 15 minutes before trying again.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/* ─── In-memory route cache (3-minute TTL) ──────────────────────────────────
+   Prevents duplicate external API calls for repeated identical route queries.
+   Keys by serialised coordinates + modes. Cleared on 3 min TTL or server restart.
+─────────────────────────────────────────────────────────────────────────── */
+const routeCache = new Map();
+const ROUTE_CACHE_TTL_MS = 3 * 60 * 1000;
+
+const getCachedRoute = (key) => {
+  const entry = routeCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > ROUTE_CACHE_TTL_MS) {
+    routeCache.delete(key);
+    return null;
+  }
+  return entry.data;
+};
+
+const setCachedRoute = (key, data) => {
+  routeCache.set(key, { data, ts: Date.now() });
+};
+
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 
 // Mapbox SDK
@@ -97,7 +139,7 @@ function buildSteps(leg, mode) {
 /* ─────────────────────────────────────────────────────────────
    ROUTE PLANNING
 ───────────────────────────────────────────────────────────── */
-router.post('/route', ensureAuth, async (req, res) => {
+router.post('/route', ensureAuth, proxyRouteLimiter, async (req, res) => {
   const { origin, destination, transportModes } = req.body;
 
   if (!origin?.coordinates || !destination?.coordinates)
@@ -119,12 +161,23 @@ router.post('/route', ensureAuth, async (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found.' });
 
     const prefs            = Object.fromEntries(user.preferences || []);
+
+    // Cap to max 3 modes (Fix 8: prevent combinatorial API abuse).
+    // Each mode fires one external Mapbox Directions call.
     const selectedProfiles = transportModes
+      .slice(0, 3)
       .map(m => PROFILES[m.toLowerCase()])
       .filter(Boolean);
 
     if (!selectedProfiles.length)
       return res.status(400).json({ error: 'No valid transport modes selected.' });
+
+    // Check in-memory cache before hitting Mapbox API (Fix 8)
+    const cacheKey = `${oLng},${oLat}->${dLng},${dLat}:${selectedProfiles.map(p => p.mode).sort().join(',')}`;
+    const cached = getCachedRoute(cacheKey);
+    if (cached) {
+      return res.json(cached);
+    }
 
     const promises = selectedProfiles.map(async ({ profile, mode }) => {
       try {
@@ -169,12 +222,23 @@ router.post('/route', ensureAuth, async (req, res) => {
         const drivingKg = distKm * EMISSIONS.driving;
         const modeKg    = distKm * (EMISSIONS[mode] || 0);
         const co2Saved  = Math.max(drivingKg - modeKg, 0);
-        const modeLabels = { walking: 'Walking', cycling: 'Cycling', driving: 'Driving', transit: 'Transit' };
+        const modeLabels = {
+          walking: 'Walking',
+          cycling: 'Cycling',
+          driving: 'Driving',
+          // Fix 15: 'Transit' routing uses the road network — label it honestly
+          // to avoid misleading users that it uses real transit data (GTFS/RAPTOR).
+          transit: 'Eco Drive',
+        };
+        const modeNote = mode === 'transit'
+          ? 'Routing via road network (real transit data unavailable)'
+          : undefined;
 
         output.push({
           id:               `${mode}-${idx}-${Date.now()}`,
           name:             idx === 0 ? `${modeLabels[mode]} Route` : `${modeLabels[mode]} Alt.`,
           mode,
+          ...(modeNote && { note: modeNote }),
           distance:         distKm.toFixed(1),
           duration:         durMin,
           co2Saved:         co2Saved.toFixed(2),
@@ -200,7 +264,10 @@ router.post('/route', ensureAuth, async (req, res) => {
       return scoreB - scoreA;
     });
 
-    res.json(output.slice(0, 8));
+    const sliced = output.slice(0, 8);
+    // Store in cache so duplicate requests within 3 min skip the Mapbox API call
+    setCachedRoute(cacheKey, sliced);
+    res.json(sliced);
 
   } catch (err) {
     console.error('[route] Unexpected error:', err);
@@ -211,7 +278,7 @@ router.post('/route', ensureAuth, async (req, res) => {
 /* ─────────────────────────────────────────────────────────────
    WEATHER
 ───────────────────────────────────────────────────────────── */
-router.get('/weather', ensureAuth, async (req, res) => {
+router.get('/weather', ensureAuth, proxyRouteLimiter, async (req, res) => {
   const { lat, lon } = req.query;
 
   if (!lat || !lon)
@@ -530,7 +597,7 @@ router.put(
   '/profile',
   ensureAuth,
   [
-    body('displayName').optional().trim().notEmpty().isLength({ max: 100 }).withMessage('Display name cannot be empty or exceed 100 chars'),
+    body('displayName').optional().trim().notEmpty().isLength({ max: 50 }).withMessage('Display name cannot be empty or exceed 50 chars'),
     body('email').optional().isEmail().normalizeEmail().withMessage('Invalid email'),
   ],
   async (req, res) => {
@@ -548,10 +615,17 @@ router.put(
         }
       }
 
+      // Sanitize displayName to strip HTML/control chars before storing.
+      // Max 50 chars is enforced both here and in the validator above.
+      const safeDisplayName = displayName ? sanitizeName(displayName) : undefined;
+      if (displayName !== undefined && !safeDisplayName) {
+        return res.status(400).json({ error: 'Display name must contain valid characters.' });
+      }
+
       const user = await User.findByIdAndUpdate(
         req.user.id,
         {
-          ...(displayName && { displayName }),
+          ...(safeDisplayName && { displayName: safeDisplayName }),
           ...(email && { email: email.toLowerCase() }),
         },
         { new: true }

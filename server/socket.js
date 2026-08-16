@@ -48,8 +48,10 @@ const setupSocket = (server) => {
             }
         }
 
-        // In development, allow all connections so local testing still works
+        // In development, allow all connections so local testing still works.
+        // A loud warning is printed so this is never silently active.
         if (process.env.NODE_ENV !== 'production') {
+            console.warn('[SECURITY WARNING] Socket.io auth bypass is ACTIVE — unauthenticated connections are allowed. Do NOT use in production.');
             return next();
         }
         next(new Error('Unauthorized: please log in first'));

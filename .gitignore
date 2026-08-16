@@ -26,3 +26,7 @@ yarn-error.log*
 .env*.local
 .agents/
 .impeccable/
+
+# Server logs — never commit logs to the repository (audit §4.7)
+*.log
+server/logs/

@@ -11,6 +11,7 @@ import Settings from './pages/Settings';
 import SavedPlaces from './pages/SavedPlaces';
 import Leaderboard from './pages/Leaderboard';
 import Territories from './pages/Territories';
+import { clearAllCache } from './utils/cache';
 import './index.css';
 
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -30,21 +31,10 @@ axios.interceptors.request.use((config) => {
   return config;
 }, (error) => Promise.reject(error));
 
-// Extract OAuth token from URL query params if returning from Google Auth
-if (typeof window !== 'undefined') {
-  try {
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlToken = urlParams.get('token');
-    if (urlToken) {
-      localStorage.setItem('gr_token', urlToken);
-      urlParams.delete('token');
-      urlParams.delete('auth');
-      const cleanSearch = urlParams.toString();
-      const cleanUrl = window.location.pathname + (cleanSearch ? `?${cleanSearch}` : '') + window.location.hash;
-      window.history.replaceState({}, document.title, cleanUrl);
-    }
-  } catch { /* ignore url parsing issues */ }
-}
+// Fix 10: Removed URL token extraction block.
+// The Google OAuth callback no longer puts the token in the URL.
+// It sets a short-lived httpOnly cookie (gr_oauth_token) which is exchanged
+// server-side on the first /api/auth/current_user call by StartupLoader.
 
 function App() {
   const [initialized, setInitialized] = useState(false);
@@ -77,6 +67,9 @@ function App() {
     try {
       localStorage.removeItem('gr_token');
     } catch {}
+    // Fix 16: Clear all gr_cache_* localStorage entries on logout to prevent
+    // cross-account data leakage on shared devices.
+    clearAllCache();
     setUser(null);
     setTheme('light');
   };

@@ -7,6 +7,14 @@ import './Territories.css';
 
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_API_KEY;
 
+/**
+ * Escape user-controlled strings before inserting into HTML contexts.
+ * Prevents Stored XSS via displayName in Mapbox popups.
+ */
+const escapeHtml = (s) =>
+  String(s).replace(/[&<>"']/g,
+    c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 // Dynamic HSL color matching user schema (generates unique color for every user)
 const getOwnerColor = (ownerId) => {
   if (!ownerId) return '#64748b'; // Slate gray fallback
@@ -436,11 +444,13 @@ const Territories = ({ user, theme }) => {
           el.appendChild(fallback);
         }
 
+        // escapeHtml() is required here: ownerName is user-controlled and setHTML
+        // writes raw HTML — an unescaped name would allow Stored XSS (CVE-class).
         const popup = new mapboxgl.Popup({ offset: 22, closeButton: false })
           .setHTML(`
                         <div style="font-family: 'Outfit', sans-serif; padding: 4px; text-align: center;">
-                            <strong style="color: ${color}; font-size: 0.88rem; display: block; margin-bottom: 2px;">
-                                ${ownerName}
+                            <strong style="color: ${escapeHtml(color)}; font-size: 0.88rem; display: block; margin-bottom: 2px;">
+                                ${escapeHtml(ownerName)}
                             </strong>
                             <span style="font-size: 0.76rem; color: #64748b;">
                                 Area: ${(cell.area || 0).toFixed(4)} km²

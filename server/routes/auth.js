@@ -1,9 +1,20 @@
-const express = require('express');
+﻿const express = require('express');
 const passport = require('passport');
 
 const router = express.Router();
 const User = require('../models/User');
 const { generateToken, verifyToken } = require('../utils/token');
+
+/**
+ * Sanitize a user display name server-side:
+ * - Strips < > and control characters (prevents HTML/XSS storage)
+ * - Trims whitespace
+ * - Caps at 50 chars (matches client-side escapeHtml + audit recommendation)
+ */
+const sanitizeName = (s) =>
+    String(s).replace(/[<>\x00-\x1F\x7F]/g, '').trim().slice(0, 50);
+
+const IS_PROD = process.env.NODE_ENV === 'production';
 
 router.post('/register', async (req, res) => {
     const { displayName, email, password } = req.body;
@@ -38,32 +49,46 @@ router.post('/register', async (req, res) => {
             });
         }
 
+        // Sanitize displayName to strip HTML/control chars before storing.
+        // This is the server-side defence that prevents XSS payloads reaching the DB.
+        const safeDisplayName = sanitizeName(displayName);
+        if (!safeDisplayName) {
+            return res.status(400).json({ message: 'Display name must contain valid characters.' });
+        }
+
         const user = new User({
-            displayName,
+            displayName: safeDisplayName,
             email: email.toLowerCase(),
             password
         });
 
         await user.save();
 
-        req.login(user, err => {
+        // Fix 12: Regenerate session ID on authentication to prevent session fixation.
+        req.session.regenerate(err => {
             if (err) {
-                return res.status(500).json({
-                    message: 'Login after registration failed'
-                });
+                return res.status(500).json({ message: 'Session error during registration' });
             }
 
-            const token = generateToken(user);
+            req.login(user, loginErr => {
+                if (loginErr) {
+                    return res.status(500).json({
+                        message: 'Login after registration failed'
+                    });
+                }
 
-            res.status(201).json({
-                id: user._id,
-                displayName: user.displayName,
-                email: user.email,
-                image: user.image,
-                theme: user.theme,
-                preferences: user.preferences,
-                territoryStats: user.territoryStats,
-                token
+                const token = generateToken(user);
+
+                res.status(201).json({
+                    id: user._id,
+                    displayName: user.displayName,
+                    email: user.email,
+                    image: user.image,
+                    theme: user.theme,
+                    preferences: user.preferences,
+                    territoryStats: user.territoryStats,
+                    token
+                });
             });
         });
 
@@ -89,23 +114,27 @@ router.post('/login', (req, res, next) => {
             });
         }
 
-        req.logIn(user, err => {
+        // Fix 12: Regenerate session ID before logging in to prevent session fixation.
+        req.session.regenerate(regenErr => {
+            if (regenErr) return next(regenErr);
 
-            if (err) {
-                return next(err);
-            }
+            req.logIn(user, loginErr => {
+                if (loginErr) {
+                    return next(loginErr);
+                }
 
-            const token = generateToken(user);
+                const token = generateToken(user);
 
-            return res.status(200).json({
-                id: user._id,
-                displayName: user.displayName,
-                email: user.email,
-                image: user.image,
-                theme: user.theme,
-                preferences: user.preferences,
-                territoryStats: user.territoryStats,
-                token
+                return res.status(200).json({
+                    id: user._id,
+                    displayName: user.displayName,
+                    email: user.email,
+                    image: user.image,
+                    theme: user.theme,
+                    preferences: user.preferences,
+                    territoryStats: user.territoryStats,
+                    token
+                });
             });
         });
 
@@ -131,13 +160,20 @@ router.get(
     (req, res) => {
         const clientUrl = process.env.CLIENT_URL || 'https://green-route-seven.vercel.app' || 'http://localhost:5173';
         const cleanClientUrl = clientUrl.replace(/\/$/, '');
-        
-        // Generate mobile-friendly auth token for cross-domain OAuth on iOS/Safari/Android
+
+        // Fix 10: Do NOT put the JWT in the redirect URL (leaks into logs, Referer headers, browser history).
+        // Instead, set a short-lived httpOnly cookie. The client exchanges it on the next /current_user call.
         const token = generateToken(req.user);
         if (token) {
-            return res.redirect(`${cleanClientUrl}/login?token=${token}&auth=google`);
+            res.cookie('gr_oauth_token', token, {
+                httpOnly: true,
+                secure: IS_PROD,
+                sameSite: IS_PROD ? 'none' : 'lax',
+                maxAge: 2 * 60 * 1000  // 2 minutes â€” single-use, expires quickly
+            });
         }
-        res.redirect(cleanClientUrl);
+        // Redirect cleanly â€” no token in the URL
+        res.redirect(`${cleanClientUrl}/login?auth=google`);
     }
 );
 
@@ -157,6 +193,7 @@ router.post('/logout', (req, res, next) => {
             }
 
             res.clearCookie('gr.sid');
+            res.clearCookie('gr_oauth_token');
 
             res.json({
                 message: 'Logout successful'
@@ -179,13 +216,48 @@ router.get('/current_user', async (req, res) => {
         });
     }
 
-    // 2. Token header or query fallback (mobile / cross-domain)
+    // 2. Check for the short-lived OAuth httpOnly cookie (Fix 10)
+    // This is set by the Google callback and consumed exactly once.
+    const oauthToken = req.cookies && req.cookies.gr_oauth_token;
+    if (oauthToken) {
+        // Clear it immediately â€” single-use
+        res.clearCookie('gr_oauth_token');
+        const decoded = verifyToken(oauthToken);
+        if (decoded && decoded.id) {
+            try {
+                const user = await User.findById(decoded.id);
+                if (user) {
+                    // Establish a full session so subsequent requests use the session cookie
+                    return req.session.regenerate(err => {
+                        if (err) return res.json(null);
+                        req.logIn(user, loginErr => {
+                            if (loginErr) return res.json(null);
+                            const newToken = generateToken(user);
+                            return res.json({
+                                id: user._id,
+                                displayName: user.displayName,
+                                email: user.email,
+                                image: user.image,
+                                theme: user.theme,
+                                preferences: user.preferences,
+                                territoryStats: user.territoryStats,
+                                token: newToken
+                            });
+                        });
+                    });
+                }
+            } catch (err) {
+                console.error('Error fetching current_user by oauth cookie:', err);
+            }
+        }
+    }
+
+    // 3. Authorization Bearer token (mobile / cross-origin)
+    // Note: req.query.token is intentionally NOT supported (Fix 10 â€” tokens in URLs leak).
     const authHeader = req.headers.authorization || req.headers.Authorization;
     let token = null;
     if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
         token = authHeader.slice(7).trim();
-    } else if (req.query && req.query.token) {
-        token = req.query.token;
     }
 
     if (token) {
@@ -213,4 +285,4 @@ router.get('/current_user', async (req, res) => {
     res.json(null);
 });
 
-module.exports = router;
+module.exports = router;

@@ -1,5 +1,19 @@
 const crypto = require('crypto');
 
+/* ─── Startup validation — fail closed ──────────────────────────────────────
+   TOKEN_SECRET must be a separate secret from COOKIE_KEY (session secret).
+   Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   Add TOKEN_SECRET to your Render environment variables before deploying.
+   WARNING: rotating TOKEN_SECRET invalidates all previously issued tokens.
+─────────────────────────────────────────────────────────────────────────── */
+const TOKEN_SECRET = process.env.TOKEN_SECRET;
+if (!TOKEN_SECRET || TOKEN_SECRET.length < 32) {
+    throw new Error(
+        'FATAL: TOKEN_SECRET environment variable is not set or is shorter than 32 characters. ' +
+        'Refusing to start. Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
+    );
+}
+
 /**
  * Generate a cryptographically signed HMAC-SHA256 Auth Token
  * @param {Object} user - User document or object with _id
@@ -13,8 +27,7 @@ function generateToken(user) {
         ts: Date.now()
     });
     const b64 = Buffer.from(payload).toString('base64url');
-    const secret = process.env.COOKIE_KEY || 'greenroute-secret-key-2025';
-    const sig = crypto.createHmac('sha256', secret).update(b64).digest('base64url');
+    const sig = crypto.createHmac('sha256', TOKEN_SECRET).update(b64).digest('base64url');
     return `${b64}.${sig}`;
 }
 
@@ -27,25 +40,30 @@ function verifyToken(token) {
     if (!token || typeof token !== 'string') return null;
     const parts = token.trim().split('.');
     if (parts.length !== 2) return null;
-    
+
     const [b64, sig] = parts;
-    const secret = process.env.COOKIE_KEY || 'greenroute-secret-key-2025';
-    const expectedSig = crypto.createHmac('sha256', secret).update(b64).digest('base64url');
-    
-    // Constant time comparison to prevent timing attacks
-    if (sig !== expectedSig) return null;
-    
+    const expectedSig = crypto.createHmac('sha256', TOKEN_SECRET).update(b64).digest('base64url');
+
+    // Constant-time comparison to prevent timing attacks.
+    // Both buffers must be the same byte length for timingSafeEqual.
+    const sigBuf      = Buffer.from(sig);
+    const expectedBuf = Buffer.from(expectedSig);
+    if (sigBuf.length !== expectedBuf.length ||
+        !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+        return null;
+    }
+
     try {
         const jsonStr = Buffer.from(b64, 'base64url').toString('utf8');
         const data = JSON.parse(jsonStr);
         if (!data || !data.id) return null;
-        
+
         // 30 days token expiration
         const MAX_AGE = 30 * 24 * 60 * 60 * 1000;
         if (Date.now() - data.ts > MAX_AGE) {
             return null;
         }
-        
+
         return data;
     } catch {
         return null;

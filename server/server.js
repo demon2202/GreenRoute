@@ -10,6 +10,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
 const http = require('http');
+const cookieParser = require('cookie-parser');
 
 const setupSocket = require('./socket');
 
@@ -21,8 +22,32 @@ const territoryRoutes = require('./routes/territory');
 
 const app = express();
 
+/* â”€â”€â”€ Startup configuration assertions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   IS_PROD is the single authoritative flag â€” computed once and asserted.
+   Security controls must never silently change because NODE_ENV drifted.
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+const IS_PROD = process.env.NODE_ENV === 'production';
+
+// COOKIE_SECURE defaults to true (safe). Set COOKIE_SECURE=false only for
+// local HTTP dev where https is unavailable.
+const COOKIE_SECURE = process.env.COOKIE_SECURE !== 'false';
+
+// ALLOW_SIMULATION: set to 'true' only in dedicated testing/staging environments.
+// Defaults to false. Never true in production.
+const ALLOW_SIMULATION = process.env.ALLOW_SIMULATION === 'true';
+
+console.log(`[startup] IS_PROD=${IS_PROD} | COOKIE_SECURE=${COOKIE_SECURE} | ALLOW_SIMULATION=${ALLOW_SIMULATION}`);
+
+if (!IS_PROD) {
+    console.warn('[SECURITY WARNING] Running in NON-PRODUCTION mode. Auth and security controls are relaxed.');
+}
+
 app.set('trust proxy', 1);
 
+/* â”€â”€â”€ CSP: list exact hosts â€” no wildcards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   Removed: 'https:' and 'wss:' wildcards from connectSrc (allowed any host).
+   Removed: https://api.mapbox.com from scriptSrc (Mapbox GL is bundled via npm).
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 app.use(
     helmet({
         contentSecurityPolicy: {
@@ -41,20 +66,26 @@ app.use(
                     'https://fonts.gstatic.com'
                 ],
 
+                // Mapbox GL JS is bundled via npm â€” 'self' is sufficient.
+                // Do NOT add https://api.mapbox.com here (removed per audit Â§4.4).
                 scriptSrc: [
                     "'self'",
-                    'https://api.mapbox.com'
                 ],
 
+                // Exact hosts only â€” no 'https:' or 'wss:' wildcards.
                 connectSrc: [
                     "'self'",
                     'https://api.mapbox.com',
                     'https://events.mapbox.com',
                     process.env.CLIENT_URL,
                     process.env.SERVER_URL,
-                    'https:',
-                    'wss:'
-                ],
+                    'https://api.openweathermap.org',
+                    'https://api.waqi.info',
+                    // WebSocket for socket.io â€” exact host only
+                    process.env.SERVER_URL ? process.env.SERVER_URL.replace(/^https/, 'wss') : null,
+                    'ws://localhost:5000',
+                    'ws://127.0.0.1:5000',
+                ].filter(Boolean),
 
                 imgSrc: [
                     "'self'",
@@ -84,7 +115,7 @@ const limiter = rateLimit({
 
 app.use('/api', limiter);
 
-// Auth limiter only on mutation endpoints — NOT on /current_user which fires every page load
+// Auth limiter only on mutation endpoints â€” NOT on /current_user which fires every page load
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 15,
@@ -109,17 +140,49 @@ app.use(
         origin: (origin, cb) => {
             // Allow requests with no origin (curl, Postman, same-origin)
             if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-            cb(new Error(`CORS: origin ${origin} not allowed`));
+            const err = new Error(`CORS: origin ${origin} not allowed`);
+            err.status = 403;
+            err.isCorsError = true;
+            cb(err);
         },
         credentials: true
     })
 );
+
+/* â”€â”€â”€ CSRF: Origin / Referer guard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   State-changing routes authenticated via session cookie are vulnerable to
+   CSRF because the browser sends cookies cross-site (sameSite:none in prod).
+   This middleware rejects requests whose Origin header is present but not in
+   the allow-list. Bearer-token requests are inherently CSRF-safe and skip it.
+   Ref: GreenRoute_Security_Audit.md Â§3.3
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+const originGuard = (req, res, next) => {
+    // Only applies to state-changing methods
+    const safeMethods = ['GET', 'HEAD', 'OPTIONS'];
+    if (safeMethods.includes(req.method)) return next();
+
+    // If the request has an Authorization Bearer token it is CSRF-safe
+    const authHeader = req.headers.authorization || '';
+    if (authHeader.startsWith('Bearer ')) return next();
+
+    const origin = req.headers.origin;
+    // No origin header = same-origin or non-browser (curl/Postman/server-to-server) â€” allow
+    if (!origin) return next();
+
+    if (!ALLOWED_ORIGINS.includes(origin)) {
+        return res.status(403).json({ message: 'Forbidden: cross-origin request rejected.' });
+    }
+    next();
+};
 
 app.use(express.json({ limit: '100kb' }));
 app.use(express.urlencoded({
     extended: true,
     limit: '100kb'
 }));
+// cookie-parser must come before session/passport so req.cookies is populated
+// for the gr_oauth_token httpOnly cookie set by the Google OAuth callback.
+app.use(cookieParser());
 
 app.use('/uploads', express.static('uploads'));
 
@@ -152,12 +215,12 @@ app.use(
         }),
 
         cookie: {
-            secure: process.env.NODE_ENV === 'production',
+            // COOKIE_SECURE defaults to true. Override with COOKIE_SECURE=false for local HTTP dev.
+            secure: COOKIE_SECURE,
             httpOnly: true,
-            sameSite:
-                process.env.NODE_ENV === 'production'
-                    ? 'none'
-                    : 'lax',
+            // sameSite:none is required for the Vercelâ†’Render cross-origin setup.
+            // It is mitigated by the originGuard CSRF middleware above.
+            sameSite: IS_PROD ? 'none' : 'lax',
 
             maxAge: 24 * 60 * 60 * 1000
         }
@@ -166,6 +229,9 @@ app.use(
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Apply CSRF origin guard to all API state-changing routes
+app.use('/api', originGuard);
 
 // Process-wide crash prevention handlers
 process.on('unhandledRejection', (reason, promise) => {
@@ -180,9 +246,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
 app.use('/api/territory', territoryRoutes);
 
+// /health â€” public endpoint, handled by global CORS middleware.
+// Do NOT add manual Access-Control-Allow-Origin:* here (causes conflict with credentials:true).
 app.get('/health', (req, res) => {
-  // Public endpoint — allow any origin so the frontend wake-up ping always works
-  res.setHeader('Access-Control-Allow-Origin', '*');
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
@@ -190,17 +256,17 @@ app.get('/health', (req, res) => {
   });
 });
 
-/* ─── Keep-alive self-ping ──────────────────────────────────────────────────
+/* â”€â”€â”€ Keep-alive self-ping â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Render.com free tier shuts the server down after 15 min of inactivity.
    Pinging ourselves every 13 min keeps it warm at zero extra cost.
-─────────────────────────────────────────────────────────────────────────── */
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 const SELF_URL = process.env.SERVER_URL;
-if (process.env.NODE_ENV === 'production') {
+if (IS_PROD) {
   if (SELF_URL) {
     const https = require('https');
     const keepAlive = () => {
       https.get(`${SELF_URL}/health`, (res) => {
-        // success — server stays warm
+        // success â€” server stays warm
       }).on('error', () => {
         // ignore errors from self-ping
       });
@@ -215,17 +281,26 @@ if (process.env.NODE_ENV === 'production') {
   }
 }
 
+/* â”€â”€â”€ Error handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   CORS errors return 403 (not 500) per audit Â§5.4.
+   Production errors hide stack traces.
+â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 app.use((err, req, res, next) => {
 
+    // CORS rejection â†’ 403 with a clear message, not a noisy 500
+    if (err.isCorsError || (err.message && err.message.startsWith('CORS:'))) {
+        return res.status(403).json({ message: 'Forbidden: origin not allowed.' });
+    }
+
     // Only log stack in development; avoid leaking internals in production
-    if (process.env.NODE_ENV !== 'production') {
+    if (!IS_PROD) {
         console.error(err.stack);
     } else {
         console.error(`[${new Date().toISOString()}] ${err.message}`);
     }
 
     res.status(err.status || 500).json({
-        message: process.env.NODE_ENV === 'production' ? 'Internal server error' : err.message
+        message: IS_PROD ? 'Internal server error' : err.message
     });
 });
 
@@ -260,3 +335,4 @@ process.on('SIGTERM', () => {
 });
 
 module.exports = app;
+
