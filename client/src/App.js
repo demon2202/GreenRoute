@@ -19,7 +19,6 @@ axios.defaults.baseURL = process.env.REACT_APP_API_URL || (isLocal ? 'http://loc
 axios.defaults.withCredentials = true;
 axios.defaults.timeout = 25000;
 
-// Setup global Axios request interceptor for Bearer token authorization
 axios.interceptors.request.use((config) => {
   try {
     const token = localStorage.getItem('gr_token');
@@ -30,11 +29,6 @@ axios.interceptors.request.use((config) => {
   } catch { /* ignore storage errors */ }
   return config;
 }, (error) => Promise.reject(error));
-
-// Fix 10: Removed URL token extraction block.
-// The Google OAuth callback no longer puts the token in the URL.
-// It sets a short-lived httpOnly cookie (gr_oauth_token) which is exchanged
-// server-side on the first /api/auth/current_user call by StartupLoader.
 
 function App() {
   const [initialized, setInitialized] = useState(false);
@@ -67,8 +61,6 @@ function App() {
     try {
       localStorage.removeItem('gr_token');
     } catch {}
-    // Fix 16: Clear all gr_cache_* localStorage entries on logout to prevent
-    // cross-account data leakage on shared devices.
     clearAllCache();
     setUser(null);
     setTheme('light');

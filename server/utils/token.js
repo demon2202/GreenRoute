@@ -1,24 +1,10 @@
 const crypto = require('crypto');
 
-/* ─── Startup validation — fail closed ──────────────────────────────────────
-   TOKEN_SECRET must be a separate secret from COOKIE_KEY (session secret).
-   Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-   Add TOKEN_SECRET to your Render environment variables before deploying.
-   WARNING: rotating TOKEN_SECRET invalidates all previously issued tokens.
-─────────────────────────────────────────────────────────────────────────── */
 const TOKEN_SECRET = process.env.TOKEN_SECRET;
 if (!TOKEN_SECRET || TOKEN_SECRET.length < 32) {
-    throw new Error(
-        'FATAL: TOKEN_SECRET environment variable is not set or is shorter than 32 characters. ' +
-        'Refusing to start. Generate one with: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"'
-    );
+    throw new Error('TOKEN_SECRET environment variable is not set or is shorter than 32 characters.');
 }
 
-/**
- * Generate a cryptographically signed HMAC-SHA256 Auth Token
- * @param {Object} user - User document or object with _id
- * @returns {string} Base64url encoded token with signature
- */
 function generateToken(user) {
     if (!user || (!user._id && !user.id)) return null;
     const userId = (user._id || user.id).toString();

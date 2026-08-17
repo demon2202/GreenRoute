@@ -5,31 +5,19 @@ const User = require('../models/User');
 const { ensureAuth } = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 
-/**
- * Sanitize display name: strip < > and control chars, trim, cap at 50 chars.
- * Mirrors auth.js sanitizeName to ensure consistent sanitization on all write paths.
- */
 const sanitizeName = (s) =>
     String(s).replace(/[<>\x00-\x1F\x7F]/g, '').trim().slice(0, 50);
 
-/* ─── Tighter per-route limiter for expensive proxy routes ──────────────────
-   /route, /weather, /aqi each call external paid APIs. Separate budget from
-   the global 200/15min limiter so a single user can't exhaust API quotas.
-   Fix 8 from GreenRoute_Security_Audit.md
-─────────────────────────────────────────────────────────────────────────── */
 const proxyRouteLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
   keyGenerator: (req) => req.user?.id || req.ip,
+  validate: { keyGeneratorIpFallback: false },
   message: { error: 'Too many route requests. Please wait 15 minutes before trying again.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-/* ─── In-memory route cache (3-minute TTL) ──────────────────────────────────
-   Prevents duplicate external API calls for repeated identical route queries.
-   Keys by serialised coordinates + modes. Cleared on 3 min TTL or server restart.
-─────────────────────────────────────────────────────────────────────────── */
 const routeCache = new Map();
 const ROUTE_CACHE_TTL_MS = 3 * 60 * 1000;
 
@@ -49,15 +37,10 @@ const setCachedRoute = (key, data) => {
 
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 
-// Mapbox SDK
 const mbxClient     = require('@mapbox/mapbox-sdk');
 const mbxDirections = require('@mapbox/mapbox-sdk/services/directions');
 const baseClient    = mbxClient({ accessToken: process.env.MAPBOX_API_KEY });
 const directions    = mbxDirections(baseClient);
-
-/* ─────────────────────────────────────────────────────────────
-   HELPERS
-───────────────────────────────────────────────────────────── */
 
 const EMISSIONS = { driving: 0.21, cycling: 0.0, walking: 0.0, transit: 0.04 };
 
@@ -318,7 +301,7 @@ router.get('/weather', ensureAuth, proxyRouteLimiter, async (req, res) => {
 /* ─────────────────────────────────────────────────────────────
    AQI  — proxied through backend so key stays server-side
 ───────────────────────────────────────────────────────────── */
-router.get('/aqi', ensureAuth, async (req, res) => {
+router.get('/aqi', ensureAuth, proxyRouteLimiter, async (req, res) => {
   const { lat, lon } = req.query;
 
   if (!lat || !lon)

@@ -304,8 +304,8 @@ router.post('/claim', ensureAuth, async (req, res) => {
         return res.status(400).json({ error: 'Polygon must be closed.' });
     }
 
-    if (process.env.NODE_ENV === 'production' && isSimulated) {
-        return res.status(403).json({ error: 'Simulation mode is disabled in production.' });
+    if (process.env.ALLOW_SIMULATION !== 'true' && isSimulated) {
+        return res.status(403).json({ error: 'Simulation mode is disabled.' });
     }
 
     // 1. Self-intersection check

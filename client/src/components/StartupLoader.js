@@ -27,7 +27,30 @@ export default function StartupLoader({ onComplete }) {
         // Step 2: Auth session & token check
         if (!cancelled && !finishedRef.current) {
           try {
-            const token = localStorage.getItem('gr_token');
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlCode = urlParams.get('code');
+
+            if (urlCode) {
+              window.history.replaceState({}, document.title, window.location.pathname);
+              try {
+                const { data } = await axios.post('/api/auth/exchange', { code: urlCode }, { timeout: 4000 });
+                if (data && data.token) {
+                  localStorage.setItem('gr_token', data.token);
+                  if (!cancelled && !finishedRef.current) {
+                    finishedRef.current = true;
+                    clearTimeout(maxTimer);
+                    onComplete(data);
+                    return;
+                  }
+                }
+              } catch (err) {
+                console.warn('OAuth code exchange error:', err);
+              }
+            }
+
+            let token = null;
+            try { token = localStorage.getItem('gr_token'); } catch {}
+
             const headers = token ? { Authorization: `Bearer ${token}` } : {};
             const { data } = await axios.get('/api/auth/current_user', { timeout: 3500, headers });
             if (!cancelled && !finishedRef.current) {

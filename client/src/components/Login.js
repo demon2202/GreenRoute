@@ -10,21 +10,26 @@ const Login = ({ onLogin }) => {
 
   const isSignup = mode === 'signup';
 
-  // Check if returning from Google OAuth redirect with ?token=...
+  // Check if returning from Google OAuth redirect with ?code=...
   useEffect(() => {
     try {
       const urlParams = new URLSearchParams(window.location.search);
-      const urlToken = urlParams.get('token');
-      if (urlToken) {
-        localStorage.setItem('gr_token', urlToken);
-        axios.get('/api/auth/current_user', { headers: { Authorization: `Bearer ${urlToken}` } })
+      const urlCode = urlParams.get('code');
+
+      if (urlCode) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+        axios.post('/api/auth/exchange', { code: urlCode })
           .then(res => {
             if (res.data) {
+              if (res.data.token) {
+                try { localStorage.setItem('gr_token', res.data.token); } catch {}
+              }
               onLogin(res.data);
             }
           })
           .catch(err => {
-            console.error('Error validating token from Google OAuth redirect:', err);
+            console.error('Error exchanging OAuth code:', err);
+            setErrors({ general: 'Google sign-in verification failed. Please try again.' });
           });
       }
     } catch (err) {

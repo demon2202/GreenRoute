@@ -512,13 +512,18 @@ const Territories = ({ user, theme }) => {
   }, [fetchVisibleCells, fetchActivities, fetchUserStats]);
 
   // Handle Attack Laps updates
-  const submitLapCompletion = useCallback(async (territory, lapCount, visited, isSim = false) => {
+  const submitLapCompletion = useCallback(async (territory, lapCount, visited, isSim = false, coord = null) => {
     try {
+      const attackerLat = coord ? coord[1] : currentCoords?.lat;
+      const attackerLng = coord ? coord[0] : currentCoords?.lng;
+
       const { data } = await axios.post('/api/territory/attack/lap', {
         territoryId: territory._id,
         lapsCompleted: lapCount,
         checkpointsVisited: visited,
-        isSimulated: isSim
+        isSimulated: isSim,
+        lat: attackerLat,
+        lng: attackerLng
       });
 
       if (data.wasCaptured) {
@@ -533,8 +538,9 @@ const Territories = ({ user, theme }) => {
         fetchUserStats();
       } else {
         triggerHapticFeedback();
-        setSuccessMsg(`Lap completed! Laps: ${lapCount} / ${territory.defenseLevel}`);
-        setAttackLapsCompleted(lapCount);
+        const serverLaps = data.lapsCompleted !== undefined ? data.lapsCompleted : lapCount;
+        setSuccessMsg(`Lap completed! Laps: ${serverLaps} / ${territory.defenseLevel}`);
+        setAttackLapsCompleted(serverLaps);
         // Reset checkpoints visited state for the next lap
         setAttackVisitedCheckpoints(Array(attackCheckpoints.length).fill(false));
       }
@@ -547,7 +553,7 @@ const Territories = ({ user, theme }) => {
       setErrorMsg(msg);
       setTimeout(() => setErrorMsg(''), 4000);
     }
-  }, [attackCheckpoints.length, fetchVisibleCells, fetchActivities, fetchUserStats]);
+  }, [attackCheckpoints.length, currentCoords, fetchVisibleCells, fetchActivities, fetchUserStats]);
 
   // Attack tracker state updater
   const handleAttackMovement = useCallback((coord, isSim = false) => {
@@ -608,7 +614,7 @@ const Territories = ({ user, theme }) => {
             if (firstVisitedIdx !== -1 && getDistance(coord, attackCheckpoints[firstVisitedIdx]) < 20) {
               // Lap finished
               setTimeout(() => {
-                submitLapCompletion(currentAttackCell, attackLapsCompleted + 1, nextCheckpoints, isSim);
+                submitLapCompletion(currentAttackCell, attackLapsCompleted + 1, nextCheckpoints, isSim, coord);
               }, 50);
             }
           }
