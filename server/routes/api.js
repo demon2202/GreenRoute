@@ -391,6 +391,7 @@ router.post('/history', ensureAuth, async (req, res) => {
     duration: Math.max(parseInt(duration),   0),
     co2Saved: Math.max(parseFloat(co2Saved), 0),
     calories: Math.max(parseInt(calories) || 0, 0),
+    routeCoordinates:  Array.isArray(routeCoordinates) ? routeCoordinates : [],
     date:     new Date(),
   };
 

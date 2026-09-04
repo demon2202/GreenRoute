@@ -11,6 +11,7 @@ import Settings from './pages/Settings';
 import SavedPlaces from './pages/SavedPlaces';
 import Leaderboard from './pages/Leaderboard';
 import Territories from './pages/Territories';
+import Terra from './pages/Terra';
 import { clearAllCache } from './utils/cache';
 import './index.css';
 
@@ -105,6 +106,8 @@ function App() {
                     <Route path="/preferences" element={<Preferences user={user} />} />
                     <Route path="/saved" element={<SavedPlaces user={user} />} />
                     <Route path="/settings" element={<Settings user={user} theme={theme} onThemeChange={updateTheme} />} />
+                    <Route path="/terra/:id" element={<Terra user={user} />} />
+                    <Route path="/terra" element={<Terra user={user} />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Layout>

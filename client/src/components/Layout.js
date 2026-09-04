@@ -44,6 +44,12 @@ const Icon = ({ name, size = 20 }) => {
         <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
       </svg>
     ),
+    terra: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 21c4.5-4.4 7-7.9 7-11.5A7 7 0 0 0 5 9.5C5 13.1 7.5 16.6 12 21Z" />
+        <path d="M9 12c2.5-3 4.5-4.5 7-5" />
+      </svg>
+    ),
     // Preferences icon (tuning sliders)
     preferences: (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -107,6 +113,7 @@ const NAV_ITEMS = [
   { path: '/leaderboard', icon: 'leaderboard', label: 'Leaderboards' },
   { path: '/territory', icon: 'territory', label: 'Territory Empire' },
   { path: '/history', icon: 'history', label: 'Trip History' },
+  { path: '/terra', icon: 'terra', label: 'TERRA' },
   { path: '/saved', icon: 'saved', label: 'Saved Places' },
   { path: '/preferences', icon: 'preferences', label: 'Preferences' },
 ];

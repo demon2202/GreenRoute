@@ -7,6 +7,10 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_API_KEY;
 
+/* eslint-disable no-undef */
+/* global isTrackingGPS setIsTrackingGPS gpsRouteCoordinates setGPSRouteCoordinates toggleGPSTracking */
+
+
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS & HELPERS
 ═══════════════════════════════════════════════════════════ */
@@ -985,6 +989,18 @@ const RoutePlanner = ({ user }) => {
   const [nightMode,     setNightMode]     = useState(false);
   const [mapSelectDestMode, setMapSelectDestMode] = useState(false);
   const [searchCollapsed, setSearchCollapsed] = useState(false);
+  const toggleGPSTracking = () => {
+    setIsTrackingGPS(prev => !prev);
+    if (isTrackingGPS) {
+      setGPSRouteCoordinates(prev => [...prev]);
+      setSaveMsg("GPS tracking stopped. Route saved.");
+      setTimeout(() => setSaveMsg(""), 2500);
+    } else {
+      setSaveMsg("Starting GPS tracking...");
+      setTimeout(() => setSaveMsg(""), 2500);
+    }
+  }
+
   const [sidebarTab, setSidebarTab] = useState('search');
 
   /* ── Sidebar resizer state ── */

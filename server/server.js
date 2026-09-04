@@ -20,6 +20,7 @@ require('./config/passport');
 const authRoutes = require('./routes/auth');
 const apiRoutes = require('./routes/api');
 const territoryRoutes = require('./routes/territory');
+const terraRoutes = require('./routes/terra');
 
 const app = express();
 
@@ -135,10 +136,10 @@ const originGuard = (req, res, next) => {
     next();
 };
 
-app.use(express.json({ limit: '100kb' }));
+app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({
     extended: true,
-    limit: '100kb'
+    limit: '2mb'
 }));
 app.use(cookieParser());
 
@@ -192,6 +193,7 @@ process.on('uncaughtException', (err) => {
 app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
 app.use('/api/territory', territoryRoutes);
+app.use('/api/terra', terraRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).json({
