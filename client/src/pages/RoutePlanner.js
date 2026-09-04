@@ -7,10 +7,6 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_API_KEY;
 
-/* eslint-disable no-undef */
-/* global isTrackingGPS setIsTrackingGPS gpsRouteCoordinates setGPSRouteCoordinates toggleGPSTracking */
-
-
 /* ═══════════════════════════════════════════════════════════
    CONSTANTS & HELPERS
 ═══════════════════════════════════════════════════════════ */
@@ -985,22 +981,11 @@ const RoutePlanner = ({ user }) => {
   const [elevData,      setElevData]      = useState([]);
   const [showReport,    setShowReport]    = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [noMapToken, setNoMapToken] = useState(false);
   const [departureTime, setDepartureTime] = useState('');
   const [nightMode,     setNightMode]     = useState(false);
   const [mapSelectDestMode, setMapSelectDestMode] = useState(false);
   const [searchCollapsed, setSearchCollapsed] = useState(false);
-  const toggleGPSTracking = () => {
-    setIsTrackingGPS(prev => !prev);
-    if (isTrackingGPS) {
-      setGPSRouteCoordinates(prev => [...prev]);
-      setSaveMsg("GPS tracking stopped. Route saved.");
-      setTimeout(() => setSaveMsg(""), 2500);
-    } else {
-      setSaveMsg("Starting GPS tracking...");
-      setTimeout(() => setSaveMsg(""), 2500);
-    }
-  }
-
   const [sidebarTab, setSidebarTab] = useState('search');
 
   /* ── Sidebar resizer state ── */
@@ -1226,6 +1211,10 @@ const RoutePlanner = ({ user }) => {
   /* ── Map init ── */
   useEffect(() => {
     if (map.current) return;
+    // Without a Mapbox token the SDK throws and unmounts the whole app.
+    // Show a friendly notice instead of crashing (dev environments).
+    if (!mapboxgl.accessToken) { setNoMapToken(true); return; }
+    setNoMapToken(false);
     const initStyle = nightMode
       ? 'mapbox://styles/mapbox/navigation-night-v1'
       : 'mapbox://styles/mapbox/streets-v12';
@@ -3379,6 +3368,19 @@ const fetchAqi = async (lat, lon) => {
         {/* ═══ MAP ═══ */}
         <main className="rp-map-area">
           <div ref={mapContainer} className="rp-map"/>
+
+          {noMapToken && (
+            <div style={{
+              position: 'absolute', inset: 0, zIndex: 5, display: 'flex', alignItems: 'center',
+              justifyContent: 'center', textAlign: 'center', background: 'radial-gradient(600px 400px at 50% 30%, #16201a, #0b100c)',
+              color: '#cfe4d4', padding: 30, fontFamily: 'inherit'
+            }}>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Map not configured</div>
+                <div style={{ fontSize: 14, opacity: .85 }}>Set <b>REACT_APP_MAPBOX_API_KEY</b> to enable live maps.<br/>You can still try the <b>TERRA</b> recorder, which includes its own free map fallback.</div>
+              </div>
+            </div>
+          )}
 
           {mapSelectDestMode && (
             <div className="rp-dest-banner">

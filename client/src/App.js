@@ -5,13 +5,13 @@ import Login from './components/Login';
 import Layout from './components/Layout';
 import StartupLoader from './components/StartupLoader';
 import RoutePlanner from './pages/RoutePlanner';
+import Terra from './pages/Terra';
 import TripHistory from './pages/TripHistory';
 import Preferences from './pages/Preferences';
 import Settings from './pages/Settings';
 import SavedPlaces from './pages/SavedPlaces';
 import Leaderboard from './pages/Leaderboard';
 import Territories from './pages/Territories';
-import Terra from './pages/Terra';
 import { clearAllCache } from './utils/cache';
 import './index.css';
 
@@ -100,14 +100,13 @@ function App() {
                 >
                   <Routes>
                     <Route path="/" element={<RoutePlanner user={user} />} />
+                    <Route path="/terra" element={<Terra user={user} />} />
                     <Route path="/leaderboard" element={<Leaderboard user={user} />} />
                     <Route path="/territory" element={<Territories user={user} theme={theme} />} />
                     <Route path="/history" element={<TripHistory user={user} />} />
                     <Route path="/preferences" element={<Preferences user={user} />} />
                     <Route path="/saved" element={<SavedPlaces user={user} />} />
                     <Route path="/settings" element={<Settings user={user} theme={theme} onThemeChange={updateTheme} />} />
-                    <Route path="/terra/:id" element={<Terra user={user} />} />
-                    <Route path="/terra" element={<Terra user={user} />} />
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Layout>

@@ -37,10 +37,18 @@ const setCachedRoute = (key, data) => {
 
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 
-const mbxClient     = require('@mapbox/mapbox-sdk');
-const mbxDirections = require('@mapbox/mapbox-sdk/services/directions');
-const baseClient    = mbxClient({ accessToken: process.env.MAPBOX_API_KEY });
-const directions    = mbxDirections(baseClient);
+// Mapbox client is created lazily (first /route request) so that the
+// server can still boot when MAPBOX_API_KEY is not configured (local dev).
+// Route planning returns a clear 503 when the key is missing.
+let directionsClient = null;
+function getDirectionsClient() {
+  if (!directionsClient) {
+    const mbxClient     = require('@mapbox/mapbox-sdk');
+    const mbxDirections = require('@mapbox/mapbox-sdk/services/directions');
+    directionsClient    = mbxDirections(mbxClient({ accessToken: process.env.MAPBOX_API_KEY }));
+  }
+  return directionsClient;
+}
 
 const EMISSIONS = { driving: 0.21, cycling: 0.0, walking: 0.0, transit: 0.04 };
 
@@ -155,6 +163,9 @@ router.post('/route', ensureAuth, proxyRouteLimiter, async (req, res) => {
     if (!selectedProfiles.length)
       return res.status(400).json({ error: 'No valid transport modes selected.' });
 
+    if (!process.env.MAPBOX_API_KEY)
+      return res.status(503).json({ error: 'Route planning is not configured on this server.' });
+
     // Check in-memory cache before hitting Mapbox API (Fix 8)
     const cacheKey = `${oLng},${oLat}->${dLng},${dLat}:${selectedProfiles.map(p => p.mode).sort().join(',')}`;
     const cached = getCachedRoute(cacheKey);
@@ -164,7 +175,7 @@ router.post('/route', ensureAuth, proxyRouteLimiter, async (req, res) => {
 
     const promises = selectedProfiles.map(async ({ profile, mode }) => {
       try {
-        const resp = await directions.getDirections({
+        const resp = await getDirectionsClient().getDirections({
           profile,
           geometries:   'geojson',
           steps:        true,
@@ -391,7 +402,6 @@ router.post('/history', ensureAuth, async (req, res) => {
     duration: Math.max(parseInt(duration),   0),
     co2Saved: Math.max(parseFloat(co2Saved), 0),
     calories: Math.max(parseInt(calories) || 0, 0),
-    routeCoordinates:  Array.isArray(routeCoordinates) ? routeCoordinates : [],
     date:     new Date(),
   };
 

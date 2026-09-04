@@ -44,12 +44,6 @@ const Icon = ({ name, size = 20 }) => {
         <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
       </svg>
     ),
-    terra: (
-      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 21c4.5-4.4 7-7.9 7-11.5A7 7 0 0 0 5 9.5C5 13.1 7.5 16.6 12 21Z" />
-        <path d="M9 12c2.5-3 4.5-4.5 7-5" />
-      </svg>
-    ),
     // Preferences icon (tuning sliders)
     preferences: (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -104,16 +98,25 @@ const Icon = ({ name, size = 20 }) => {
         <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
       </svg>
     ),
+    // Terra (journey route over mountain)
+    terra: (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3.5 19 9 8.5l3.5 6 2.5-4 5.5 8.5" />
+        <circle cx="9" cy="8.5" r="1.4" />
+        <circle cx="20" cy="14.5" r="1.4" />
+        <path d="M2.5 19.5h19" opacity=".5" />
+      </svg>
+    ),
   };
   return icons[name] || null;
 };
 
 const NAV_ITEMS = [
   { path: '/', icon: 'route', label: 'Route Engine' },
+  { path: '/terra', icon: 'terra', label: 'TERRA' },
   { path: '/leaderboard', icon: 'leaderboard', label: 'Leaderboards' },
   { path: '/territory', icon: 'territory', label: 'Territory Empire' },
   { path: '/history', icon: 'history', label: 'Trip History' },
-  { path: '/terra', icon: 'terra', label: 'TERRA' },
   { path: '/saved', icon: 'saved', label: 'Saved Places' },
   { path: '/preferences', icon: 'preferences', label: 'Preferences' },
 ];

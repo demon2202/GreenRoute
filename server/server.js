@@ -143,7 +143,8 @@ app.use(express.urlencoded({
 }));
 app.use(cookieParser());
 
-app.use('/uploads', express.static('uploads'));
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+app.use('/uploads', express.static(UPLOADS_DIR));
 
 const mongooseConnectionPromise = mongoose.connect(process.env.MONGO_URI)
 .then(m => {

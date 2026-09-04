@@ -1,139 +1,279 @@
 const express = require('express');
+const router = express.Router();
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
+const multer = require('multer');
+
 const TerraActivity = require('../models/TerraActivity');
 const { ensureAuth } = require('../middleware/auth');
+const {
+  computeMetrics,
+  ecoMetrics,
+  cleanRoute,
+  durationSeconds,
+} = require('../utils/terraMath');
 
-const router = express.Router();
+/* ─────────────────────────────────────────────────────────────
+   Photo upload (multipart) — stored under server/uploads/terra
+───────────────────────────────────────────────────────────── */
+// Uploads live under server/uploads/terra — the same root the app serves
+// statically at /uploads (absolute path, so it works no matter the cwd).
+const uploadDir = path.join(__dirname, '..', 'uploads', 'terra');
+fs.mkdirSync(uploadDir, { recursive: true });
 
-const haversineKm = (a, b) => {
-    const radius = 6371;
-    const dLat = (b.latitude - a.latitude) * Math.PI / 180;
-    const dLon = (b.longitude - a.longitude) * Math.PI / 180;
-    const lat1 = a.latitude * Math.PI / 180;
-    const lat2 = b.latitude * Math.PI / 180;
-    const value = Math.sin(dLat / 2) ** 2 + Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
-    return radius * 2 * Math.atan2(Math.sqrt(value), Math.sqrt(1 - value));
-};
-
-const normalizePoints = (points) => {
-    if (!Array.isArray(points) || points.length < 2 || points.length > 20000) return null;
-    const normalized = points.map(point => ({
-        latitude: Number(point.latitude),
-        longitude: Number(point.longitude),
-        timestamp: new Date(point.timestamp),
-        altitude: point.altitude == null ? undefined : Number(point.altitude),
-        accuracy: point.accuracy == null ? undefined : Number(point.accuracy)
-    }));
-    if (normalized.some(point => !Number.isFinite(point.latitude) || !Number.isFinite(point.longitude) ||
-        Math.abs(point.latitude) > 90 || Math.abs(point.longitude) > 180 || Number.isNaN(point.timestamp.getTime()))) return null;
-    if (normalized.some((point, index) => index > 0 && point.timestamp < normalized[index - 1].timestamp)) return null;
-    return normalized;
-};
-
-const safeStoryPhoto = value => {
-    if (!value) return '';
-    if (typeof value !== 'string' || value.length > 1600000 || !/^data:image\/(jpeg|png|webp);base64,/i.test(value)) return null;
-    return value;
-};
-
-router.get('/activities', ensureAuth, async (req, res) => {
-    try {
-        const activities = await TerraActivity.find({ userId: req.user.id }).sort({ endedAt: -1 }).limit(100).lean();
-        res.json(activities);
-    } catch (error) {
-        res.status(500).json({ error: 'Unable to load TERRA journeys.' });
-    }
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => {
+    const ext = (path.extname(file.originalname || '').toLowerCase().match(/\.(png|jpe?g|webp|gif)$/) || ['.jpg'])[0];
+    cb(null, `${crypto.randomBytes(12).toString('hex')}${ext}`);
+  },
 });
 
-router.get('/activities/:id', ensureAuth, async (req, res) => {
-    try {
-        const activity = await TerraActivity.findOne({ _id: req.params.id, userId: req.user.id }).lean();
-        if (!activity) return res.status(404).json({ error: 'Journey not found.' });
-        res.json(activity);
-    } catch (error) {
-        res.status(404).json({ error: 'Journey not found.' });
+const upload = multer({
+  storage,
+  limits: { fileSize: 12 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (!file || !/^image\//.test(file.mimetype)) {
+      return cb(new Error('Only image uploads are allowed'));
     }
+    cb(null, true);
+  },
+});
+
+router.post('/media', ensureAuth, (req, res) => {
+  upload.single('photo')(req, res, (err) => {
+    if (err) {
+      const message = err.code === 'LIMIT_FILE_SIZE' ? 'Image is too large (max 12 MB).' : err.message || 'Upload failed';
+      return res.status(400).json({ error: message });
+    }
+    if (!req.file) return res.status(400).json({ error: 'No image provided' });
+    res.status(201).json({
+      url: `/uploads/terra/${req.file.filename}`,
+    });
+  });
+});
+
+/* ─────────────────────────────────────────────────────────────
+   Free map tiles proxy (OpenStreetMap raster) so the Terra share
+   cards can embed a real map background WITHOUT any API key and
+   without canvas CORS tainting. Tiles are fetched server-side and
+   returned with long cache headers. Light in-memory LRU cache.
+───────────────────────────────────────────────────────────── */
+const tileCache = new Map();
+const TILE_CACHE_MAX = 600;
+
+router.get('/tile/:z/:x/:y', ensureAuth, async (req, res) => {
+  const z = Number(req.params.z);
+  const x = Number(req.params.x);
+  const y = Number(req.params.y);
+  if (!Number.isInteger(z) || !Number.isInteger(x) || !Number.isInteger(y)) {
+    return res.status(400).json({ error: 'Invalid tile coordinates' });
+  }
+  const maxTiles = 2 ** z;
+  if (z < 1 || z > 19 || x < 0 || x >= maxTiles || y < 0 || y >= maxTiles) {
+    return res.status(400).json({ error: 'Tile out of range' });
+  }
+
+  const key = `${z}/${x}/${y}`;
+  const cached = tileCache.get(key);
+  if (cached) {
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'public, max-age=86400');
+    return res.send(cached);
+  }
+
+  try {
+    const url = `https://tile.openstreetmap.org/${key}.png`;
+    const resp = await fetch(url, {
+      headers: {
+        'User-Agent': 'GreenRoute-Terra/2.0 (eco navigation app; share-card map renderer)',
+        Accept: 'image/*',
+      },
+    });
+    if (!resp.ok) throw new Error(`OSM tile ${resp.status}`);
+    const buf = Buffer.from(await resp.arrayBuffer());
+    tileCache.set(key, buf);
+    if (tileCache.size > TILE_CACHE_MAX) {
+      const firstKey = tileCache.keys().next().value;
+      tileCache.delete(firstKey);
+    }
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(buf);
+  } catch (err) {
+    console.warn('[terra tile]', key, err.message);
+    res.status(502).json({ error: 'Tile source unavailable' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
+   Helpers
+───────────────────────────────────────────────────────────── */
+const MODES = new Set(['walking', 'running', 'cycling', 'driving']);
+
+function sanitizeText(v, max) {
+  return String(v || '')
+    .replace(/[<>\x00-\x1F\x7F]/g, '')
+    .trim()
+    .slice(0, max);
+}
+
+function toNumber(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : NaN;
+}
+
+/**
+ * Compute final authoritative activity from a submitted track.
+ * Server derives every metric itself from the GPS points — client numbers
+ * are never trusted.
+ */
+function buildActivity(userId, body) {
+  const mode = String(body.mode || 'cycling').toLowerCase();
+  if (!MODES.has(mode)) throw Object.assign(new Error('Invalid activity mode'), { status: 400 });
+
+  const startISO = body.startTime;
+  const endISO = body.endTime;
+  const s = new Date(startISO).getTime();
+  const e = new Date(endISO).getTime();
+  if (!Number.isFinite(s) || !Number.isFinite(e) || e < s) {
+    throw Object.assign(new Error('Valid startTime / endTime are required'), { status: 400 });
+  }
+
+  const route = cleanRoute(body.route, 4000);
+  if (route.length < 2) {
+    throw Object.assign(new Error('At least two valid GPS points are required'), { status: 400 });
+  }
+
+  const dur = durationSeconds(startISO, endISO) || Math.max(1, Math.round((e - s) / 1000));
+  if (dur < 1) throw Object.assign(new Error('Activity duration must be at least 1 second'), { status: 400 });
+
+  const m = computeMetrics(route, mode, dur);
+  if (m.distanceKm < 0.001) {
+    // A track that really produced ~0 distance is allowed but pointless;
+    // still let it save with 0 so the user sees an honest result.
+  }
+
+  const eco = ecoMetrics(mode, m.distanceKm);
+
+  const now = new Date();
+  return {
+    user: userId,
+    mode,
+    title: sanitizeText(body.title, 80) || defaultTitle(mode, s),
+    caption: sanitizeText(body.caption, 220),
+    bg: ['black', 'map', 'photo'].includes(body.bg) ? body.bg : 'black',
+    photo: typeof body.photo === 'string' ? body.photo.slice(0, 400) : '',
+    startTime: new Date(s),
+    endTime: new Date(e),
+    durationSec: dur,
+    distanceKm: m.distanceKm,
+    avgSpeedKmh: m.avgSpeedKmh,
+    maxSpeedKmh: m.maxSpeedKmh,
+    elevationGainM: m.hasElevation ? m.elevationGainM : 0,
+    elevationLossM: m.hasElevation ? m.elevationLossM : 0,
+    hasElevation: m.hasElevation,
+    co2SavedKg: eco.co2SavedKg,
+    caloriesKcal: eco.caloriesKcal,
+    ecoScore: eco.ecoScore,
+    route,
+    bounds: m.bounds,
+    createdAt: now,
+  };
+}
+
+function defaultTitle(mode, startMs) {
+  const h = new Date(startMs).getHours();
+  const part = h < 5 ? 'Night' : h < 12 ? 'Morning' : h < 17 ? 'Afternoon' : h < 21 ? 'Evening' : 'Night';
+  const modeLabel = { walking: 'Walk', running: 'Run', cycling: 'Ride', driving: 'Drive' }[mode] || 'Activity';
+  return `${part} ${modeLabel}`;
+}
+
+function publicActivity(a) {
+  return a; // fields are already plain + safe
+}
+
+/* ─────────────────────────────────────────────────────────────
+   CRUD (all scoped to the authenticated user — ownership enforced)
+───────────────────────────────────────────────────────────── */
+router.get('/activities', ensureAuth, async (req, res) => {
+  try {
+    const docs = await TerraActivity.find({ user: req.user.id })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+    res.json(docs);
+  } catch (err) {
+    console.error('[terra list]', err.message);
+    res.status(500).json({ error: 'Failed to load journeys.' });
+  }
 });
 
 router.post('/activities', ensureAuth, async (req, res) => {
-    const { title, mode, startedAt, endedAt, routeCoordinates } = req.body;
-    const points = normalizePoints(routeCoordinates);
-    if (!title?.trim() || !mode?.trim() || !points) {
-        return res.status(400).json({ error: 'A title, travel mode, and at least two valid GPS points are required.' });
-    }
-    const started = new Date(startedAt);
-    const ended = new Date(endedAt);
-    if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime()) || ended < started) {
-        return res.status(400).json({ error: 'Activity timestamps are invalid.' });
-    }
+  let activity;
+  try {
+    activity = buildActivity(req.user.id, req.body || {});
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message });
+  }
 
-    let distanceKm = 0;
-    let elevationGainM = 0;
-    let maxSpeedKmh = 0;
-    for (let i = 1; i < points.length; i += 1) {
-        const previous = points[i - 1];
-        const current = points[i];
-        const step = haversineKm(previous, current);
-        const elapsedSeconds = Math.max(1, (current.timestamp - previous.timestamp) / 1000);
-        const speedKmh = (step / elapsedSeconds) * 3600;
-        const plausibleStep = step >= 0.002 && speedKmh <= 140;
-        if (plausibleStep) {
-            distanceKm += step;
-            maxSpeedKmh = Math.max(maxSpeedKmh, speedKmh);
-        }
-        if (Number.isFinite(previous.altitude) && Number.isFinite(current.altitude) && current.altitude > previous.altitude) {
-            elevationGainM += current.altitude - previous.altitude;
-        }
+  try {
+    const doc = await TerraActivity.create(activity);
+    res.status(201).json(doc);
+  } catch (err) {
+    console.error('[terra create]', err.message);
+    if (err.name === 'ValidationError') {
+      return res.status(400).json({ error: Object.values(err.errors).map((x) => x.message).join('; ') });
     }
-    const durationSeconds = Math.max(0, Math.round((ended - started) / 1000));
-    const averageSpeedKmh = durationSeconds ? distanceKm / (durationSeconds / 3600) : 0;
-    try {
-        const activity = await TerraActivity.create({
-            userId: req.user.id,
-            title: title.trim(),
-            mode: mode.trim(),
-            startedAt: started,
-            endedAt: ended,
-            distanceKm,
-            durationSeconds,
-            elevationGainM: elevationGainM || undefined,
-            averageSpeedKmh,
-            maxSpeedKmh: maxSpeedKmh || undefined,
-            routeCoordinates: points
-        });
-        res.status(201).json(activity);
-    } catch (error) {
-        res.status(500).json({ error: 'Unable to save TERRA journey.' });
-    }
+    res.status(500).json({ error: 'Failed to save activity.' });
+  }
 });
 
-router.patch('/activities/:id/story', ensureAuth, async (req, res) => {
-    const { title, storyCaption, storyBackground, storyTemplate, storyPhoto } = req.body;
-    const update = {};
-    if (title !== undefined) {
-        if (!String(title).trim() || String(title).trim().length > 80) return res.status(400).json({ error: 'A journey title must be between 1 and 80 characters.' });
-        update.title = String(title).trim();
-    }
-    if (storyCaption !== undefined) update.storyCaption = String(storyCaption).trim().slice(0, 280);
-    if (storyBackground !== undefined) {
-        if (!['map', 'photo', 'black'].includes(storyBackground)) return res.status(400).json({ error: 'Invalid story background.' });
-        update.storyBackground = storyBackground;
-    }
-    if (storyTemplate !== undefined) {
-        if (!['photo', 'route', 'minimal'].includes(storyTemplate)) return res.status(400).json({ error: 'Invalid story template.' });
-        update.storyTemplate = storyTemplate;
-    }
-    if (storyPhoto !== undefined) {
-        const photo = safeStoryPhoto(storyPhoto);
-        if (photo === null) return res.status(400).json({ error: 'Story photo must be a compressed JPG, PNG, or WebP image under 1.2 MB.' });
-        update.storyPhoto = photo;
-    }
-    try {
-        const activity = await TerraActivity.findOneAndUpdate({ _id: req.params.id, userId: req.user.id }, { $set: update }, { new: true });
-        if (!activity) return res.status(404).json({ error: 'Journey not found.' });
-        res.json(activity);
-    } catch (error) {
-        res.status(404).json({ error: 'Journey not found.' });
-    }
+router.get('/activities/:id', ensureAuth, async (req, res) => {
+  try {
+    const doc = await TerraActivity.findOne({ _id: req.params.id, user: req.user.id }).lean();
+    if (!doc) return res.status(404).json({ error: 'Journey not found.' });
+    res.json(doc);
+  } catch (err) {
+    if (err.name === 'CastError') return res.status(404).json({ error: 'Journey not found.' });
+    console.error('[terra get]', err.message);
+    res.status(500).json({ error: 'Failed to load journey.' });
+  }
+});
+
+// Partial update: only editable story fields (title, caption, bg, photo).
+// Metrics are NEVER client-editable.
+router.patch('/activities/:id', ensureAuth, async (req, res) => {
+  try {
+    const doc = await TerraActivity.findOne({ _id: req.params.id, user: req.user.id });
+    if (!doc) return res.status(404).json({ error: 'Journey not found.' });
+
+    const b = req.body || {};
+    if (b.title !== undefined) doc.title = sanitizeText(b.title, 80);
+    if (b.caption !== undefined) doc.caption = sanitizeText(b.caption, 220);
+    if (b.bg !== undefined && ['black', 'map', 'photo'].includes(b.bg)) doc.bg = b.bg;
+    if (b.photo !== undefined) doc.photo = String(b.photo).slice(0, 400);
+
+    await doc.save();
+    res.json(doc);
+  } catch (err) {
+    if (err.name === 'CastError') return res.status(404).json({ error: 'Journey not found.' });
+    console.error('[terra patch]', err.message);
+    res.status(500).json({ error: 'Failed to update journey.' });
+  }
+});
+
+router.delete('/activities/:id', ensureAuth, async (req, res) => {
+  try {
+    const doc = await TerraActivity.findOneAndDelete({ _id: req.params.id, user: req.user.id });
+    if (!doc) return res.status(404).json({ error: 'Journey not found.' });
+    res.json({ message: 'Journey deleted.' });
+  } catch (err) {
+    if (err.name === 'CastError') return res.status(404).json({ error: 'Journey not found.' });
+    console.error('[terra delete]', err.message);
+    res.status(500).json({ error: 'Failed to delete journey.' });
+  }
 });
 
 module.exports = router;
