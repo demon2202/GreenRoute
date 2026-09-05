@@ -87,7 +87,7 @@ export default function TerraDetail({ activityId, goHome, onEditStory }) {
           <button className="td-pill" onClick={goHome}><TerraIcon name="back" size={15} /> TERRA</button>
           <h1>{a.title || 'My Journey'}</h1>
           <div className="td-sub">
-            <ModeGlyph mode={a.mode} /> {weekdayShort(a.startTime)} · real GPS track
+            <ModeGlyph mode={a.mode} /> {weekdayShort(a.startTime)} · {fmtDist(a.distanceKm)} km · {fmtDuration(a.durationSec)} · real GPS track
           </div>
         </div>
         <div className="td-actions">
@@ -99,18 +99,23 @@ export default function TerraDetail({ activityId, goHome, onEditStory }) {
               <span className="mt-dot dark" />Black
             </button>
           </div>
-          <button className="td-pill" onClick={() => onEditStory(a._id)} disabled={deleting}><TerraIcon name="pen" size={14} /> Edit story</button>
-          <button className="td-pill danger" onClick={del} disabled={deleting}>{deleting ? '…' : <><TerraIcon name="trash" size={14} /> Delete</>}</button>
         </div>
       </div>
 
       <div className="td-bottom">
-        {stats.map((s) => (
-          <div className="td-stat" key={s.label}>
-            <span className="td-stat-label">{s.label}</span>
-            <span className="td-stat-value">{s.value}{s.unit ? <small> {s.unit}</small> : null}</span>
-          </div>
-        ))}
+        {/* actions sit centred, directly above the stat titles */}
+        <div className="td-actions-bottom">
+          <button className="td-pill primary" onClick={() => onEditStory(a._id)} disabled={deleting}><TerraIcon name="pen" size={14} /> Edit story</button>
+          <button className="td-pill danger" onClick={del} disabled={deleting}>{deleting ? '…' : <><TerraIcon name="trash" size={14} /> Delete</>}</button>
+        </div>
+        <div className="td-stats">
+          {stats.map((s) => (
+            <div className="td-stat" key={s.label}>
+              <span className="td-stat-label">{s.label}</span>
+              <span className="td-stat-value">{s.value}{s.unit ? <small> {s.unit}</small> : null}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

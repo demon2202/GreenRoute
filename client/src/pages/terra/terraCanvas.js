@@ -1,23 +1,26 @@
 // ─────────────────────────────────────────────────────────────
-// TERRA card renderer — "Strava-style share card".
+// TERRA card renderer — premium Strava-style share card.
 // The SAME functions draw the on-screen preview and the exported
 // 1080x1920 PNG, so the download always matches the preview.
 //
-// Composition:
-//   kicker  CYCLING · WED SEP 3           } white text only
-//   big activity title                    } straight & centered
-//   optional caption                      }
-//   hero stats (user-togglable) Distance · Speed · Time
-//   ── REAL map of the user's route ── start (A) & finish (B)
-//      marked, optional pins for max-speed / highest point
-//      (extra stat chips ride the map's top edge)
-//   TERRA (brand bottom centre)
+// Composition (modelled on real Strava story cards):
+//   top-left   mode dot + CYCLING · WED, SEP 3 kicker
+//   top-right  TERRA brand mark (leaf + wordmark)
+//   top-left   big bold SANS activity title + optional caption
+//   middle     full-bleed REAL map of the user's route — start (A)
+//              & finish (B) marked, optional max-speed / summit pins
+//   bottom     left-aligned stat grid (small bold label over a big
+//              bold value, 3 columns) + micro footer line
 //
 // Backgrounds: map (real map tiles — black OR standard colours) or
-//              photo (user image). Solid-colour backgrounds were
-//              removed from TERRA entirely — a colour is never painted
-//              on or behind the card. The route is always the user's
-//              own recorded GPS track — nothing is ever faked.
+//              photo (user image with the real route traced over it
+//              as a white line, exactly like Strava's story route
+//              overlay). Solid-colour backgrounds were removed from
+//              TERRA entirely — a flat colour is never painted on or
+//              behind the card. Soft edge scrims (top/bottom only)
+//              keep the text legible; the middle of the map/photo
+//              stays untouched. The route is always the user's own
+//              recorded GPS track — nothing is ever faked.
 // ─────────────────────────────────────────────────────────────
 
 import axios from 'axios';
@@ -26,16 +29,11 @@ import { MODE_META } from './geo';
 export const CARD_W = 1080;
 export const CARD_H = 1920;
 
-/* Where the story card shows its route map. */
-export const BAND = { x: 110, y: 1470, w: 860, h: 300, y1: 1770 }; // photo rounded box
-const BAND_FIT = { x: 138, y: 1524, w: 804, h: 216 }; // route fits inside the band (below the chips)
-/* Full "map" background: the map is ZOOMED onto the travelled route so the
-   path is big and clear — it fills most of the card's height, centred around
-   the middle-lower area (text overlays on top). */
-const MAP_FRAME = { x: 96, y: 900, w: 888, h: 860, y1: 1760 };
+/* Where the travelled route sits on the card: the middle band between the
+   header text (top) and the stat grid (bottom), so the path is big and clear. */
+const MAP_FRAME = { x: 70, y: 640, w: 940, h: 880 };
 
 const FF = '"Plus Jakarta Sans", system-ui, sans-serif';
-const FS = '"Newsreader", Georgia, serif';
 
 /* ── origin / api ───────────────────────────────────────────
    Map tiles + uploaded photos must hit the SAME host the app talks to for
@@ -207,13 +205,6 @@ function fitZoomInfo(pts, box, padFrac = 0.14) {
   return { Z, center: { lng: (b.minLng + b.maxLng) / 2, lat: (b.minLat + b.maxLat) / 2 } };
 }
 
-const SURF = {
-  // Route-track casing colours only — the card surface itself is painted
-  // purely by real map tiles (no base colour is ever filled on the canvas).
-  dark: { trackCase: 'rgba(24,12,4,0.8)' },
-  normal: { trackCase: 'rgba(40,20,8,0.6)' },
-};
-
 /* Does this browser support canvas filters? (Chrome/FF yes.) When supported the
    'black' card map is OSM tiles inverted to grayscale-black, so the card keeps
    visible street structure instead of collapsing to a flat void. Older browsers
@@ -227,8 +218,9 @@ function canvasFilterSupport() {
 
 /**
  * Build a real-map tile canvas for the story card.
- *   kind 'full' → CARD-size canvas, map fills the whole card (bg "map")
- *   kind 'band' → canvas sized to the photo rounded band area
+ *   kind 'full'  → CARD-size canvas, real map tiles fill the whole card
+ *   kind 'route' → transparent CARD-size canvas with just the white route
+ *                  line + markers, traced over a photo background
  * The route is zoomed to its frame; start/finish (A/B) and optional stat
  * pins are painted over real roads. Missing tiles leave that spot clear and
  * the route is still drawn on top — no colour is ever filled as a base.
@@ -236,29 +228,39 @@ function canvasFilterSupport() {
 export async function buildMapLayer(route, { style = 'dark', kind = 'full', pins = {} } = {}) {
   const pts = validRoute(route);
   const key0 = style === 'light' ? 'normal' : style;
-  const styleKey = SURF[key0] ? key0 : 'dark';
+  const styleKey = key0 === 'normal' ? 'normal' : 'dark';
   const isDark = styleKey === 'dark';
   const invert = isDark && canvasFilterSupport();
   // 'dark' with canvas filters → OSM tiles inverted to a rich black map.
   // 'dark' without filters → server CARTO dark-matter ('carto_dark') fallback.
   const reqStyle = isDark && !invert ? 'carto_dark' : styleKey;
-  let W, H, box;
-  if (kind === 'band') {
-    W = BAND.w + 40;
-    H = BAND.h + 40; // +20 px overscan each side for the glow
-    box = { x: BAND_FIT.x - (BAND.x - 20), y: BAND_FIT.y - (BAND.y - 20), w: BAND_FIT.w, h: BAND_FIT.h };
-  } else {
-    W = CARD_W;
-    H = CARD_H;
-    box = { ...MAP_FRAME };
-  }
+  const W = CARD_W;
+  const H = CARD_H;
+  const box = { ...MAP_FRAME };
 
   const cnv = document.createElement('canvas');
   cnv.width = W;
   cnv.height = H;
   const ctx = cnv.getContext('2d');
 
-  const sfc = SURF[styleKey] || SURF.dark;
+  /* kind 'route' → transparent overlay: the real track as a white Strava-style
+     line + A/B markers, drawn over a photo background. No tiles fetched. */
+  if (kind === 'route') {
+    if (pts.length >= 2) {
+      const { Z, center } = fitZoomInfo(pts, box);
+      const Px = box.x + box.w / 2;
+      const Py = box.y + box.h / 2;
+      const toPx = (p) => [
+        lng2x(p.lng, Z) - lng2x(center.lng, Z) + Px,
+        lat2y(p.lat, Z) - lat2y(center.lat, Z) + Py,
+      ];
+      paintTrack(ctx, pts.map(toPx), WHITE_TRACK);
+      paintMarkers(ctx, pts, toPx, pins);
+    }
+    cnv.tileCount = 0;
+    return cnv;
+  }
+
   // NOTE: no colour is painted on this canvas before the tiles — the map is
   // drawn purely from real map tiles (the user's request: nothing dyed black
   // behind/over the map). If a tile is missing that spot stays clear and the
@@ -319,12 +321,27 @@ export async function buildMapLayer(route, { style = 'dark', kind = 'full', pins
   }
 
   // The user's real route over the real roads.
-  paintTrack(ctx, pts.map(toPx), sfc);
+  paintTrack(ctx, pts.map(toPx), GREEN_TRACK);
   paintMarkers(ctx, pts, toPx, pins);
   return cnv;
 }
 
-function paintTrack(ctx, mapPts, sfc) {
+/* Route-line schemes: the green brand track over real map tiles, and the
+   white Strava-style line traced over photo backgrounds. */
+const GREEN_TRACK = {
+  casing: 'rgba(6, 16, 10, 0.78)', casingW: 38, // dark casing (reads on light tiles)
+  glow: 'rgba(62, 224, 130, 0.40)', glowW: 30,  // soft green glow
+  main: '#3ee082', mainW: 16,                   // the app's bright track green
+  inner: '#c2f6d8', innerW: 5,                  // inner highlight keeps it crisp
+};
+const WHITE_TRACK = {
+  casing: 'rgba(0, 0, 0, 0.55)', casingW: 26,
+  glow: 'rgba(255, 255, 255, 0.30)', glowW: 18,
+  main: '#ffffff', mainW: 9,
+  inner: null,
+};
+
+function paintTrack(ctx, mapPts, scheme) {
   ctx.save();
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
@@ -332,25 +349,13 @@ function paintTrack(ctx, mapPts, sfc) {
     ctx.beginPath();
     mapPts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
   };
-  // Same visual language as the "Open full journey" map: a bright GREEN route
-  // line over a dark casing + soft green glow so it pops on both the black map
-  // and the light standard map, exactly like the track in the full journey.
-  trace();
-  ctx.strokeStyle = 'rgba(6, 16, 10, 0.78)'; // dark casing (reads on light tiles)
-  ctx.lineWidth = 38;
-  ctx.stroke();
-  trace();
-  ctx.strokeStyle = 'rgba(62, 224, 130, 0.40)'; // soft green glow
-  ctx.lineWidth = 30;
-  ctx.stroke();
-  trace();
-  ctx.strokeStyle = '#3ee082'; // the app's bright track green
-  ctx.lineWidth = 16;
-  ctx.stroke();
-  trace();
-  ctx.strokeStyle = '#c2f6d8'; // inner highlight keeps the path crisp
-  ctx.lineWidth = 5;
-  ctx.stroke();
+  // Same visual language as the "Open full journey" map: a bright route line
+  // over a dark casing + soft glow so it pops on both the black map and the
+  // light standard map, exactly like the track in the full journey.
+  trace(); ctx.strokeStyle = scheme.casing; ctx.lineWidth = scheme.casingW; ctx.stroke();
+  trace(); ctx.strokeStyle = scheme.glow; ctx.lineWidth = scheme.glowW; ctx.stroke();
+  trace(); ctx.strokeStyle = scheme.main; ctx.lineWidth = scheme.mainW; ctx.stroke();
+  if (scheme.inner) { trace(); ctx.strokeStyle = scheme.inner; ctx.lineWidth = scheme.innerW; ctx.stroke(); }
   ctx.restore();
 }
 
@@ -402,30 +407,47 @@ function paintMarkers(ctx, routePts, toPx, pins) {
 }
 
 /* ── text helpers ─────────────────────────────────────────── */
-function drawSpaced(ctx, text, cx, y, letterPx) {
-  ctx.textAlign = 'center';
-  let total = 0;
-  for (const ch of text) total += ctx.measureText(ch).width + letterPx;
-  total -= letterPx;
-  let x = cx - total / 2;
-  for (const ch of text) {
-    ctx.fillText(ch, x, y);
-    x += ctx.measureText(ch).width + letterPx;
-  }
+/* TERRA brand mark, top-right: green leaf + spaced wordmark (the Strava
+   logo slot on their story cards). */
+function drawBrand(ctx, W, S) {
+  ctx.save();
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'alphabetic';
+  ctx.font = `800 ${Math.round(30 * S)}px ${FF}`;
+  try { ctx.letterSpacing = `${8 * S}px`; } catch { /* noop */ }
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 12 * S;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('TERRA', W - 84 * S, 170 * S);
+  const tw = ctx.measureText('TERRA').width;
+  try { ctx.letterSpacing = '0px'; } catch { /* noop */ }
+  // leaf sits left of the wordmark
+  const lx = W - 84 * S - tw - 14 * S;
+  const ly = 160 * S;
+  ctx.fillStyle = '#3ee082';
+  ctx.beginPath();
+  ctx.moveTo(lx - 13 * S, ly + 13 * S);
+  ctx.quadraticCurveTo(lx - 13 * S, ly - 13 * S, lx + 13 * S, ly - 13 * S);
+  ctx.quadraticCurveTo(lx + 13 * S, ly + 13 * S, lx - 13 * S, ly + 13 * S);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 }
 function wrapLines(ctx, text, maxWidth, maxLines) {
   const words = String(text || '').split(/\s+/).filter(Boolean);
   const lines = [];
   let line = '';
+  let overflow = false;
   for (const w of words) {
     const test = line ? `${line} ${w}` : w;
     if (ctx.measureText(test).width > maxWidth && line) {
       lines.push(line);
       line = w;
-      if (lines.length >= maxLines) break;
+      if (lines.length >= maxLines) { overflow = true; break; }
     } else line = test;
   }
   if (line && lines.length < maxLines) lines.push(line);
+  else if (overflow && lines.length) lines[lines.length - 1] += '…';
   return lines;
 }
 function drawCover(ctx, img, W, H) {
@@ -435,17 +457,6 @@ function drawCover(ctx, img, W, H) {
   if (ir > cr) { sh = H; sw = H * ir; } else { sw = W; sh = W / ir; }
   ctx.drawImage(img, (W - sw) / 2, (H - sh) / 2, sw, sh);
 }
-function roundRectPath(ctx, x, y, w, h, r) {
-  r = Math.min(r, w / 2, h / 2);
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
-
 /* value formatting */
 function distValue(km) {
   if (!Number.isFinite(km)) return '0.00';
@@ -471,7 +482,7 @@ export function enabledStats(activity) {
 }
 
 /**
- * MAIN renderer. view: { bg, mapStyle, title, caption, mapLayer, bandLayer,
+ * MAIN renderer. view: { bg, mapStyle, title, caption, mapLayer, routeLayer,
  * img, stats } — draws the card at `canvas` resolution.
  */
 export async function renderStory(canvas, activity, view) {
@@ -489,198 +500,135 @@ export async function renderStory(canvas, activity, view) {
   const caption = (view.caption ?? activity.caption ?? '').trim();
   const mode = MODE_META[activity.mode] || MODE_META.cycling;
   const stats = (view.stats && view.stats.length ? view.stats : enabledStats(activity));
-  const hasMax = Number(activity.maxSpeedKmh) > 0;
-  const hasEle = !!activity.hasElevation;
-  // Card map colour: 'dark' (black) or 'normal' (standard colours). Legacy
-  // 'light' values (a near-white experiment) read as 'normal' — never white.
-  const rawStyle = (view.mapStyle || activity.mapStyle) || 'dark';
-  const cardMapStyle = rawStyle === 'light' ? 'normal' : (rawStyle === 'dark' ? 'dark' : 'normal');
-  const mapIsColourful = bg === 'map' && cardMapStyle === 'normal';
-  const DARK_INK = { main: '#0b1a11', soft: 'rgba(10,24,14,0.94)', softer: 'rgba(10,24,14,0.72)', shadow: 'rgba(255,255,255,0.6)' };
-  const WHITE_INK = { main: '#ffffff', soft: 'rgba(255,255,255,0.97)', softer: 'rgba(255,255,255,0.75)', shadow: 'rgba(0,0,0,0.85)' };
-  let ink = mapIsColourful ? DARK_INK : WHITE_INK;
 
-  /* ── background ── */
+  const setTracking = (px) => { try { ctx.letterSpacing = `${px}px`; } catch { /* older browsers */ } };
+
+  /* ── background: full-bleed map or photo + soft edge scrims ── */
   if (bg === 'map' && view.mapLayer) {
-    // Pure map — no colour wash/scrim is painted over the tiles (the map must
-    // not be dyed black or white). Text stays readable via its own shadow + the
-    // small chips/frame below.
+    // Pure real tiles — never dyed a flat colour; the green route track is
+    // already part of this layer.
     ctx.drawImage(view.mapLayer, 0, 0, W, H);
-    // subtle frame so the full-bleed map reads as a designed card
-    ctx.save();
-    ctx.strokeStyle = mapIsColourful ? 'rgba(10,24,14,0.14)' : 'rgba(255,255,255,0.14)';
-    ctx.lineWidth = 2 * S;
-    ctx.strokeRect(22 * S, 22 * S, W - 44 * S, H - 44 * S);
-    ctx.restore();
   } else if (bg === 'photo' && view.img) {
     drawCover(ctx, view.img, W, H);
-    const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, 'rgba(0,0,0,0.52)');
-    g.addColorStop(0.3, 'rgba(0,0,0,0.18)');
-    g.addColorStop(0.7, 'rgba(0,0,0,0.16)');
-    g.addColorStop(1, 'rgba(0,0,0,0.86)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
   }
-  // No colour fallback is painted behind a missing map/photo — the card may
-  // never be dyed a flat colour. Until tiles/photo arrive the canvas simply
-  // stays as-is; text and chips keep their own legibility.
-
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'alphabetic';
-  const shadow = (on) => { ctx.shadowColor = ink.shadow; ctx.shadowBlur = on ? 24 * S : 0; };
-
-  /* kicker */
-  const kicker = `${(activity.mode || mode.label).toUpperCase()} · ${dayLabel(activity.startTime)}`;
-  ctx.font = `700 ${Math.round(28 * S)}px ${FF}`;
-  ctx.fillStyle = ink.soft;
-  shadow(true);
-  drawSpaced(ctx, kicker, W / 2, 164 * S, 6 * S);
-  shadow(false);
-
-  /* title */
-  ctx.font = `800 ${Math.round(94 * S)}px ${FS}`;
-  const tLines = wrapLines(ctx, title, W - 220 * S, 2);
-  let headerEnd = 296 * S + (tLines.length - 1) * 112 * S;
-  ctx.fillStyle = ink.main;
-  shadow(true);
-  tLines.forEach((ln, i) => ctx.fillText(ln, W / 2, 296 * S + i * 112 * S));
-  shadow(false);
-
-  /* caption */
-  if (caption) {
-    ctx.font = `500 ${Math.round(44 * S)}px ${FS}`;
-    ctx.fillStyle = ink.soft;
-    const cLines = wrapLines(ctx, caption, W - 280 * S, 2);
-    const c0 = headerEnd + 126 * S;
-    shadow(true);
-    cLines.forEach((ln, i) => ctx.fillText(ln, W / 2, c0 + i * 62 * S));
-    shadow(false);
-    headerEnd = c0 + (cLines.length - 1) * 62 * S;
-  }
-
-  /* Where text may go before the map content:
-       map bg  → hero rows must end by ~1150 (chips + frame below)
-       photo   → everything ends above the rounded band */
-  const heroBottomCard = bg === 'map' ? 1146 : BAND.y - 152;
-
-  /* ── hero stat rows (Distance · Speed · Time — user-togglable) ── */
-  const HERO = {
-    distance: { label: 'DISTANCE', value: `${distValue(Number(activity.distanceKm) || 0)} km` },
-    time: { label: 'TIME', value: durationWord(Number(activity.durationSec) || 0) },
-    avgSpeed: { label: 'SPEED', value: Number(activity.avgSpeedKmh) > 0 ? `${Number(activity.avgSpeedKmh).toFixed(1)} km/h` : '—' },
-  };
-  const heroRows = stats.filter((k) => HERO[k]).map((k) => ({ key: k, ...HERO[k] }));
-
-  if (heroRows.length) {
-    const availTop = headerEnd + 88 * S;
-    const maxBottom = heroBottomCard * S - 20 * S;
-    // fit block height if the title/caption pushed text low
-    const basePitch = 150 * S;
-    const valGap = 100 * S;
-    const total0 = (heroRows.length - 1) * basePitch + valGap;
-    const free = maxBottom - availTop;
-    let scale = 1;
-    if (free < total0 + 90 * S && free > 150 * S) scale = Math.max(0.7, (free - 40 * S) / (total0 + 40 * S));
-    const pitch = basePitch * scale;
-    let startY;
-    if (free >= total0 * scale + 100 * S) {
-      startY = availTop + (free - total0 * scale) / 2;
-    } else {
-      startY = Math.max(availTop, maxBottom - total0 * scale);
-    }
-    shadow(true);
-    heroRows.forEach((r, i) => {
-      const y0 = startY + i * pitch;
-      ctx.font = `700 ${Math.round(30 * S * scale)}px ${FF}`;
-      ctx.fillStyle = ink.softer;
-      drawSpaced(ctx, r.label, W / 2, y0, 7 * S * scale);
-      let size = 104 * S * scale;
-      ctx.font = `800 ${Math.round(size)}px ${FS}`;
-      const cap = W - 300 * S;
-      const vw = ctx.measureText(r.value).width;
-      if (vw > cap) { size = (size * cap) / vw; ctx.font = `800 ${Math.round(size)}px ${FS}`; }
-      ctx.fillStyle = ink.main;
-      ctx.fillText(r.value, W / 2, y0 + valGap * scale);
-    });
-    shadow(false);
-  }
-
-  /* ── extra chips (MAX / ELEV / ECO) ride the top edge of the map ── */
-  const chips = [];
-  if (stats.includes('maxSpeed') && hasMax) chips.push(`MAX ${Number(activity.maxSpeedKmh).toFixed(1)} km/h`);
-  if (stats.includes('elevation') && hasEle) chips.push(`ELEV ▲ ${Math.round(Number(activity.elevationGainM) || 0)} m`);
-  if (stats.includes('eco')) chips.push(`ECO ${Math.round(Number(activity.ecoScore) || 0)} · ${Number(activity.co2SavedKg || 0).toFixed(2)} kg CO₂`);
-
-  const chipTopCard = bg === 'map' ? 1172 : BAND.y - 6;
-  if (chips.length) {
-    ctx.font = `700 ${Math.round(24 * S)}px ${FF}`;
-    const gap = 12 * S;
-    const parts = chips.map((t) => ({ t, w: ctx.measureText(t).width + 40 * S }));
-    const total = parts.reduce((s, p) => s + p.w, 0) + gap * (parts.length - 1);
-    const pillH = 44 * S;
-    let x = W / 2 - total / 2;
-    const top = chipTopCard * S;
+  // Strava-style: over a photo the REAL route is traced on the image itself
+  // as a white line (no rounded band, no fake map).
+  if (bg === 'photo' && view.routeLayer) {
     ctx.save();
     ctx.shadowColor = 'rgba(0,0,0,0.45)';
     ctx.shadowBlur = 12 * S;
-    for (const p of parts) {
-      roundRectPath(ctx, x, top, p.w, pillH, pillH / 2);
-      ctx.fillStyle = 'rgba(6,9,7,0.66)';
-      ctx.fill();
-      ctx.lineWidth = 1.4 * S;
-      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-      ctx.stroke();
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.fillText(p.t, x + p.w / 2, top + pillH / 2 + 8 * S);
-      x += p.w + gap;
-    }
+    ctx.drawImage(view.routeLayer, 0, 0, W, H);
+    ctx.restore();
+  }
+  // Legibility scrims on the top & bottom edges ONLY — the middle of the
+  // map/photo stays fully real. No flat colour is ever painted on the card.
+  let grad = ctx.createLinearGradient(0, 0, 0, 780 * S);
+  grad.addColorStop(0, 'rgba(4,8,5,0.80)');
+  grad.addColorStop(0.55, 'rgba(4,8,5,0.32)');
+  grad.addColorStop(1, 'rgba(4,8,5,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, 780 * S);
+  grad = ctx.createLinearGradient(0, 1180 * S, 0, H);
+  grad.addColorStop(0, 'rgba(4,8,5,0)');
+  grad.addColorStop(0.5, 'rgba(4,8,5,0.58)');
+  grad.addColorStop(1, 'rgba(4,8,5,0.94)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 1180 * S, W, H - 1180 * S);
+
+  ctx.textBaseline = 'alphabetic';
+
+  /* ── kicker (left) + TERRA brand (right) ── */
+  ctx.textAlign = 'left';
+  ctx.font = `800 ${Math.round(27 * S)}px ${FF}`;
+  setTracking(4 * S);
+  const kicker = `${mode.label.toUpperCase()} · ${dayLabel(activity.startTime)}`;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 10 * S;
+  ctx.fillStyle = mode.color;
+  ctx.beginPath();
+  ctx.arc(94 * S, 158 * S, 9 * S, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.fillText(kicker, 120 * S, 168 * S);
+  ctx.restore();
+  setTracking(0);
+  drawBrand(ctx, W, S);
+
+  /* ── big bold sans title, left aligned (Strava premium look) ── */
+  ctx.textAlign = 'left';
+  setTracking(-1.5 * S);
+  ctx.font = `800 ${Math.round(92 * S)}px ${FF}`;
+  const tLines = wrapLines(ctx, title, W - 168 * S, 2);
+  let y = 296 * S;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.55)';
+  ctx.shadowBlur = 26 * S;
+  ctx.shadowOffsetY = 3 * S;
+  ctx.fillStyle = '#ffffff';
+  tLines.forEach((ln) => { ctx.fillText(ln, 84 * S, y); y += 104 * S; });
+  ctx.restore();
+  setTracking(0);
+
+  /* ── caption ── */
+  if (caption) {
+    ctx.font = `500 ${Math.round(38 * S)}px ${FF}`;
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    const cLines = wrapLines(ctx, caption, W - 200 * S, 2);
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 14 * S;
+    cLines.forEach((ln) => { ctx.fillText(ln, 84 * S, y + 6 * S); y += 54 * S; });
     ctx.restore();
   }
 
-  /* ── rounded route-map band (photo background) ── */
-  if (bg === 'photo' && view.bandLayer) {
-    const pad = 16 * S;
-    const bx = (BAND.x - pad) * S;
-    const by = (BAND.y - pad) * S;
-    const bw = (BAND.w + pad * 2) * S;
-    const bh = (BAND.h + pad * 2) * S;
-    const r = 34 * S;
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.55)';
-    ctx.shadowBlur = 24 * S;
-    ctx.shadowOffsetY = 8 * S;
-    roundRectPath(ctx, bx, by, bw, bh, r);
-    ctx.fillStyle = '#050706';
-    ctx.fill();
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetY = 0;
-    roundRectPath(ctx, bx, by, bw, bh, r);
-    ctx.clip();
-    const lw = view.bandLayer.width;
-    const lh = view.bandLayer.height;
-    ctx.drawImage(view.bandLayer, 0, 0, lw, lh,
-      (BAND.x - 20) * S, (BAND.y - 20) * S, lw * S, lh * S);
-    ctx.restore();
-    ctx.save();
-    roundRectPath(ctx, bx, by, bw, bh, r);
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-    ctx.lineWidth = 3 * S;
-    ctx.stroke();
-    ctx.restore();
-  }
+  /* ── bottom stat grid — Strava premium: small bold label over a big bold
+       value, left-aligned 3-column grid, sitting on the bottom scrim ── */
+  const GRID = {
+    distance: { label: 'DISTANCE', value: `${distValue(Number(activity.distanceKm) || 0)} km` },
+    time: { label: 'TIME', value: durationWord(Number(activity.durationSec) || 0) },
+    avgSpeed: { label: 'SPEED', value: Number(activity.avgSpeedKmh) > 0 ? `${Number(activity.avgSpeedKmh).toFixed(1)} km/h` : '—' },
+    maxSpeed: { label: 'MAX SPEED', value: Number(activity.maxSpeedKmh) > 0 ? `${Number(activity.maxSpeedKmh).toFixed(1)} km/h` : null },
+    elevation: { label: 'ELEV GAIN', value: activity.hasElevation ? `${Math.round(Number(activity.elevationGainM) || 0)} m` : null },
+    eco: { label: 'ECO SCORE', value: `${Math.round(Number(activity.ecoScore) || 0)} · ${Number(activity.co2SavedKg || 0).toFixed(2)} kg CO₂` },
+  };
+  const cells = stats.map((k) => GRID[k]).filter((c) => c && c.value);
+  const colX = [84, 428, 772];
+  const rowsN = Math.max(1, Math.ceil(cells.length / 3));
+  const rowPitch = 170 * S;
+  const lastValueY = H - 92 * S;
+  const firstLabelY = lastValueY - (rowsN - 1) * rowPitch - 74 * S;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 12 * S;
+  cells.forEach((c, i) => {
+    const cx = colX[i % 3] * S;
+    const ly = firstLabelY + Math.floor(i / 3) * rowPitch;
+    ctx.textAlign = 'left';
+    ctx.font = `800 ${Math.round(24 * S)}px ${FF}`;
+    setTracking(3 * S);
+    ctx.fillStyle = 'rgba(255,255,255,0.72)';
+    ctx.fillText(c.label, cx, ly);
+    setTracking(0);
+    let size = 64 * S;
+    ctx.font = `800 ${Math.round(size)}px ${FF}`;
+    // the last column keeps a right margin from the card edge
+    const capW = (i % 3 === 2 ? 240 : 296) * S;
+    const vw = ctx.measureText(c.value).width;
+    if (vw > capW) { size = (size * capW) / vw; ctx.font = `800 ${Math.round(size)}px ${FF}`; }
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(c.value, cx, ly + 72 * S);
+  });
+  ctx.restore();
 
-  /* bottom caption + TERRA brand */
-  ctx.font = `600 ${Math.round(15 * S)}px ${FF}`;
-  ctx.fillStyle = mapIsColourful ? 'rgba(10,24,14,0.55)' : 'rgba(255,255,255,0.55)';
-  drawSpaced(ctx, 'REAL GPS TRACK', W / 2, 1812 * S, 2 * S);
-  ctx.font = `800 ${Math.round(54 * S)}px ${FF}`;
-  ctx.fillStyle = ink.main;
-  shadow(true);
-  drawSpaced(ctx, 'TERRA', W / 2, 1880 * S, 26 * S);
-  shadow(false);
+  /* micro footer */
+  ctx.textAlign = 'center';
+  ctx.font = `700 ${Math.round(17 * S)}px ${FF}`;
+  setTracking(5 * S);
+  ctx.fillStyle = 'rgba(255,255,255,0.52)';
+  ctx.fillText('REAL GPS TRACK · GREENROUTE TERRA', W / 2, H - 30 * S);
+  setTracking(0);
+
 }
 
 function dayLabel(iso) {

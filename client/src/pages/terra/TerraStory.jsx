@@ -35,7 +35,7 @@ export default function TerraStory({ activityId, onDone, onOpenDetail, goHome })
   const [photoUrl, setPhotoUrl] = useState(''); // persisted server path
   const [photoImg, setPhotoImg] = useState(null);
   const [mapLayer, setMapLayer] = useState(null); // full-card map (bg 'map')
-  const [bandLayer, setBandLayer] = useState(null); // rounded band map
+  const [routeLayer, setRouteLayer] = useState(null); // white route overlay (bg 'photo')
   const [mapBusy, setMapBusy] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -71,7 +71,7 @@ export default function TerraStory({ activityId, onDone, onOpenDetail, goHome })
         setPhotoUrl(serverPath(data.photo));
         cacheRef.current.clear();
         setMapLayer(null);
-        setBandLayer(null);
+        setRouteLayer(null);
         setMapFail(false);
       } catch {
         if (alive) setNotFound(true);
@@ -85,18 +85,18 @@ export default function TerraStory({ activityId, onDone, onOpenDetail, goHome })
     enableElev: Array.isArray(st) && st.includes('elevation'),
   }), []);
 
-  // Build whichever map layer the current background needs (full card for the
-  // 'map' bg, rounded band for 'photo'). Keyed cache; guaranteed to clear its
-  // busy state on success, failure or an absolute timeout.
+  // Build whichever layer the current background needs (full tile map for the
+  // 'map' bg, white route overlay for 'photo'). Keyed cache; guaranteed to
+  // clear its busy state on success, failure or an absolute timeout.
   useEffect(() => {
     if (!activity) return;
     const st = stats || enabledStats(activity);
     const pinBits = (st.includes('maxSpeed') ? 'm' : '') + (st.includes('elevation') ? 'e' : '');
-    const need = bg === 'map' ? 'full' : 'band';
+    const need = bg === 'map' ? 'full' : 'route';
     const key = `${activity._id}:${mapStyle}:${need}:${pinBits}`;
     if (cacheRef.current.has(key)) {
       if (need === 'full') setMapLayer(cacheRef.current.get(key));
-      else setBandLayer(cacheRef.current.get(key));
+      else setRouteLayer(cacheRef.current.get(key));
       return;
     }
     const seq = ++buildSeq.current;
@@ -113,7 +113,7 @@ export default function TerraStory({ activityId, onDone, onOpenDetail, goHome })
           // tileCount 0 ⇒ no tile server answered — tell the user why it's blank
           setMapFail(Number(cnv.tileCount || 0) === 0);
         } else {
-          setBandLayer(cnv);
+          setRouteLayer(cnv);
         }
       })
       .catch(() => { if (buildSeq.current === seq) setMapFail(true); })
@@ -144,12 +144,12 @@ export default function TerraStory({ activityId, onDone, onOpenDetail, goHome })
     const id = requestAnimationFrame(() => {
       renderStory(prevRef.current, activity, {
         bg, mapStyle, title, caption, stats: stats || undefined,
-        mapLayer, bandLayer, img: photoImg,
+        mapLayer, routeLayer, img: photoImg,
       }).catch(() => {});
     });
     return () => cancelAnimationFrame(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activity, title, caption, bg, mapStyle, mapLayer, bandLayer, photoImg, stats]);
+  }, [activity, title, caption, bg, mapStyle, mapLayer, routeLayer, photoImg, stats]);
 
   const ensureLayer = useCallback(async (kinds) => {
     if (!activity) return null;
@@ -219,7 +219,7 @@ export default function TerraStory({ activityId, onDone, onOpenDetail, goHome })
       try { img = await loadImage(absoluteUrl(photoUrl)); } catch { img = null; }
     }
     if (readyBg === 'photo' && !img) readyBg = 'map'; // photo unavailable → plain map card
-    const layers = await ensureLayer(readyBg === 'map' ? ['full'] : ['band']);
+    const layers = await ensureLayer(readyBg === 'map' ? ['full'] : ['route']);
     const canvas = document.createElement('canvas');
     canvas.width = CARD_W;
     canvas.height = CARD_H;
@@ -230,7 +230,7 @@ export default function TerraStory({ activityId, onDone, onOpenDetail, goHome })
       caption,
       stats: stats || undefined,
       mapLayer: (readyBg === 'map' && layers) ? layers.full : null,
-      bandLayer: (readyBg === 'photo' && layers) ? layers.band : null,
+      routeLayer: (readyBg === 'photo' && layers) ? layers.route : null,
       img: readyBg === 'photo' ? img : null,
     });
     return canvas;

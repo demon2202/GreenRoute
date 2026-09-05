@@ -600,7 +600,7 @@
   text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55); color: #fff;
   overflow-wrap: break-word;
 }
-.td-sub { display: inline-flex; align-items: center; gap: 8px; color: rgba(255, 255, 255, 0.92); font-size: 14.5px; font-weight: 600; }
+.td-sub { display: inline-flex; align-items: center; gap: 8px; color: rgba(255, 255, 255, 0.92); font-size: 14.5px; font-weight: 600; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.65); flex-wrap: wrap; }
 .td-pill {
   pointer-events: auto;
   display: inline-flex; align-items: center; gap: 8px;
@@ -616,16 +616,25 @@
 
 .td-bottom {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 5;
-  display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;
-  padding: 46px 18px max(16px, env(safe-area-inset-bottom)) 18px;
-  justify-content: center;
-  background: linear-gradient(0deg, rgba(4, 8, 5, 0.82) 0%, rgba(4, 8, 5, 0.45) 55%, transparent 100%);
+  display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 56px 18px max(16px, env(safe-area-inset-bottom)) 18px;
+  background: linear-gradient(0deg, rgba(4, 8, 5, 0.86) 0%, rgba(4, 8, 5, 0.5) 55%, transparent 100%);
   pointer-events: none;
 }
+/* Edit story / Delete — centred, sitting right above the stat titles */
+.td-actions-bottom { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; pointer-events: auto; }
+.td-pill.primary {
+  background: linear-gradient(135deg, #2f7a46 0%, #3fa45a 100%);
+  border-color: transparent;
+  box-shadow: 0 6px 18px -6px rgba(46, 160, 90, 0.55);
+}
+.td-pill.primary:hover { background: linear-gradient(135deg, #276a3c 0%, #35954f 100%); }
+.td-stats { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .td-stat {
   background: rgba(8, 13, 10, 0.66); border: 1px solid rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px); border-radius: 17px;
-  padding: 11px 17px; display: flex; flex-direction: column; gap: 2px; min-width: 104px;
+  padding: 11px 17px; display: flex; flex-direction: column; align-items: center;
+  text-align: center; gap: 3px; min-width: 108px;
 }
 .td-stat-label { font-size: 10px; letter-spacing: .18em; text-transform: uppercase; color: rgba(255, 255, 255, 0.66); font-weight: 800; }
 .td-stat-value { font-family: "Newsreader", Georgia, serif; font-size: 26px; font-weight: 800; color: #fff; line-height: 1.05; }
@@ -633,8 +642,10 @@
 @media (max-width: 560px) {
   .td-stat { min-width: 0; padding: 8px 12px; }
   .td-stat-value { font-size: 21px; }
-  .td-bottom { gap: 7px; }
+  .td-bottom { gap: 10px; }
   .td-top { flex-direction: column; }
+  .td-actions { align-items: flex-start; }
+  .td-actions-bottom { gap: 8px; }
   .td-pill { padding: 8px 13px; font-size: 13.5px; }
 }
 
