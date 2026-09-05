@@ -47,10 +47,16 @@ passport.use(new LocalStrategy({
 }));
 
 // Google OAuth Strategy
-passport.use(
+// Only registered when credentials exist — otherwise the server would be
+// unable to start at all for local/dev environments that never use Google
+// sign-in (email/password auth is always available).
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
+  passport.use(
     new GoogleStrategy({
-        clientID: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        clientID: GOOGLE_CLIENT_ID,
+        clientSecret: GOOGLE_CLIENT_SECRET,
         callbackURL: '/api/auth/google/callback',
         proxy: true
     },
@@ -93,4 +99,5 @@ passport.use(
             done(err, null);
         }
     })
-);
+  );
+}

@@ -28,6 +28,15 @@ const UserSchema = new mongoose.Schema({
         default: 'light',
         enum: ['light', 'dark', 'auto']
     },
+    // Map colour scheme the USER picked (independent of the app light/dark
+    // theme): 'normal' = standard/colourful basemap, 'dark' = black basemap.
+    // null means "not chosen yet" so each screen keeps its own default
+    // (route planner → normal, TERRA → dark) until the user decides.
+    mapStyle: {
+        type: String,
+        enum: ['normal', 'dark', null],
+        default: null
+    },
     // FIXED: Simplified preferences schema to avoid nested field conflicts
     preferences: {
         type: Map,

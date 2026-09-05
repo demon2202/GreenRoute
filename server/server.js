@@ -80,8 +80,11 @@ app.use(
 app.use(mongoSanitize());
 
 const limiter = rateLimit({
+    // Roomier than a plain API cap: a single TERRA story-card render fetches a
+    // dozen+ map tiles through /api/terra/tile, so 200/15min would throttle
+    // genuine users mid-export. Auth stays tightly capped below.
     windowMs: 15 * 60 * 1000,
-    max: 200,
+    max: 2400,
     message: 'Too many requests from this IP'
 });
 
@@ -144,7 +147,21 @@ app.use(express.urlencoded({
 app.use(cookieParser());
 
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
-app.use('/uploads', express.static(UPLOADS_DIR));
+// Uploaded media is served statically. Files are named with 96-bit random
+// hex (unguessable) and served with nosniff + no directory listing so a
+// browser can never be tricked into executing an uploaded file.
+app.use(
+    '/uploads',
+    express.static(UPLOADS_DIR, {
+        index: false,
+        dotfiles: 'deny',
+        maxAge: '7d',
+        setHeaders: (res) => {
+            res.setHeader('X-Content-Type-Options', 'nosniff');
+            res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+        }
+    })
+);
 
 const mongooseConnectionPromise = mongoose.connect(process.env.MONGO_URI)
 .then(m => {

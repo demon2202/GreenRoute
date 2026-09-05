@@ -11,11 +11,29 @@
 
 const MAPBOX_TOKEN = process.env.REACT_APP_MAPBOX_API_KEY || '';
 
-const MAPBOX_STYLE = 'mapbox://styles/mapbox/dark-v11';
-const FREE_STYLES = [
-  'https://tiles.openfreemap.org/styles/liberty',
-  'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-];
+// Mapbox keeps its own style URLs. Map style here is the USER's map-colour
+// choice, NOT the app light/dark chrome theme.
+const MAPBOX_STYLES = {
+  dark: 'mapbox://styles/mapbox/dark-v11',
+  normal: 'mapbox://styles/mapbox/streets-v12',
+};
+
+// Free GL styles loaded at runtime when no Mapbox key is configured.
+//   normal → bright/liberty (standard, route-planner-like colours)
+//   dark   → openfreemap dark / Carto dark-matter (black)
+// Each list is tried in order until one loads.
+const FREE_STYLES = {
+  normal: [
+    'https://tiles.openfreemap.org/styles/bright',
+    'https://tiles.openfreemap.org/styles/liberty',
+    'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
+  ],
+  dark: [
+    'https://tiles.openfreemap.org/styles/dark',
+    'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json',
+    'https://tiles.openfreemap.org/styles/liberty',
+  ],
+};
 const MAPLIBRE_CDN = 'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js';
 const MAPLIBRE_CSS = 'https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css';
 
@@ -62,21 +80,39 @@ function loadMapLibreFromCDN() {
   return maplibrePromise;
 }
 
+/** Return the style URL list for a theme ('normal' | 'dark'). */
+export function themeStyles(theme) {
+  if (MAPBOX_TOKEN) return { styleUrl: MAPBOX_STYLES[theme] || MAPBOX_STYLES.normal };
+  return { urls: FREE_STYLES[theme] || FREE_STYLES.normal };
+}
+
+/** Live-switch an existing Mapbox/MapLibre map to a theme. */
+export function setMapStyleTheme(map, theme) {
+  if (!map || typeof map.setStyle !== 'function') return;
+  try {
+    if (MAPBOX_TOKEN) {
+      map.setStyle(MAPBOX_STYLES[theme] || MAPBOX_STYLES.normal);
+    } else {
+      map.setStyle((FREE_STYLES[theme] || FREE_STYLES.normal)[0]);
+    }
+  } catch { /* noop */ }
+}
+
 /**
  * @returns Promise<{ map, Lib }> — resolves once the map style is loaded.
  * On hard failure rejects with an Error.
  */
 export async function createTerraMap(container, opts = {}) {
-  const { center, zoom = 13 } = opts;
+  const { center, zoom = 13, theme = 'dark' } = opts;
 
   let Lib;
   let styles;
   if (MAPBOX_TOKEN) {
     Lib = await loadMapbox();
-    styles = [MAPBOX_STYLE];
+    styles = [MAPBOX_STYLES[theme] || MAPBOX_STYLES.dark];
   } else {
     Lib = await loadMapLibreFromCDN();
-    styles = FREE_STYLES;
+    styles = FREE_STYLES[theme] || FREE_STYLES.dark;
   }
 
   return new Promise((resolve, reject) => {
@@ -100,7 +136,11 @@ export async function createTerraMap(container, opts = {}) {
         zoom: zoom || 13,
         attributionControl: true,
       });
-      map.addControl(new Lib.NavigationControl({ showCompass: false }), 'bottom-right');
+      // No floating zoom buttons by default — keeps the full-bleed recorder
+      // clean (drag / pinch / double-click zoom still work).
+      if (opts.showNav) {
+        map.addControl(new Lib.NavigationControl({ showCompass: false }), 'bottom-right');
+      }
 
       const onErr = (e) => {
         const msg = e && e.error ? `${e.error.message || ''} ${e.error.status || ''}` : '';
@@ -177,7 +217,7 @@ export function showTrack(map, route, opts = {}) {
   return coords;
 }
 
-export function fitRoute(map, route, padPx = 80) {
+export function fitRoute(map, route) {
   if (!map || !route || !route.length || typeof map.fitBounds !== 'function') return;
   try {
     let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
@@ -189,6 +229,16 @@ export function fitRoute(map, route, padPx = 80) {
       if (p.lng > maxLng) maxLng = p.lng;
     }
     if (!Number.isFinite(minLat)) return;
-    map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: padPx, maxZoom: 16, duration: 900 });
+    // Padding scales with the map's own size so the route + its start/finish
+    // markers always sit nicely inside the viewport (no wasted sliver on short
+    // screens, no clipping on tall ones).
+    const host = map.getContainer();
+    const h = host ? host.clientHeight || 300 : 300;
+    const w = host ? host.clientWidth || 600 : 600;
+    map.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
+      padding: { top: h * 0.14, bottom: h * 0.14, left: w * 0.08, right: w * 0.08 },
+      maxZoom: 16,
+      duration: 800,
+    });
   } catch { /* noop */ }
 }

@@ -152,6 +152,7 @@ const Territories = ({ user, theme }) => {
 
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [noMapToken, setNoMapToken] = useState(false);
 
   // Dynamic user territoryStats tracking
   const [userStats, setUserStats] = useState(user?.territoryStats || { areaOwned: 0, empireScore: 0 });
@@ -953,6 +954,11 @@ const Territories = ({ user, theme }) => {
 
   // Mount load
   useEffect(() => {
+    // Without a Mapbox token the SDK throws and spams page errors. Show a
+    // friendly notice instead of crashing (keyless/dev environments).
+    if (!mapboxgl.accessToken) { setNoMapToken(true); return; }
+    setNoMapToken(false);
+
     const themeVal = themeRef.current || 'light';
     const mapStyle = themeVal === 'dark'
       ? 'mapbox://styles/mapbox/navigation-night-v1'
@@ -1589,7 +1595,20 @@ const Territories = ({ user, theme }) => {
         </div>{/* end .territory-mobile-content */}
       </div>
 
-      <div className="map-view-container" ref={mapContainer} />
+      <div className="map-view-container" style={{ position: 'relative' }} ref={mapContainer}>
+        {noMapToken && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 5, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', textAlign: 'center', background: 'radial-gradient(600px 400px at 50% 30%, #16201a, #0b100c)',
+            color: '#cfe4d4', padding: 30, fontFamily: 'inherit'
+          }}>
+            <div>
+              <div style={{ fontSize: 22, fontWeight: 800, marginBottom: 8 }}>Map not configured</div>
+              <div style={{ fontSize: 14, opacity: .85 }}>Set <b>REACT_APP_MAPBOX_API_KEY</b> to enable live maps.<br />You can still try the <b>TERRA</b> recorder, which includes its own free map fallback.</div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

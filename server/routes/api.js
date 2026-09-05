@@ -576,6 +576,21 @@ router.post('/theme', ensureAuth, async (req, res) => {
 });
 
 /* ─────────────────────────────────────────────────────────────
+   MAP STYLE (user preference — map colours, not site theme)
+───────────────────────────────────────────────────────────── */
+router.post('/mapstyle', ensureAuth, async (req, res) => {
+  try {
+    const { mapStyle } = req.body;
+    if (!['normal', 'dark'].includes(mapStyle))
+      return res.status(400).json({ error: 'Invalid map style value.' });
+    await User.findByIdAndUpdate(req.user.id, { mapStyle });
+    res.json({ message: 'Map style updated.', mapStyle });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
+/* ─────────────────────────────────────────────────────────────
    PROFILE
 ───────────────────────────────────────────────────────────── */
 router.get('/profile', ensureAuth, async (req, res) => {

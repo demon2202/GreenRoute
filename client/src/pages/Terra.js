@@ -28,7 +28,7 @@ export default function Terra({ user }) {
       <TerraRecord
         initialMode={mode}
         onCancel={() => nav({ view: 'home' })}
-        onSaved={(act) => nav({ view: 'story', id: act._id, fresh: '1' })}
+        onSaved={(act) => nav({ view: 'story', id: act._id })}
       />
     );
   }
@@ -58,6 +58,7 @@ export default function Terra({ user }) {
       key={user?.id || 'home'}
       goRecord={(m) => nav({ view: 'record', mode: m })}
       goDetail={(aid) => nav({ view: 'detail', id: aid })}
+      goEdit={(aid) => nav({ view: 'story', id: aid })}
     />
   );
 }

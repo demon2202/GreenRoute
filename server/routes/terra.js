@@ -3,6 +3,7 @@ const router = express.Router();
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const https = require('https');
 const multer = require('multer');
 
 const TerraActivity = require('../models/TerraActivity');
@@ -55,13 +56,69 @@ router.post('/media', ensureAuth, (req, res) => {
 });
 
 /* ─────────────────────────────────────────────────────────────
-   Free map tiles proxy (OpenStreetMap raster) so the Terra share
-   cards can embed a real map background WITHOUT any API key and
-   without canvas CORS tainting. Tiles are fetched server-side and
-   returned with long cache headers. Light in-memory LRU cache.
+   Free map tiles proxy — multi-source so a card map ALWAYS gets a
+   real basemap. Sources tried in order until one succeeds:
+     normal/light → OSM standard → Carto Voyager → Carto Positron
+     dark         → OSM standard (client inverts it to a black map)
+                    → Carto Positron (still light, so the client
+                      invert keeps visible streets)
+     carto_dark   → Carto dark-matter (legacy/no-filter black)
+   Fetched server-side (Node 14/16+ via the built-in https module — no global
+   fetch required), returned with long cache headers + LRU.
 ───────────────────────────────────────────────────────────── */
+const TILE_SUBDOMAINS = ['a', 'b', 'c', 'd'];
+const TILE_SOURCES = {
+  normal: [
+    { name: 'osm' },
+    { name: 'carto', map: 'rastertiles/voyager' },
+    { name: 'carto', map: 'rastertiles/positron' },
+  ],
+  light: [
+    { name: 'osm' },
+    { name: 'carto', map: 'rastertiles/voyager' },
+  ],
+  dark: [
+    { name: 'osm' },
+    { name: 'carto', map: 'rastertiles/positron' },
+  ],
+  carto_dark: [{ name: 'carto', map: 'dark_all' }],
+  carto_light: [{ name: 'carto', map: 'light_all' }],
+};
 const tileCache = new Map();
-const TILE_CACHE_MAX = 600;
+const TILE_CACHE_MAX = 1200;
+const TILE_UA = 'GreenRoute-Terra/2.1 (eco navigation app; share-card map renderer; demo use)';
+
+function tileUrl(src, z, x, y) {
+  if (src.name === 'carto') {
+    const sub = TILE_SUBDOMAINS[(x * 7 + y * 3) % TILE_SUBDOMAINS.length];
+    return `https://${sub}.basemaps.cartocdn.com/${src.map}/${z}/${x}/${y}.png`;
+  }
+  return `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+}
+
+/* Fetch a remote binary over HTTPS with the built-in https module. Uses NO
+   global fetch(), so the tile proxy works on Node 14/16/18+ alike — a Node
+   version without fetch used to make every tile silently fail with a 502. */
+function httpsGetBuffer(url, timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, {
+      headers: { 'User-Agent': TILE_UA, Accept: 'image/*' },
+      timeout: timeoutMs,
+    }, (res) => {
+      const code = res.statusCode || 0;
+      if (code < 200 || code >= 300) {
+        res.resume();
+        return reject(new Error(`HTTP ${code}`));
+      }
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', reject);
+    });
+    req.on('timeout', () => req.destroy(new Error('timeout')));
+    req.on('error', reject);
+  });
+}
 
 router.get('/tile/:z/:x/:y', ensureAuth, async (req, res) => {
   const z = Number(req.params.z);
@@ -74,37 +131,49 @@ router.get('/tile/:z/:x/:y', ensureAuth, async (req, res) => {
   if (z < 1 || z > 19 || x < 0 || x >= maxTiles || y < 0 || y >= maxTiles) {
     return res.status(400).json({ error: 'Tile out of range' });
   }
+  const style = String(req.query.style || 'normal');
+  const sources = TILE_SOURCES[style] || TILE_SOURCES.normal;
 
-  const key = `${z}/${x}/${y}`;
-  const cached = tileCache.get(key);
+  // Cache hit (keyed by style so each theme keeps its own tiles)
+  const styleKey = `${style}/${z}/${x}/${y}`;
+  const cached = tileCache.get(styleKey);
   if (cached) {
     res.set('Content-Type', 'image/png');
     res.set('Cache-Control', 'public, max-age=86400');
     return res.send(cached);
   }
 
-  try {
-    const url = `https://tile.openstreetmap.org/${key}.png`;
-    const resp = await fetch(url, {
-      headers: {
-        'User-Agent': 'GreenRoute-Terra/2.0 (eco navigation app; share-card map renderer)',
-        Accept: 'image/*',
-      },
-    });
-    if (!resp.ok) throw new Error(`OSM tile ${resp.status}`);
-    const buf = Buffer.from(await resp.arrayBuffer());
-    tileCache.set(key, buf);
-    if (tileCache.size > TILE_CACHE_MAX) {
-      const firstKey = tileCache.keys().next().value;
-      tileCache.delete(firstKey);
+  // Try each source in order; cache the first that answers.
+  let lastErr = null;
+  for (const src of sources) {
+    const srcKey = `${src.name}:${src.map || ''}/${z}/${x}/${y}`;
+    const srcCached = tileCache.get(srcKey);
+    let buf = srcCached || null;
+    if (!buf) {
+      try {
+        buf = await httpsGetBuffer(tileUrl(src, z, x, y));
+        if (!buf || buf.length === 0) throw new Error(`${src.name} empty response`);
+      } catch (err) {
+        lastErr = new Error(`${src.name} ${err.message}`);
+        buf = null;
+      }
     }
-    res.set('Content-Type', 'image/png');
-    res.set('Cache-Control', 'public, max-age=86400');
-    res.send(buf);
-  } catch (err) {
-    console.warn('[terra tile]', key, err.message);
-    res.status(502).json({ error: 'Tile source unavailable' });
+
+    if (buf) {
+      tileCache.set(srcKey, buf);
+      tileCache.set(styleKey, buf);
+      if (tileCache.size > TILE_CACHE_MAX) {
+        const firstKey = tileCache.keys().next().value;
+        tileCache.delete(firstKey);
+      }
+      res.set('Content-Type', 'image/png');
+      res.set('Cache-Control', 'public, max-age=86400');
+      return res.send(buf);
+    }
   }
+
+  console.warn('[terra tile]', styleKey, lastErr ? lastErr.message : 'no source');
+  res.status(502).json({ error: 'Tile source unavailable' });
 });
 
 /* ─────────────────────────────────────────────────────────────
@@ -119,9 +188,53 @@ function sanitizeText(v, max) {
     .slice(0, max);
 }
 
-function toNumber(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : NaN;
+// A card background photo may ONLY reference a file we stored ourselves:
+//   • a relative path  /uploads/terra/<hex>.<ext>   (same-origin dev)
+//   • or an absolute URL to THIS app's own API host  (deployed split origin)
+// Anything else — external http(s) hosts, file://, data: URIs, or paths that
+// escape /uploads/terra — is rejected, so `photo` can never be abused as a
+// link/embed to an arbitrary URL or a way to read other server files.
+const PHOTO_PATH_RE = /^\/uploads\/terra\/[a-f0-9]{16,40}\.(png|jpe?g|webp|gif)$/;
+function ownPhotoOrigin(origin) {
+  const envOrigin = (process.env.SERVER_URL || '').replace(/\/$/, '');
+  return Boolean(
+    envOrigin && origin === envOrigin
+  );
+}
+function safePhotoPath(v) {
+  const s = typeof v === 'string' ? v.trim() : '';
+  if (!s) return '';
+  let pathOnly = s;
+  if (/^https?:\/\//i.test(s)) {
+    try {
+      const u = new URL(s);
+      if (!ownPhotoOrigin(u.origin)) {
+        throw Object.assign(new Error('Invalid photo URL — use a photo you uploaded to TERRA.'), { status: 400 });
+      }
+      pathOnly = u.pathname;
+    } catch (err) {
+      if (err && err.status) throw err;
+      throw Object.assign(new Error('Invalid photo URL — use a photo you uploaded to TERRA.'), { status: 400 });
+    }
+  }
+  if (!PHOTO_PATH_RE.test(pathOnly)) {
+    throw Object.assign(new Error('Invalid photo path — use a photo you uploaded to TERRA.'), { status: 400 });
+  }
+  return pathOnly.slice(0, 400);
+}
+
+const CARD_STATS_ALL = new Set(['distance', 'time', 'avgSpeed', 'maxSpeed', 'elevation', 'eco']);
+function sanitizeCardStats(v) {
+  if (!Array.isArray(v)) return undefined; // not provided → leave default
+  const set = new Set(v.map((k) => String(k)).filter((k) => CARD_STATS_ALL.has(k)));
+  return set; // caller decides final ordering
+}
+const STAT_ORDER = ['distance', 'time', 'avgSpeed', 'maxSpeed', 'elevation', 'eco'];
+
+function normalizeMapStyle(v) {
+  // 'light' was an early experiment (near-white map) — map it to the
+  // standard colourful 'normal' so nothing ever renders white.
+  return v === 'dark' ? 'dark' : 'normal';
 }
 
 /**
@@ -163,8 +276,15 @@ function buildActivity(userId, body) {
     mode,
     title: sanitizeText(body.title, 80) || defaultTitle(mode, s),
     caption: sanitizeText(body.caption, 220),
-    bg: ['black', 'map', 'photo'].includes(body.bg) ? body.bg : 'black',
-    photo: typeof body.photo === 'string' ? body.photo.slice(0, 400) : '',
+    bg: ['map', 'photo'].includes(body.bg) ? body.bg : 'map', // solid colour removed from TERRA
+    // Fresh recordings keep the schema default (dark = TERRA's signature
+    // black map) unless the caller explicitly chose a style.
+    ...(body.mapStyle !== undefined ? { mapStyle: normalizeMapStyle(body.mapStyle) } : {}),
+    photo: safePhotoPath(body.photo),
+    cardStats: (() => {
+      const s = sanitizeCardStats(body.cardStats);
+      return s === undefined ? undefined : STAT_ORDER.filter((k) => s.has(k));
+    })(),
     startTime: new Date(s),
     endTime: new Date(e),
     durationSec: dur,
@@ -188,10 +308,6 @@ function defaultTitle(mode, startMs) {
   const part = h < 5 ? 'Night' : h < 12 ? 'Morning' : h < 17 ? 'Afternoon' : h < 21 ? 'Evening' : 'Night';
   const modeLabel = { walking: 'Walk', running: 'Run', cycling: 'Ride', driving: 'Drive' }[mode] || 'Activity';
   return `${part} ${modeLabel}`;
-}
-
-function publicActivity(a) {
-  return a; // fields are already plain + safe
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -252,8 +368,21 @@ router.patch('/activities/:id', ensureAuth, async (req, res) => {
     const b = req.body || {};
     if (b.title !== undefined) doc.title = sanitizeText(b.title, 80);
     if (b.caption !== undefined) doc.caption = sanitizeText(b.caption, 220);
-    if (b.bg !== undefined && ['black', 'map', 'photo'].includes(b.bg)) doc.bg = b.bg;
-    if (b.photo !== undefined) doc.photo = String(b.photo).slice(0, 400);
+    // Only Map and Photo exist now — any stray colour value is coerced to Map.
+    if (b.bg !== undefined) doc.bg = ['map', 'photo'].includes(b.bg) ? b.bg : 'map';
+    if (b.mapStyle !== undefined) doc.mapStyle = normalizeMapStyle(b.mapStyle);
+    if (b.cardStats !== undefined) {
+      const s = sanitizeCardStats(b.cardStats);
+      if (s) doc.cardStats = STAT_ORDER.filter((k) => s.has(k));
+    }
+    if (b.photo !== undefined) {
+      try {
+        doc.photo = safePhotoPath(b.photo);
+      } catch (e) {
+        if (e && e.status) return res.status(e.status).json({ error: e.message });
+        throw e;
+      }
+    }
 
     await doc.save();
     res.json(doc);

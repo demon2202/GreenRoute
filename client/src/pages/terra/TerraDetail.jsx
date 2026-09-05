@@ -1,16 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import TerraMapView from './TerraMapView';
-import { ModeGlyph } from './Icons';
-import { TerraIcon } from './Icons';
+import { ModeGlyph, TerraIcon } from './Icons';
 import { fmtDist, fmtDuration, weekdayShort, fmtSpeed } from './geo';
-import { absoluteUrl } from './terraCanvas';
+import { resolveMapStyle, setMapStyle } from '../../mapTheme';
 
+/**
+ * TERRA journey detail — immersive: the user's real route map fills the whole
+ * screen (map colours follow the user's preference) and the journey text is
+ * laid over the map, exactly like the full-bleed recorder.
+ */
 export default function TerraDetail({ activityId, goHome, onEditStory }) {
   const [a, setA] = useState(null);
   const [notFound, setNotFound] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [busy, setBusy] = useState(true);
+  const [mapColour, setMapColour] = useState(() => resolveMapStyle('terra'));
+  const mapApi = useRef(null);
 
   useEffect(() => {
     let alive = true;
@@ -27,6 +33,12 @@ export default function TerraDetail({ activityId, goHome, onEditStory }) {
     })();
     return () => { alive = false; };
   }, [activityId]);
+
+  const applyMapColour = async (v) => {
+    setMapColour(v);
+    setMapStyle(v); // persist preference (local + account)
+    if (mapApi.current && mapApi.current.applyTheme) mapApi.current.applyTheme(v);
+  };
 
   if (notFound) {
     return (
@@ -51,45 +63,54 @@ export default function TerraDetail({ activityId, goHome, onEditStory }) {
     }
   };
 
-  const cover = a.photo && a.bg === 'photo' ? absoluteUrl(a.photo) : '';
+  const stats = [
+    { label: 'Distance', value: fmtDist(a.distanceKm), unit: 'km' },
+    { label: 'Time', value: fmtDuration(a.durationSec), unit: '' },
+    { label: 'Speed', value: fmtSpeed(a.avgSpeedKmh), unit: 'km/h' },
+    { label: 'CO₂ saved', value: Number(a.co2SavedKg).toFixed(2), unit: 'kg' },
+  ];
+  if (a.hasElevation) stats.push({ label: 'Elev gain', value: `${Math.round(a.elevationGainM || 0)}`, unit: 'm' });
+  stats.push({ label: 'Eco', value: `${a.ecoScore}`, unit: '/100' });
 
   return (
-    <div className="terra-page" style={{ maxWidth: 1000 }}>
-      <div className="terra-detail-head">
-        <div>
-          <button className="terra-btn ghost" onClick={goHome} style={{ marginBottom: 10 }}><TerraIcon name="back" size={15} /> TERRA</button>
+    <div className="terra-page terra-detail-immersive">
+      <TerraMapView
+        points={a.route || []}
+        fit
+        center={[a.route?.[0]?.lng || 0, a.route?.[0]?.lat || 0]}
+        onReady={(h) => { mapApi.current = h; }}
+      />
+
+      {/* text over the map */}
+      <div className="td-top">
+        <div className="td-heading">
+          <button className="td-pill" onClick={goHome}><TerraIcon name="back" size={15} /> TERRA</button>
           <h1>{a.title || 'My Journey'}</h1>
-          <div className="terra-chip" style={{ marginTop: 8 }}><ModeGlyph mode={a.mode} /> {weekdayShort(a.startTime)}</div>
+          <div className="td-sub">
+            <ModeGlyph mode={a.mode} /> {weekdayShort(a.startTime)} · real GPS track
+          </div>
         </div>
-        <div className="detail-actions">
-          <button className="terra-btn" onClick={() => onEditStory(a._id)} disabled={deleting}><TerraIcon name="pen" size={15} /> Make a story</button>
-          <button className="terra-btn danger" onClick={del} disabled={deleting}>{deleting ? '…' : <><TerraIcon name="trash" size={15} /> Delete</>}</button>
+        <div className="td-actions">
+          <div className="map-theme-toggle static" role="group" aria-label="Map colours">
+            <button className={mapColour === 'normal' ? 'active' : ''} onClick={() => applyMapColour('normal')} title="Standard map colours">
+              <span className="mt-dot normal" />Colour
+            </button>
+            <button className={mapColour === 'dark' ? 'active' : ''} onClick={() => applyMapColour('dark')} title="Black map">
+              <span className="mt-dot dark" />Black
+            </button>
+          </div>
+          <button className="td-pill" onClick={() => onEditStory(a._id)} disabled={deleting}><TerraIcon name="pen" size={14} /> Edit story</button>
+          <button className="td-pill danger" onClick={del} disabled={deleting}>{deleting ? '…' : <><TerraIcon name="trash" size={14} /> Delete</>}</button>
         </div>
       </div>
 
-      <div className="terra-detail-map" style={{ marginTop: 16 }}>
-        {cover && <img src={cover} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.25, zIndex: 0 }} />}
-        <TerraMapView points={a.route || []} fit center={[a.route?.[0]?.lng || 0, a.route?.[0]?.lat || 0]} />
-      </div>
-
-      <div className="terra-detail-grid">
-        <div className="terra-stat"><div className="s-label">Distance</div><div className="s-value">{fmtDist(a.distanceKm)} <span style={{ fontSize: 15 }}>km</span></div></div>
-        <div className="terra-stat"><div className="s-label">Time</div><div className="s-value">{fmtDuration(a.durationSec)}</div></div>
-        <div className="terra-stat"><div className="s-label">Avg speed</div><div className="s-value">{fmtSpeed(a.avgSpeedKmh)}</div><div className="s-sub">km/h</div></div>
-        <div className="terra-stat"><div className="s-label">Max speed</div><div className="s-value">{a.maxSpeedKmh > 0 ? a.maxSpeedKmh.toFixed(1) : '–'}</div><div className="s-sub">km/h</div></div>
-        <div className="terra-stat"><div className="s-label">CO₂ saved</div><div className="s-value">{Number(a.co2SavedKg).toFixed(2)} <span style={{ fontSize: 15 }}>kg</span></div></div>
-        <div className="terra-stat"><div className="s-label">Eco score</div><div className="s-value">{a.ecoScore}</div><div className="s-sub">/100</div></div>
-        {a.hasElevation && (
-          <div className="terra-stat"><div className="s-label">Elev gain</div><div className="s-value">{a.elevationGainM} <span style={{ fontSize: 15 }}>m</span></div><div className="s-sub">loss {a.elevationLossM} m</div></div>
-        )}
-        <div className="terra-stat"><div className="s-label">Calories</div><div className="s-value">{a.caloriesKcal || 0}</div><div className="s-sub">kcal est.</div></div>
-        <div className="terra-stat"><div className="s-label">GPS points</div><div className="s-value">{(a.route || []).length}</div><div className="s-sub">recorded</div></div>
-      </div>
-
-      <div className="terra-list-notes">
-        <span className="terra-chip">Map background · {a.bg}</span>
-        <span className="terra-chip">Route stored from your real GPS track</span>
-        {!a.hasElevation && <span className="terra-chip">Elevation unavailable for this ride (GPS altitude missing) — not shown</span>}
+      <div className="td-bottom">
+        {stats.map((s) => (
+          <div className="td-stat" key={s.label}>
+            <span className="td-stat-label">{s.label}</span>
+            <span className="td-stat-value">{s.value}{s.unit ? <small> {s.unit}</small> : null}</span>
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -25,11 +25,16 @@ const setupSocket = (server) => {
         },
     });
 
+    let devBypassWarned = false;
+
     // Middleware: authenticate socket connections via session OR auth token
     io.use((socket, next) => {
         const session = socket.request?.session;
         // 1. Check Passport session cookie (desktop / same-origin)
         if (session && session.passport && session.passport.user) {
+            // Expose the authenticated user id so handlers can scope their
+            // events to this user (same as the Bearer-token path below).
+            socket.userId = String(session.passport.user);
             return next();
         }
 
@@ -49,9 +54,12 @@ const setupSocket = (server) => {
         }
 
         // In development, allow all connections so local testing still works.
-        // A loud warning is printed so this is never silently active.
+        // A loud one-time warning is printed so this is never silently active.
         if (process.env.NODE_ENV !== 'production') {
-            console.warn('[SECURITY WARNING] Socket.io auth bypass is ACTIVE — unauthenticated connections are allowed. Do NOT use in production.');
+            if (!devBypassWarned) {
+                devBypassWarned = true;
+                console.warn('[SECURITY WARNING] Socket.io auth bypass is ACTIVE — unauthenticated connections are allowed. Do NOT use in production.');
+            }
             return next();
         }
         next(new Error('Unauthorized: please log in first'));

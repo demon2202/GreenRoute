@@ -21,6 +21,7 @@ export default function TerraRecord({ initialMode, onSaved, onCancel }) {
   const [avgKmh, setAvgKmh] = useState(0);
   const [saving, setSaving] = useState(false);
   const [simOn, setSimOn] = useState(DEMO.enabled());
+  const [pts, setPts] = useState(0); // re-render trigger for point count
 
   const trackRef = useRef([]);
   const watchRef = useRef(null);
@@ -42,7 +43,7 @@ export default function TerraRecord({ initialMode, onSaved, onCancel }) {
     if (t.length < 250) return t.slice();
     const step = Math.ceil(t.length / 500);
     return t.filter((_, i) => i % step === 0 || i === t.length - 1);
-  }, [elapsed, distKm]);
+  }, [elapsed, distKm, pts]);
 
   const stopWatch = useCallback(() => {
     if (watchRef.current !== null && watchRef.current !== undefined) {
@@ -97,6 +98,7 @@ export default function TerraRecord({ initialMode, onSaved, onCancel }) {
 
     setSpeedKmh(Math.round(speedRef.current * 10) / 10);
     setDistKm(Math.round(distRef.current * 1000) / 1000);
+    setPts(arr.length);
   }, [mode]);
 
   const onPos = useCallback((pos) => {
@@ -141,7 +143,7 @@ export default function TerraRecord({ initialMode, onSaved, onCancel }) {
   // demo sim (only when enabled via ?sim=1 / localStorage)
   const startSim = useCallback(() => {
     stopWatch();
-    const pts = DEMO.route();
+    const ptsArr = DEMO.route();
     let i = 0;
     const base = Date.now();
     setGps('tracking');
@@ -149,11 +151,11 @@ export default function TerraRecord({ initialMode, onSaved, onCancel }) {
     setSimOn(true);
     const step = () => {
       if (finishedRef.current) return;
-      if (i >= pts.length) { clearInterval(simTimerRef.current); simTimerRef.current = null; setGps('waiting'); setGpsMsg('Demo route finished — tap FINISH'); return; }
-      const p = pts[i];
+      if (i >= ptsArr.length) { clearInterval(simTimerRef.current); simTimerRef.current = null; setGps('waiting'); setGpsMsg('Demo route finished — tap FINISH'); return; }
+      const pt = ptsArr[i];
       // 1.3 s per point, slight jitter
       const j = i % 3 === 0 ? 0.00002 * Math.sin(i) : 0;
-      acceptPoint({ lat: p.lat + j, lng: p.lng + j * 1.2, ele: p.ele, accuracy: 6, ts: base + i * 1300 });
+      acceptPoint({ lat: pt.lat + j, lng: pt.lng + j * 1.2, ele: pt.ele, accuracy: 6, ts: base + i * 1300 });
       i += 1;
     };
     simTimerRef.current = setInterval(step, 1300);
@@ -212,7 +214,7 @@ export default function TerraRecord({ initialMode, onSaved, onCancel }) {
         mode,
         title: defaultTitle(mode, new Date(started)),
         caption: '',
-        bg: 'black',
+        bg: 'map', // route-map card is the default TERRA background
         startTime: startISO,
         endTime: endISO,
         route: track.map((p) => ({ lat: Number(p.lat.toFixed(7)), lng: Number(p.lng.toFixed(7)), ele: p.ele, ts: p.ts })),
@@ -227,52 +229,90 @@ export default function TerraRecord({ initialMode, onSaved, onCancel }) {
     }
   };
 
+  const livePts = trackRef.current.length;
+  const gpsTone = paused ? 'paused' : gps === 'tracking' ? 'tracking' : gps === 'denied' || gps === 'error' ? 'warn' : 'wait';
+
   return (
-    <div className="terra-page" style={{ maxWidth: 1100 }}>
-      <div className="terra-record">
-        <div className="record-top">
-          <div>
-            <div className="record-title"><span style={{ color: modeMeta.color }}>●</span> {modeMeta.label} — Recording</div>
-            <div className="record-note" style={{ textAlign: 'left', marginTop: 3, color: gps === 'tracking' ? 'var(--terra-green-2)' : gps === 'denied' || gps === 'error' ? 'var(--terra-amber)' : 'var(--terra-muted)' }}>{gpsMsg}</div>
+    <div className="terra-page terra-record-page">
+      <div className="terra-record rec-stage">
+        {/* the dark map fills the entire record plane */}
+        <div className="rec-map-bg">
+          <TerraMapView points={mapPts} follow={!paused} center={DEMO.center} zoom={14} showTheme themeTogglePos="br" />
+        </div>
+
+        {/* legibility fades */}
+        <div className="rec-fade rec-fade-top" />
+        <div className="rec-fade rec-fade-bottom" />
+
+        {/* white-on-map UI */}
+        <div className="rec-ui">
+          <header className="rec-header">
+            <div className="rec-left">
+              <button className="rec-close" title="Discard recording" onClick={() => { stopWatch(); stopSim(); onCancel(); }}>
+                <TerraIcon name="back" size={17} />
+              </button>
+              <div className="rec-meta">
+                <div className="rec-mode">
+                  <i style={{ width: 9, height: 9, borderRadius: '50%', background: modeMeta.color, display: 'inline-block', marginRight: 8 }} />
+                  {modeMeta.label}
+                  <span className={`rec-state ${paused ? 'paused' : 'live'}`}>{paused ? 'PAUSED' : 'RECORDING'}</span>
+                </div>
+                <div className={`rec-status ${gpsTone}`}>{gpsMsg}</div>
+              </div>
+            </div>
+            <div className="rec-pill" data-pts={livePts}>
+              <i className={`rec-dot ${paused ? 'off' : gps === 'tracking' ? 'on' : 'wait'}`} />
+              <span className="rec-pts">{livePts} pts</span>
+              {simOn && <span className="rec-sim-tag">SIM</span>}
+            </div>
+          </header>
+
+          <div className="rec-clock-wrap">
+            <div className="rec-clock record-clock">
+              {paused ? <span style={{ opacity: 0.4 }}>{fmtClock(elapsed)}</span> : fmtClock(elapsed)}
+            </div>
+            {simOn && <div className="rec-sim-note">Demo ride is simulating GPS fixes</div>}
           </div>
-          <button className="record-close" title="Discard recording" onClick={() => { stopWatch(); stopSim(); onCancel(); }}>✕</button>
-        </div>
 
-        <div className="record-clock" style={{ fontSize: 'clamp(44px, 12vw, 96px)', textAlign: 'center', lineHeight: 1, letterSpacing: '.02em' }}>
-          {paused ? <span style={{ opacity: .35 }}>{fmtClock(elapsed)}</span> : fmtClock(elapsed)}
-        </div>
+          <div className="rec-bottom">
+            {DEMO.enabled() && !simOn && gps !== 'tracking' && (
+              <button className="rec-demo-btn" onClick={startSim}>
+                <TerraIcon name="play" size={12} /> Use demo ride (no GPS)
+              </button>
+            )}
 
-        <div className="record-stats">
-          <div className="terra-stat"><div className="s-label">Distance</div><div className="s-value">{fmtDist(distKm)} <span style={{ fontSize: 16 }}>km</span></div></div>
-          <div className="terra-stat"><div className="s-label">Avg speed</div><div className="s-value">{avgKmh > 0 ? avgKmh.toFixed(1) : '–'}</div><div className="s-sub">{avgKmh > 0 ? 'km/h' : '&nbsp;'}</div></div>
-          <div className="terra-stat"><div className="s-label">Now</div><div className="s-value" style={{ color: modeMeta.color }}>{speedKmh > 0 ? speedKmh.toFixed(1) : '–'}</div><div className="s-sub">km/h</div></div>
-        </div>
+            <div className="record-stats">
+              <div className="terra-stat rec-stat">
+                <div className="s-label">Distance</div>
+                <div className="s-value">{fmtDist(distKm)} <span style={{ fontSize: 15 }}>km</span></div>
+              </div>
+              <div className="terra-stat rec-stat">
+                <div className="s-label">Avg speed</div>
+                <div className="s-value">{avgKmh > 0 ? avgKmh.toFixed(1) : '–'}</div>
+                <div className="s-sub">{avgKmh > 0 ? 'km/h' : '\u00A0'}</div>
+              </div>
+              <div className="terra-stat rec-stat">
+                <div className="s-label">Now</div>
+                <div className="s-value" style={{ color: modeMeta.color }}>{speedKmh > 0 ? speedKmh.toFixed(1) : '–'}</div>
+                <div className="s-sub">km/h</div>
+              </div>
+            </div>
 
-        <div className="record-map">
-          <TerraMapView points={mapPts} follow={!paused} center={DEMO.center} zoom={14} />
-          <span className="map-float top-left"><i style={{ width: 9, height: 9, borderRadius: '50%', background: '#3ee082', display: paused ? 'none' : 'inline-block' }} /> {paused ? 'Paused' : 'REC'} · {trackRef.current.length} pts</span>
-          <span className="map-float top-right">{modeMeta.label}</span>
-        </div>
-
-        {DEMO.enabled() && !simOn && gps !== 'tracking' && (
-          <button className="terra-btn" style={{ alignSelf: 'center' }} onClick={startSim}>
-            <TerraIcon name="play" size={14} /> Use demo ride (no GPS)
-          </button>
-        )}
-        {simOn && (
-          <div className="terra-chip" style={{ alignSelf: 'center' }}>Demo ride is simulating GPS fixes</div>
-        )}
-
-        <div className="record-controls" style={{ marginTop: 10 }}>
-          <button className={`round-btn pause ${paused ? 'resume' : ''}`} onClick={togglePause} title={paused ? 'Resume' : 'Pause'}>
-            {paused ? <TerraIcon name="play" size={22} /> : <><span style={{ width: 16, height: 16, background: '#fff', borderRadius: 3 }} /><span style={{ fontSize: 10 }}>PAUSE</span></>}
-          </button>
-          <button className="round-btn finish" onClick={finish} disabled={saving} title="Finish trip">
-            {saving ? 'SAVING' : <><TerraIcon name="stop" size={22} /><span style={{ fontSize: 11 }}>FINISH</span></>}
-          </button>
-        </div>
-        <div className="record-note" style={{ textAlign: 'center', marginTop: 8 }}>
-          Finish saves this journey and opens your TERRA story.
+            <div className="record-controls">
+              <button
+                className={`round-btn pause ${paused ? 'resume' : ''}`}
+                onClick={togglePause}
+                title={paused ? 'Resume' : 'Pause'}
+              >
+                {paused ? <TerraIcon name="play" size={22} /> : <><span className="pause-bar" /><span style={{ fontSize: 10 }}>PAUSE</span></>}
+              </button>
+              <button className="round-btn finish" onClick={finish} disabled={saving} title="Finish trip">
+                {saving ? 'SAVING' : <><TerraIcon name="stop" size={22} /><span style={{ fontSize: 11 }}>FINISH</span></>}
+              </button>
+            </div>
+            <div className="rec-hint">Finish saves this journey and opens your TERRA story.</div>
+            <div className="rec-map-credit">Map data © OpenStreetMap contributors</div>
+          </div>
         </div>
       </div>
     </div>

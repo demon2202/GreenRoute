@@ -13,6 +13,7 @@ import SavedPlaces from './pages/SavedPlaces';
 import Leaderboard from './pages/Leaderboard';
 import Territories from './pages/Territories';
 import { clearAllCache } from './utils/cache';
+import { seedMapStyleFromUser } from './mapTheme';
 import './index.css';
 
 const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -43,6 +44,7 @@ function App() {
         try { localStorage.setItem('gr_token', userData.token); } catch {}
       }
       if (userData.theme) setTheme(userData.theme);
+      seedMapStyleFromUser(userData);
     }
     setInitialized(true);
   }, []);
@@ -53,6 +55,7 @@ function App() {
       try { localStorage.setItem('gr_token', userData.token); } catch {}
     }
     if (userData?.theme) setTheme(userData.theme);
+    seedMapStyleFromUser(userData);
   };
 
   const handleLogout = async () => {

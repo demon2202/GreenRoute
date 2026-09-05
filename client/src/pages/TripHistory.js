@@ -99,7 +99,6 @@ const TripHistory = ({ user }) => {
   const [loading, setLoading] = useState(cachedTrips.length === 0);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
-  const [selectedTripDetails, setSelectedTripDetails] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {

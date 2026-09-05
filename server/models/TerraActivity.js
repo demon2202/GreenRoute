@@ -36,9 +36,23 @@ const TerraActivitySchema = new mongoose.Schema(
       enum: ['walking', 'running', 'cycling', 'driving'],
       default: 'cycling',
     },
-    // story card background choice
-    bg: { type: String, enum: ['black', 'map', 'photo'], default: 'black' },
+    // story card background choice — solid colour was removed from TERRA, so
+    // only 'map' or 'photo'. Old enum values are kept so legacy documents can
+    // still be saved; the client reads any legacy 'black'/'color' as 'map'.
+    bg: { type: String, enum: ['black', 'map', 'photo', 'color'], default: 'map' },
+    // card map look — 'dark' (black) or 'normal' (standard/colourful).
+    // Legacy 'light' values are treated as 'normal' on read.
+    mapStyle: { type: String, enum: ['dark', 'normal', 'light'], default: 'dark' },
+    // legacy solid-colour value (kept for old documents; no longer written)
+    bgColor: { type: String, default: '' },
     photo: { type: String, default: '' }, // URL of the uploaded custom background photo
+    // stats the user chose to show on the story card. Distance/Time/Avg
+    // speed are the big numbers (default on); Max/Elevation/Eco add chips
+    // + pins on the card's route map.
+    cardStats: {
+      type: [String],
+      default: ['distance', 'time', 'avgSpeed'],
+    },
 
     startTime: { type: Date, required: true },
     endTime: { type: Date, required: true },

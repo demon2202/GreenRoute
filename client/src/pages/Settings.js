@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { readMapStyle, setMapStyle } from '../mapTheme';
 
 /* ── Minimalist SVG icons ── */
 const Icon = ({ name, size = 20 }) => {
@@ -76,6 +77,13 @@ const Settings = ({ user, theme, onThemeChange }) => {
   const [email, setEmail] = useState(user?.email || '');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+
+  // Map colours = USER map preference (separate from app light/dark theme).
+  const [mapColour, setMapColour] = useState(() => readMapStyle() || 'normal');
+  const chooseMapColour = async (v) => {
+    setMapColour(v);
+    await setMapStyle(v);
+  };
 
   // Notification toggles state
   const [notifications, setNotifications] = useState({
@@ -286,6 +294,44 @@ const Settings = ({ user, theme, onThemeChange }) => {
                   </div>
                 </div>
               </div>
+            </div>
+            <div className="settings-card map-colours-card">
+              <div className="card-header">
+                <div className="card-icon-wrap">
+                  <Icon name="route" size={18} />
+                </div>
+                <div>
+                  <h2 className="card-title">Map colours</h2>
+                  <p className="card-subtitle">Choose the map look everywhere (independent of light/dark mode)</p>
+                </div>
+              </div>
+
+              <div className="theme-options-grid map-colour-grid">
+                <div
+                  className={`theme-option-card ${mapColour === 'normal' ? 'selected' : ''}`}
+                  onClick={() => chooseMapColour('normal')}
+                >
+                  <div className="theme-preview-box map-preview normal" />
+                  <div className="theme-option-info">
+                    <div className="theme-name"><span className="theme-icon">◉</span> Standard colours</div>
+                    <div className="theme-desc">Route-planner look</div>
+                  </div>
+                </div>
+                <div
+                  className={`theme-option-card ${mapColour === 'dark' ? 'selected' : ''}`}
+                  onClick={() => chooseMapColour('dark')}
+                >
+                  <div className="theme-preview-box map-preview dark" />
+                  <div className="theme-option-info">
+                    <div className="theme-name"><span className="theme-icon">◉</span> Black</div>
+                    <div className="theme-desc">Dark map look</div>
+                  </div>
+                </div>
+              </div>
+              <p className="map-colour-note">
+                Until you choose, Route Planner and maps default to <b>Standard colours</b> and TERRA to <b>Black</b>.
+                You can also switch inside TERRA from the map screen.
+              </p>
             </div>
           </div>
 
@@ -936,6 +982,28 @@ const Settings = ({ user, theme, onThemeChange }) => {
             grid-template-columns: 1fr;
           }
         }
+        .map-preview.normal {
+          background:
+            radial-gradient(200% 120% at 20% 0%, rgba(120,183,240,0.85) 0%, rgba(120,183,240,0.35) 30%, transparent 55%),
+            radial-gradient(150% 100% at 80% 20%, rgba(246,211,101,0.8) 0%, rgba(246,211,101,0.3) 35%, transparent 60%),
+            linear-gradient(180deg, #eef2ea 0%, #cfe0cf 60%, #9fc4a5 100%);
+        }
+        .map-preview.normal::after {
+          content: ""; position: absolute; left: 14%; right: 16%; top: 42%; height: 16%;
+          border-radius: 40%; border: 2px solid #e2571c; transform: rotate(6deg); opacity: .9;
+        }
+        .map-preview.dark {
+          background:
+            radial-gradient(120% 100% at 30% 0%, rgba(70,110,84,0.35), transparent 60%),
+            repeating-linear-gradient(0deg, transparent 0 12px, rgba(255,255,255,0.04) 12px 13px),
+            repeating-linear-gradient(90deg, transparent 0 12px, rgba(255,255,255,0.04) 12px 13px),
+            linear-gradient(180deg, #18221b 0%, #0b110c 100%);
+        }
+        .map-preview.dark::after {
+          content: ""; position: absolute; left: 14%; right: 16%; top: 42%; height: 16%;
+          border-radius: 40%; border: 2px solid #ff8a3c; transform: rotate(6deg); opacity: .95;
+        }
+        .map-colour-note { margin: 14px 2px 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; }
       `}</style>
     </div>
   );
