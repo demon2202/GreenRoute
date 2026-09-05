@@ -139,10 +139,10 @@ const originGuard = (req, res, next) => {
     next();
 };
 
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '15mb' })); // base64 photo data URIs need extra room
 app.use(express.urlencoded({
     extended: true,
-    limit: '2mb'
+    limit: '15mb'
 }));
 app.use(cookieParser());
 
@@ -280,4 +280,3 @@ process.on('SIGTERM', () => {
 });
 
 module.exports = app;
-

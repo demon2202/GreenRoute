@@ -81,7 +81,7 @@ export default function TerraDetail({ activityId, goHome, onEditStory }) {
         onReady={(h) => { mapApi.current = h; }}
       />
 
-      {/* text over the map */}
+      {/* top-left heading — back button + title */}
       <div className="td-top">
         <div className="td-heading">
           <button className="td-pill" onClick={goHome}><TerraIcon name="back" size={15} /> TERRA</button>
@@ -99,18 +99,31 @@ export default function TerraDetail({ activityId, goHome, onEditStory }) {
               <span className="mt-dot dark" />Black
             </button>
           </div>
-          <button className="td-pill" onClick={() => onEditStory(a._id)} disabled={deleting}><TerraIcon name="pen" size={14} /> Edit story</button>
           <button className="td-pill danger" onClick={del} disabled={deleting}>{deleting ? '…' : <><TerraIcon name="trash" size={14} /> Delete</>}</button>
         </div>
       </div>
 
+      {/* bottom overlay: action buttons → divider → stat tiles */}
       <div className="td-bottom">
-        {stats.map((s) => (
-          <div className="td-stat" key={s.label}>
-            <span className="td-stat-label">{s.label}</span>
-            <span className="td-stat-value">{s.value}{s.unit ? <small> {s.unit}</small> : null}</span>
-          </div>
-        ))}
+        {/* action row — centered above the stats */}
+        <div className="td-bottom-actions">
+          <button className="td-action-btn edit" onClick={() => onEditStory(a._id)} disabled={deleting}>
+            <TerraIcon name="pen" size={14} /> Edit story
+          </button>
+        </div>
+
+        {/* thin divider */}
+        <div className="td-bottom-divider" />
+
+        {/* stat tiles */}
+        <div className="td-stats-row">
+          {stats.map((s) => (
+            <div className="td-stat" key={s.label}>
+              <span className="td-stat-label">{s.label}</span>
+              <span className="td-stat-value">{s.value}{s.unit ? <small> {s.unit}</small> : null}</span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

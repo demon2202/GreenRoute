@@ -45,7 +45,7 @@ const TerraActivitySchema = new mongoose.Schema(
     mapStyle: { type: String, enum: ['dark', 'normal', 'light'], default: 'dark' },
     // legacy solid-colour value (kept for old documents; no longer written)
     bgColor: { type: String, default: '' },
-    photo: { type: String, default: '' }, // URL of the uploaded custom background photo
+    photo: { type: String, default: '' }, // base64 data URI or legacy /uploads/terra/ path
     // stats the user chose to show on the story card. Distance/Time/Avg
     // speed are the big numbers (default on); Max/Elevation/Eco add chips
     // + pins on the card's route map.

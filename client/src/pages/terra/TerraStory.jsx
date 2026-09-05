@@ -85,18 +85,19 @@ export default function TerraStory({ activityId, onDone, onOpenDetail, goHome })
     enableElev: Array.isArray(st) && st.includes('elevation'),
   }), []);
 
-  // Build whichever map layer the current background needs (full card for the
-  // 'map' bg, rounded band for 'photo'). Keyed cache; guaranteed to clear its
-  // busy state on success, failure or an absolute timeout.
+  // Build map layer only for 'map' background. Photo mode draws the route
+  // directly on the photo (no map tiles needed), so we skip building entirely.
   useEffect(() => {
-    if (!activity) return;
+    if (!activity || bg !== 'map') {
+      setMapLayer(null);
+      setMapBusy(false);
+      return;
+    }
     const st = stats || enabledStats(activity);
     const pinBits = (st.includes('maxSpeed') ? 'm' : '') + (st.includes('elevation') ? 'e' : '');
-    const need = bg === 'map' ? 'full' : 'band';
-    const key = `${activity._id}:${mapStyle}:${need}:${pinBits}`;
+    const key = `${activity._id}:${mapStyle}:full:${pinBits}`;
     if (cacheRef.current.has(key)) {
-      if (need === 'full') setMapLayer(cacheRef.current.get(key));
-      else setBandLayer(cacheRef.current.get(key));
+      setMapLayer(cacheRef.current.get(key));
       return;
     }
     const seq = ++buildSeq.current;
@@ -104,17 +105,12 @@ export default function TerraStory({ activityId, onDone, onOpenDetail, goHome })
     setMapFail(false);
     setMapBusy(true);
     const t = setTimeout(() => { if (buildSeq.current === seq) setMapBusy(false); }, 30000);
-    buildMapLayer(activity.route || [], { style: mapStyle, kind: need, pins })
+    buildMapLayer(activity.route || [], { style: mapStyle, kind: 'full', pins })
       .then((cnv) => {
         if (buildSeq.current !== seq) return;
         cacheRef.current.set(key, cnv);
-        if (need === 'full') {
-          setMapLayer(cnv);
-          // tileCount 0 ⇒ no tile server answered — tell the user why it's blank
-          setMapFail(Number(cnv.tileCount || 0) === 0);
-        } else {
-          setBandLayer(cnv);
-        }
+        setMapLayer(cnv);
+        setMapFail(Number(cnv.tileCount || 0) === 0);
       })
       .catch(() => { if (buildSeq.current === seq) setMapFail(true); })
       .finally(() => {
@@ -219,7 +215,12 @@ export default function TerraStory({ activityId, onDone, onOpenDetail, goHome })
       try { img = await loadImage(absoluteUrl(photoUrl)); } catch { img = null; }
     }
     if (readyBg === 'photo' && !img) readyBg = 'map'; // photo unavailable → plain map card
-    const layers = await ensureLayer(readyBg === 'map' ? ['full'] : ['band']);
+    // Photo mode: route is drawn directly on the photo — no map tiles needed
+    let mapLayer = null;
+    if (readyBg === 'map') {
+      const layers = await ensureLayer(['full']);
+      mapLayer = layers?.full || null;
+    }
     const canvas = document.createElement('canvas');
     canvas.width = CARD_W;
     canvas.height = CARD_H;
@@ -229,8 +230,7 @@ export default function TerraStory({ activityId, onDone, onOpenDetail, goHome })
       title,
       caption,
       stats: stats || undefined,
-      mapLayer: (readyBg === 'map' && layers) ? layers.full : null,
-      bandLayer: (readyBg === 'photo' && layers) ? layers.band : null,
+      mapLayer,
       img: readyBg === 'photo' ? img : null,
     });
     return canvas;
@@ -350,7 +350,7 @@ export default function TerraStory({ activityId, onDone, onOpenDetail, goHome })
                   <button className={mapStyle === 'normal' ? 'active' : ''} onClick={() => setMapStyle('normal')} title="Standard colour map (never white)"><span className="dot normal" /> Standard</button>
                 </div>
               </div>
-              {!mapBusy && <div className="terra-chip"><TerraIcon name="map" size={12} /> Your real route, start A → finish B, drawn over the map you rode</div>}
+              {!mapBusy && <div className="terra-chip"><TerraIcon name="map" size={12} /> Your real GPS route drawn over the map</div>}
             </>
           )}
 

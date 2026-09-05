@@ -1,8 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
 const https = require('https');
 const multer = require('multer');
 
@@ -16,24 +13,13 @@ const {
 } = require('../utils/terraMath');
 
 /* ─────────────────────────────────────────────────────────────
-   Photo upload (multipart) — stored under server/uploads/terra
+   Photo upload (multipart) — stored as base64 data URI in MongoDB.
+   No files written to disk. The photo lives inside the activity
+   document, so everything is self-contained and survives restarts.
 ───────────────────────────────────────────────────────────── */
-// Uploads live under server/uploads/terra — the same root the app serves
-// statically at /uploads (absolute path, so it works no matter the cwd).
-const uploadDir = path.join(__dirname, '..', 'uploads', 'terra');
-fs.mkdirSync(uploadDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => {
-    const ext = (path.extname(file.originalname || '').toLowerCase().match(/\.(png|jpe?g|webp|gif)$/) || ['.jpg'])[0];
-    cb(null, `${crypto.randomBytes(12).toString('hex')}${ext}`);
-  },
-});
-
 const upload = multer({
-  storage,
-  limits: { fileSize: 12 * 1024 * 1024, files: 1 },
+  storage: multer.memoryStorage(), // keep file in memory, not on disk
+  limits: { fileSize: 8 * 1024 * 1024, files: 1 }, // 8MB limit (base64 grows ~33%)
   fileFilter: (_req, file, cb) => {
     if (!file || !/^image\//.test(file.mimetype)) {
       return cb(new Error('Only image uploads are allowed'));
@@ -45,13 +31,14 @@ const upload = multer({
 router.post('/media', ensureAuth, (req, res) => {
   upload.single('photo')(req, res, (err) => {
     if (err) {
-      const message = err.code === 'LIMIT_FILE_SIZE' ? 'Image is too large (max 12 MB).' : err.message || 'Upload failed';
+      const message = err.code === 'LIMIT_FILE_SIZE' ? 'Image is too large (max 8 MB).' : err.message || 'Upload failed';
       return res.status(400).json({ error: message });
     }
     if (!req.file) return res.status(400).json({ error: 'No image provided' });
-    res.status(201).json({
-      url: `/uploads/terra/${req.file.filename}`,
-    });
+    // Convert to base64 data URI — stored directly in MongoDB, no file system
+    const base64 = req.file.buffer.toString('base64');
+    const dataUri = `data:${req.file.mimetype};base64,${base64}`;
+    res.status(201).json({ url: dataUri });
   });
 });
 
@@ -188,13 +175,13 @@ function sanitizeText(v, max) {
     .slice(0, max);
 }
 
-// A card background photo may ONLY reference a file we stored ourselves:
-//   • a relative path  /uploads/terra/<hex>.<ext>   (same-origin dev)
-//   • or an absolute URL to THIS app's own API host  (deployed split origin)
-// Anything else — external http(s) hosts, file://, data: URIs, or paths that
-// escape /uploads/terra — is rejected, so `photo` can never be abused as a
-// link/embed to an arbitrary URL or a way to read other server files.
+// Photo field accepts either:
+//   • a base64 data URI (data:image/...;base64,...) — stored in MongoDB
+//   • a relative path /uploads/terra/<hex>.<ext>   (legacy local storage)
+//   • an absolute URL to THIS app's own API host   (legacy deployed split origin)
+// Anything else is rejected.
 const PHOTO_PATH_RE = /^\/uploads\/terra\/[a-f0-9]{16,40}\.(png|jpe?g|webp|gif)$/;
+const DATA_URI_RE = /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+\/=]+$/;
 function ownPhotoOrigin(origin) {
   const envOrigin = (process.env.SERVER_URL || '').replace(/\/$/, '');
   return Boolean(
@@ -204,6 +191,14 @@ function ownPhotoOrigin(origin) {
 function safePhotoPath(v) {
   const s = typeof v === 'string' ? v.trim() : '';
   if (!s) return '';
+  // Base64 data URI — the new primary storage method
+  if (s.startsWith('data:image/')) {
+    if (!DATA_URI_RE.test(s)) {
+      throw Object.assign(new Error('Invalid image data.'), { status: 400 });
+    }
+    return s.slice(0, 20_000_000); // ~15MB max (base64 of ~11MB original)
+  }
+  // Legacy: file path or URL
   let pathOnly = s;
   if (/^https?:\/\//i.test(s)) {
     try {
